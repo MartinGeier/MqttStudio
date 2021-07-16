@@ -1,4 +1,4 @@
-# mqttstudio_client
+# mqttstudio
 
 A new Flutter project.
 

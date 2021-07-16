@@ -1,14 +1,16 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
-import 'package:mqttstudio_client/contoller/mqtt_controller.dart';
-import 'package:mqttstudio_client/contoller/project_controller.dart';
-import 'package:mqttstudio_client/theme.dart';
-import 'package:mqttstudio_client/viewmodel/mqtt_master_viewmodel.dart';
+import 'package:mqttstudio/contoller/mqtt_controller.dart';
+import 'package:mqttstudio/contoller/project_controller.dart';
+import 'package:mqttstudio/theme.dart';
+import 'package:mqttstudio/viewmodel/mqtt_master_viewmodel.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 
+import 'model/project.dart';
 import 'pages/home_page.dart';
 import 'pages/login_page.dart';
+import 'repository/local/local_project_repository.dart';
 
 //final String baseUrlRelease = 'to be defined';
 //final String baseUrlDebug = 'http://192.168.10.100:5001';
@@ -36,6 +38,7 @@ Future openLocalDatabase() async {
 
 void setupServiceLocator() {
   // repositories
+  GetIt.I.registerSingleton<SrxCrudRepository<Project>>(LocalProjectRepository());
 
   // global viewmodels
   GetIt.I.registerLazySingleton(() => MqttMasterViewmodel());
@@ -53,7 +56,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Enerdesk',
+      title: 'MQTT Studio',
       theme: AppColorScheme.lightTheme.copyWith(appBarTheme: Theme.of(context).appBarTheme.copyWith(brightness: Brightness.dark)),
       localizationsDelegates: context.localizationDelegates,
       supportedLocales: context.supportedLocales,

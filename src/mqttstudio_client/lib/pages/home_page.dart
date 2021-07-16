@@ -1,12 +1,11 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
-import 'package:mqttstudio_client/contoller/project_controller.dart';
-import 'package:mqttstudio_client/models/project.dart';
-import 'package:mqttstudio_client/viewmodel/mqtt_master_viewmodel.dart';
+import 'package:mqttstudio/contoller/project_controller.dart';
+import 'package:mqttstudio/dialogs/project_edit_dialog.dart';
+import 'package:mqttstudio/model/project.dart';
+import 'package:mqttstudio/viewmodel/mqtt_master_viewmodel.dart';
 import 'package:provider/provider.dart';
-import 'package:mqttstudio_client/theme.dart';
+import 'package:mqttstudio/theme.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage();
@@ -40,7 +39,7 @@ class HomePage extends StatelessWidget {
                   actions: [
                     Consumer<MqttMasterViewmodel>(builder: (context, viewmodel, child) {
                       return ElevatedButton(
-                        onPressed: () => _onConnectionTap(viewmodel),
+                        onPressed: () => _onConnectionTap(viewmodel, context),
                         child: SizedBox(
                           width: 150,
                           child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -66,13 +65,17 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  _onConnectionTap(MqttMasterViewmodel viewmodel) {
+  _onConnectionTap(MqttMasterViewmodel viewmodel, BuildContext context) async {
     if (viewmodel.isConnected()) {
       viewmodel.disconnect();
     } else {
       var projectController = GetIt.I.get<ProjectController>();
       if (!projectController.isProjectOpen) {
-        projectController.currentProject = Project('test.mosquitto.org', Random().nextInt(999999999).toString());
+        Project? project = await showDialog(context: context, builder: (context) => ProjectEditDialog());
+        if (project == null) {
+          return;
+        }
+        projectController.currentProject = project;
       }
       viewmodel.hostname = projectController.currentProject!.mqttHostname;
       viewmodel.clientId = projectController.currentProject!.clientId;

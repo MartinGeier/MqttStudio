@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.15)
-project(mqttstudio_client LANGUAGES CXX)
+project(mqttstudio LANGUAGES CXX)
 
-set(BINARY_NAME "mqttstudio_client")
+set(BINARY_NAME "mqttstudio")
 
 cmake_policy(SET CMP0063 NEW)
 

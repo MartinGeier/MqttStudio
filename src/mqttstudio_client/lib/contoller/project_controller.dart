@@ -1,4 +1,4 @@
-import 'package:mqttstudio_client/models/project.dart';
+import 'package:mqttstudio/model/project.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 
 class ProjectController extends SrxChangeNotifier {
