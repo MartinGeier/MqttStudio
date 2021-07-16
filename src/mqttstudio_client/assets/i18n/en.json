@@ -1,0 +1,13 @@
+{
+    "srx.common.delete": "LÖSCHEN",
+    "srx.common.fieldrequired": "Wert erforderlich",
+    "srx.common.noconnection.error": "Keine Verbindung zum Server",
+    "srx.common.invalidcredentials.error": "Ungültiger Benutzername oder Passwort",
+    "srx.common.refresh": "NEU LADEN",
+    "srx.common.no_records": "Keine Datensätze vorhanden",
+    "srx.loadingerror.title": "Fehler beim Laden!",
+    "srx.loginform.username.label": "Benutzer",
+    "srx.loginform.password.label": "Passwort",
+    "srx.loginform.loginbutton.label": "ANMELDEN",
+    "mqtt.cannotconnect.error": "Unable to connect to MQTT Server"
+}
