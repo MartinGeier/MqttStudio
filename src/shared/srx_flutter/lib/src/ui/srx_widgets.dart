@@ -1,7 +1,7 @@
 import '../models/srx_base_model.dart';
 import '../viewmodels/srx_viewmodels.dart';
 import 'package:flutter/material.dart';
-import 'package:package_info/package_info.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:reactive_forms/reactive_forms.dart';
@@ -147,9 +147,13 @@ class SrxBaseErrorWidget extends StatelessWidget {
 }
 
 class SrxLoadingIndicatorWidget extends StatelessWidget {
+  final Color? color;
+
+  SrxLoadingIndicatorWidget({this.color});
+
   @override
   Widget build(BuildContext context) {
-    return Center(child: CircularProgressIndicator());
+    return Center(child: CircularProgressIndicator(valueColor: color != null ? AlwaysStoppedAnimation<Color>(Colors.white) : null));
   }
 }
 
@@ -346,14 +350,24 @@ class SrxLoginFormWidget extends StatelessWidget {
 }
 
 class SrxNavigationDrawerWidget extends StatelessWidget {
-  final Widget loginPage;
-  final String copyrightText;
-  final Image logo;
+  final Widget? loginPage;
+  final String? copyrightText;
+  final Image? logo;
   final String? logoUrl;
   final bool showLogout;
-  final SrxSessionController sessionController;
+  final SrxSessionController? sessionController;
+  final String? developedByText;
+  final String? developedByUrl;
 
-  SrxNavigationDrawerWidget(this.sessionController, this.loginPage, this.copyrightText, this.logo, {this.logoUrl, this.showLogout = false});
+  SrxNavigationDrawerWidget(
+      {this.sessionController,
+      this.loginPage,
+      this.copyrightText,
+      this.logo,
+      this.logoUrl,
+      this.showLogout = false,
+      this.developedByText = 'developed by Sarix',
+      this.developedByUrl = 'https://www.sarix.eu/'});
 
   @override
   Widget build(BuildContext context) {
@@ -407,16 +421,25 @@ class SrxNavigationDrawerWidget extends StatelessWidget {
 
   Widget buildLogo() {
     return GestureDetector(
-        onTap: () async => logoUrl != null ? await launch(logoUrl!) : null, child: SizedBox(height: 150, child: DrawerHeader(child: logo)));
+        onTap: () async => logoUrl != null ? await launch(logoUrl!) : null,
+        child: SizedBox(
+          height: 150,
+          child: logo,
+        ));
   }
 
   List<Widget> buildItems(BuildContext context) {
     return [];
   }
 
-  Future logout(BuildContext context) {
-    sessionController.logout();
-    return Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => loginPage));
+  void logout(BuildContext context) {
+    if (sessionController == null) {
+      throw Exception('Sessioncontroller is not set!');
+    }
+    sessionController!.logout();
+    if (loginPage != null) {
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => loginPage!));
+    }
   }
 
   Padding buildInformationTile(BuildContext context, AsyncSnapshot<PackageInfo> info) {
@@ -425,7 +448,7 @@ class SrxNavigationDrawerWidget extends StatelessWidget {
       child: Column(
         children: [
           Text(
-            (info.data != null ? "v${info.data?.version} - " : "") + copyrightText,
+            (info.data != null ? "v${info.data?.version} - " : "") + (copyrightText ?? ''),
             style: TextStyle(fontSize: 14, color: Theme.of(context).disabledColor),
             textAlign: TextAlign.center,
           ),
@@ -435,9 +458,9 @@ class SrxNavigationDrawerWidget extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: GestureDetector(
-                  onTap: () => launch("https://www.sarix.eu/"),
+                  onTap: () => launch(developedByUrl ?? ''),
                   child: Text(
-                    "developed by Sarix",
+                    developedByText ?? '',
                     style: TextStyle(fontSize: 12),
                   ),
                 ),

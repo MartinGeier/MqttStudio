@@ -12,6 +12,10 @@ class Project extends SrxBaseModel {
 
   Project(this.mqttHostname, this.clientId, {this.name = 'New Project'});
 
+  bool connectionSettingsChanged(Project otherProject) {
+    return this.mqttHostname != otherProject.mqttHostname || this.clientId != otherProject.clientId;
+  }
+
   factory Project.fromJson(Map<String, dynamic> json) => _$ProjectFromJson(json);
 
   @override

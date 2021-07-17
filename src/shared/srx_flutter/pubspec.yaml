@@ -21,7 +21,7 @@ dependencies:
   uuid: ^3.0.4
   dio: ^4.0.0
   easy_localization: ^3.0.0
-  package_info: ^2.0.0
+  package_info_plus: ^1.0.4
   url_launcher: ^6.0.6
   provider: ^5.0.0
   reactive_forms: ^10.2.0

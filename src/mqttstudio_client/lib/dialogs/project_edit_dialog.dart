@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
-import 'package:mqttstudio/contoller/project_controller.dart';
+import 'package:mqttstudio/viewmodel/project_global_viewmodel.dart';
 import 'package:mqttstudio/model/project.dart';
 import 'package:mqttstudio/viewmodel/project_edit_viewmodel.dart';
 import 'package:provider/provider.dart';
@@ -13,7 +13,7 @@ class ProjectEditDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    var currentProjectId = GetIt.I.get<ProjectController>().currentProject?.id;
+    var currentProjectId = context.read<ProjectGlobalViewmodel>().currentProject?.id;
 
     return ChangeNotifierProvider<ProjectEditViewmodel>(
         create: (_) => ProjectEditViewmodel(currentProjectId),

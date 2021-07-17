@@ -2,21 +2,26 @@ import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/contoller/mqtt_controller.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 
-class MqttMasterViewmodel extends SrxChangeNotifier {
+class MqttGlobalViewmodel extends SrxChangeNotifier {
   final _controller = GetIt.I.get<MqttController>();
-  String? hostname;
-  String? clientId;
+  bool isBusy = false;
 
-  MqttMasterViewmodel() {
+  MqttGlobalViewmodel() {
     _controller.onConnected = _onConnected;
     _controller.onDisconnected = onDisconnected;
   }
 
-  Future connect() async {
-    if (hostname != null && hostname!.trim().isNotEmpty && clientId != null && clientId!.trim().isNotEmpty) {
-      await _controller.connect(hostname!, clientId!);
+  Future connect(String? hostname, String? clientId) async {
+    try {
+      isBusy = true;
+      notifyListeners();
+      if (hostname != null && hostname.trim().isNotEmpty && clientId != null && clientId.trim().isNotEmpty) {
+        await _controller.connect(hostname, clientId);
+      }
+    } finally {
+      isBusy = false;
+      notifyListeners();
     }
-    notifyListeners();
   }
 
   void disconnect() {
