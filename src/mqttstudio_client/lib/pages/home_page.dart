@@ -3,10 +3,12 @@ import 'package:mqttstudio/viewmodel/project_global_viewmodel.dart';
 import 'package:mqttstudio/dialogs/project_edit_dialog.dart';
 import 'package:mqttstudio/model/project.dart';
 import 'package:mqttstudio/viewmodel/mqtt_global_viewmodel.dart';
+import 'package:mqttstudio/widgets/error_snackbar.dart';
 import 'package:mqttstudio/widgets/navigation_drawer.dart';
 import 'package:provider/provider.dart';
 import 'package:mqttstudio/theme.dart';
 import 'package:srx_flutter/srx_flutter.dart';
+import 'package:easy_localization/easy_localization.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage();
@@ -16,13 +18,13 @@ class HomePage extends StatelessWidget {
     return DefaultTabController(
       length: 1,
       child: Consumer<ProjectGlobalViewmodel>(
-        builder: (context, projectControler, child) {
+        builder: (context, projectController, child) {
           return Scaffold(
             appBar: AppBar(
               title: Row(
                 children: [
                   ConstrainedBox(
-                      constraints: BoxConstraints(maxWidth: 250), child: Text(projectControler.currentProject?.name ?? '<No project>')),
+                      constraints: BoxConstraints(maxWidth: 250), child: Text(projectController.currentProject?.name ?? '<No project>')),
                   SizedBox(
                     width: 48,
                   ),
@@ -35,6 +37,7 @@ class HomePage extends StatelessWidget {
               ),
               actions: [
                 Consumer<MqttGlobalViewmodel>(builder: (context, viewmodel, child) {
+                  viewmodel.onError = (message) => _onMqttConnectionError(message, context);
                   return _buildConnectButton(context);
                 })
               ],
@@ -89,7 +92,12 @@ class HomePage extends StatelessWidget {
         projectGlobalViewmodel.currentProject = project;
       }
 
-      mqttGlobalViewmodel.connect(projectGlobalViewmodel.currentProject!.mqttHostname, projectGlobalViewmodel.currentProject!.clientId);
+      mqttGlobalViewmodel.connect(projectGlobalViewmodel.currentProject!.mqttHostname, projectGlobalViewmodel.currentProject!.clientId,
+          projectGlobalViewmodel.currentProject!.port);
     }
+  }
+
+  _onMqttConnectionError(String message, BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(errorSnackBar('mqtt.connecting.error'.tr() + ' ' + message, context));
   }
 }

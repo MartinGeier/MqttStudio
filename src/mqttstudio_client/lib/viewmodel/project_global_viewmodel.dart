@@ -16,7 +16,7 @@ class ProjectGlobalViewmodel extends SrxChangeNotifier {
         // if connection setting have been changed than reconnect
         var mqttGlobalViewmodel = GetIt.I.get<MqttGlobalViewmodel>();
         mqttGlobalViewmodel.disconnect();
-        mqttGlobalViewmodel.connect(newProject.mqttHostname, newProject.clientId);
+        mqttGlobalViewmodel.connect(newProject.mqttHostname, newProject.clientId, newProject.port);
       }
     }
 

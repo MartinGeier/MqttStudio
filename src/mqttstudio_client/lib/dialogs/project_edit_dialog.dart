@@ -56,10 +56,35 @@ class ProjectEditDialog extends StatelessWidget {
         formGroup: viewmodel.form,
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           _buildProjectNameField(viewmodel),
+          SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Text(
+              'MQTT settings',
+              style: Theme.of(context).textTheme.subtitle2!.apply(fontWeightDelta: 1),
+            ),
+          ),
+          Row(
+            children: [
+              Flexible(flex: 3, child: _buildMqttHostnameField(viewmodel)),
+              SizedBox(
+                width: 12,
+              ),
+              Flexible(flex: 1, child: _buildPortField(viewmodel)),
+            ],
+          ),
           SizedBox(height: 16),
-          _buildMqttHostnameField(viewmodel),
+          _buildClientIdField(viewmodel),
           SizedBox(height: 16),
-          _buildClientIdField(viewmodel)
+          Row(
+            children: [
+              Flexible(flex: 2, child: _buildUsernameField(viewmodel)),
+              SizedBox(
+                width: 12,
+              ),
+              Flexible(flex: 2, child: _buildPasswordField(viewmodel)),
+            ],
+          ),
         ]));
   }
 
@@ -101,6 +126,49 @@ class ProjectEditDialog extends StatelessWidget {
         'minLength': 'fieldcontenttoshort.error'.tr(),
         'maxLength': 'fieldcontenttolong.error'.tr(),
         'required': 'srx.common.fieldrequired'.tr()
+      },
+    );
+  }
+
+  ReactiveTextField<int> _buildPortField(ProjectEditViewmodel viewmodel) {
+    return ReactiveTextField(
+      textInputAction: TextInputAction.next,
+      maxLines: 1,
+      decoration: InputDecoration(border: OutlineInputBorder(), labelText: 'projectedit.port.label'.tr(), isDense: true),
+      formControlName: ProjectEditViewmodel.portField,
+      validationMessages: (control) => {
+        'min': 'projectedit.port.error'.tr(),
+        'max': 'projectedit.port.error'.tr(),
+      },
+    );
+  }
+
+  ReactiveTextField<String?> _buildUsernameField(ProjectEditViewmodel viewmodel) {
+    return ReactiveTextField(
+      textInputAction: TextInputAction.next,
+      maxLines: 1,
+      decoration: InputDecoration(border: OutlineInputBorder(), labelText: 'projectedit.username.label'.tr(), isDense: true),
+      formControlName: ProjectEditViewmodel.usernameField,
+      validationMessages: (control) => {
+        'maxLength': 'common.fieldcontenttolong.error'.tr(),
+      },
+    );
+  }
+
+  ReactiveTextField<String?> _buildPasswordField(ProjectEditViewmodel viewmodel) {
+    return ReactiveTextField(
+      textInputAction: TextInputAction.next,
+      obscureText: viewmodel.isPasswordObscureText,
+      maxLines: 1,
+      decoration: InputDecoration(
+          border: OutlineInputBorder(),
+          labelText: 'projectedit.password.label'.tr(),
+          isDense: true,
+          suffixIcon: IconButton(
+              icon: Icon(Icons.visibility_rounded), onPressed: () => viewmodel.isPasswordObscureText = !viewmodel.isPasswordObscureText)),
+      formControlName: ProjectEditViewmodel.passwordField,
+      validationMessages: (control) => {
+        'maxLength': 'common.fieldcontenttolong.error'.tr(),
       },
     );
   }

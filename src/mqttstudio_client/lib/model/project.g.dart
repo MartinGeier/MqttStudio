@@ -10,7 +10,10 @@ Project _$ProjectFromJson(Map<String, dynamic> json) {
   return Project(
     json['mqttHostname'] as String,
     json['clientId'] as String,
+    json['port'] as int,
     name: json['name'] as String,
+    username: json['username'] as String?,
+    password: json['password'] as String?,
   )
     ..id = json['id'] as String?
     ..createdOn = json['createdOn'] == null
@@ -28,4 +31,7 @@ Map<String, dynamic> _$ProjectToJson(Project instance) => <String, dynamic>{
       'name': instance.name,
       'mqttHostname': instance.mqttHostname,
       'clientId': instance.clientId,
+      'port': instance.port,
+      'username': instance.username,
+      'password': instance.password,
     };

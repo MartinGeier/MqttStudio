@@ -9,8 +9,11 @@ class Project extends SrxBaseModel {
   String name;
   String mqttHostname;
   late String clientId;
+  int port;
+  String? username;
+  String? password;
 
-  Project(this.mqttHostname, this.clientId, {this.name = 'New Project'});
+  Project(this.mqttHostname, this.clientId, this.port, {this.name = 'New Project', this.username, this.password});
 
   bool connectionSettingsChanged(Project otherProject) {
     return this.mqttHostname != otherProject.mqttHostname || this.clientId != otherProject.clientId;

@@ -9,10 +9,14 @@
     "srx.loginform.username.label": "User",
     "srx.loginform.password.label": "Password",
     "srx.loginform.loginbutton.label": "LOGIN",
-    "mqtt.cannotconnect.error": "Unable to connect to MQTT Server",
     "common.fieldcontenttolong.error": "Value too long",
     "common.fieldcontenttoshort.error": "Value too short",
     "projectedit.projectname.label": "Project name",
     "projectedit.mqqthostname.label": "MQTT Broker",
-    "projectedit.clientid.label": "Client Id"
+    "projectedit.clientid.label": "Client Id",
+    "projectedit.port.label": "Port",
+    "projectedit.port.error": "Invalid port",
+    "projectedit.username.label": "Username",
+    "projectedit.password.label": "Password",
+    "mqtt.connecting.error": "Error connecting to MQTT broker"
 }
