@@ -1,7 +1,7 @@
 import 'dart:io';
-
 import 'package:mqtt5_client/mqtt5_client.dart';
 import 'package:mqtt5_client/mqtt5_server_client.dart';
+import 'package:mqttstudio/model/mqtt_settings.dart';
 import 'package:mqttstudio/service/service_error.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 
@@ -11,16 +11,17 @@ class MqttController {
   Function? onConnected;
   Function? onDisconnected;
 
-  Future connect(String hostname, String clientId, int port) async {
-    _client = MqttServerClient(hostname, clientId);
-    _client.port = port;
+  Future connect(MqttSettings mqttSettings) async {
+    _client = MqttServerClient(mqttSettings.hostname, mqttSettings.clientId);
+    _client.port = mqttSettings.port;
     _client.onConnected = _onConnected;
     _client.onDisconnected = _onDisconnected;
     _client.onSubscribed = _onSubscribed;
     _client.onUnsubscribed = _onUnsubscribed;
+    _client.connectionMessage = MqttConnectMessage().startClean();
     _client.logging(on: true);
     try {
-      await _client.connect();
+      await _client.connect(mqttSettings.username, mqttSettings.password);
       _client.updates.listen((event) => _onDataReceived(event));
     } on SocketException catch (exc) {
       print('MQTT: error connecting [${exc.message}, ${exc.osError?.message}]');

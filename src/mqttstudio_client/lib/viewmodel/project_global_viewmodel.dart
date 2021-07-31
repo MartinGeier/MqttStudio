@@ -8,15 +8,17 @@ class ProjectGlobalViewmodel extends SrxChangeNotifier {
 
   Project? get currentProject => _currentProject;
 
-  set currentProject(Project? newProject) {
+  bool get isProjectOpen => _currentProject != null;
+
+  void openProject(Project? newProject) {
     if (GetIt.I.get<MqttGlobalViewmodel>().isConnected()) {
       if (newProject == null) {
         GetIt.I.get<MqttGlobalViewmodel>().disconnect();
-      } else if (_currentProject != null && _currentProject!.connectionSettingsChanged(newProject)) {
+      } else if (_currentProject != null && _currentProject!.mqttSettings.connectionSettingsChanged(newProject.mqttSettings)) {
         // if connection setting have been changed than reconnect
         var mqttGlobalViewmodel = GetIt.I.get<MqttGlobalViewmodel>();
         mqttGlobalViewmodel.disconnect();
-        mqttGlobalViewmodel.connect(newProject.mqttHostname, newProject.clientId, newProject.port);
+        mqttGlobalViewmodel.connect(newProject.mqttSettings);
       }
     }
 
@@ -24,5 +26,8 @@ class ProjectGlobalViewmodel extends SrxChangeNotifier {
     notifyListeners();
   }
 
-  bool get isProjectOpen => _currentProject != null;
+  void closeProject() {
+    _currentProject = null;
+    notifyListeners();
+  }
 }

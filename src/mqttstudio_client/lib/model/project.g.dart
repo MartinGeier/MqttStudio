@@ -8,30 +8,22 @@ part of 'project.dart';
 
 Project _$ProjectFromJson(Map<String, dynamic> json) {
   return Project(
-    json['mqttHostname'] as String,
-    json['clientId'] as String,
-    json['port'] as int,
+    MqttSettings.fromJson(json['mqttSettings'] as Map<String, dynamic>),
     name: json['name'] as String,
-    username: json['username'] as String?,
-    password: json['password'] as String?,
   )
     ..id = json['id'] as String?
-    ..createdOn = json['createdOn'] == null
-        ? null
-        : DateTime.parse(json['createdOn'] as String)
-    ..lastModifiedOn = json['lastModifiedOn'] == null
-        ? null
-        : DateTime.parse(json['lastModifiedOn'] as String);
+    ..createdOn = parseDateTime(json['createdOn'] as String?)
+    ..lastModifiedOn = parseDateTime(json['lastModifiedOn'] as String?)
+    ..createdBy = json['createdBy'] as String?
+    ..lastModifiedBy = json['lastModifiedBy'] as String?;
 }
 
 Map<String, dynamic> _$ProjectToJson(Project instance) => <String, dynamic>{
       'id': instance.id,
       'createdOn': instance.createdOn?.toIso8601String(),
       'lastModifiedOn': instance.lastModifiedOn?.toIso8601String(),
+      'createdBy': instance.createdBy,
+      'lastModifiedBy': instance.lastModifiedBy,
       'name': instance.name,
-      'mqttHostname': instance.mqttHostname,
-      'clientId': instance.clientId,
-      'port': instance.port,
-      'username': instance.username,
-      'password': instance.password,
+      'mqttSettings': instance.mqttSettings.toJson(),
     };

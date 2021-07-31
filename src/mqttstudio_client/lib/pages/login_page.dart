@@ -14,7 +14,7 @@ class LoginPage extends StatelessWidget {
           'assets/images/logo.png',
           height: 150,
         ),
-        SizedBox(width: 300, child: SrxLoginFormWidget(GetIt.I.get<SrxSessionController>()))
+        SizedBox(width: 300, child: SrxLoginFormWidget(GetIt.I.get<SrxSessionController>(), ''))
       ]),
     )));
   }

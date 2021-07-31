@@ -24,7 +24,7 @@ dependencies:
   flutter:
     sdk: flutter
   srx_flutter:
-    path: ../shared/srx_flutter
+    path: ../shared/srxFlutter
   json_annotation: ^4.0.1
   provider: ^5.0.0
   get_it: ^7.1.3

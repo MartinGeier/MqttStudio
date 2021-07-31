@@ -2,7 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/contoller/mqtt_controller.dart';
-import 'package:mqttstudio/theme.dart';
+import 'package:mqttstudio/custom_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 import 'model/project.dart';
@@ -38,10 +38,10 @@ Future openLocalDatabase() async {
 
 void setupServiceLocator() {
   // repositories
-  GetIt.I.registerSingleton<SrxCrudRepository<Project>>(LocalProjectRepository());
+  GetIt.I.registerSingleton<SrxCrudRepository<Project, Project>>(LocalProjectRepository());
 
   // common
-  GetIt.I.registerSingleton(SrxSessionController(true));
+  GetIt.I.registerSingleton(SrxSessionController(true, '', ''));
   //GetIt.I.registerSingleton(SrxHttpService(baseUrlRelease, baseUrlDebug, versionPath, GetIt.I.get<SessionController>()));
   GetIt.I.registerSingleton(SrxNavigationService(LoginPage(), HomePage()));
   GetIt.I.registerSingleton(MqttController());
@@ -61,7 +61,7 @@ class MyApp extends StatelessWidget {
           value: GetIt.I.get<ProjectGlobalViewmodel>(),
           child: MaterialApp(
               title: 'MQTT Studio',
-              theme: AppColorScheme.lightTheme.copyWith(appBarTheme: Theme.of(context).appBarTheme.copyWith(brightness: Brightness.dark)),
+              theme: CustomTheme.lightTheme,
               localizationsDelegates: context.localizationDelegates,
               supportedLocales: context.supportedLocales,
               locale: context.locale,

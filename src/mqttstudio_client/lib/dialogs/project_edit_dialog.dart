@@ -3,6 +3,8 @@ import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/viewmodel/project_global_viewmodel.dart';
 import 'package:mqttstudio/model/project.dart';
 import 'package:mqttstudio/viewmodel/project_edit_viewmodel.dart';
+import 'package:mqttstudio/widgets/form_field_spacer.dart';
+import 'package:mqttstudio/widgets/form_row.dart';
 import 'package:provider/provider.dart';
 import 'package:reactive_forms/reactive_forms.dart';
 import 'package:srx_flutter/srx_flutter.dart';
@@ -23,15 +25,15 @@ class ProjectEditDialog extends StatelessWidget {
   }
 
   Widget _buildBody(BuildContext context) {
-    return SimpleDialog(title: Text('New project'), contentPadding: EdgeInsets.all(16), children: [
+    return SimpleDialog(title: Text('projectedit.title'.tr()), contentPadding: EdgeInsets.all(16), children: [
       ConstrainedBox(
-        constraints: BoxConstraints(minWidth: 400),
+        constraints: BoxConstraints(minWidth: 400, maxWidth: 400),
         child: Column(
           children: [
             SrxBaseFormWidget<Project, ProjectEditViewmodel>(
-              formWidget: (viewmodel) => _buildForm(viewmodel as ProjectEditViewmodel, context),
+              formWidget: (viewmodel) => _buildForm(viewmodel, context),
               loadingView: SrxLoadingIndicatorWidget(),
-              errorView: (errorMessage) =>
+              errorWidget: (errorMessage) =>
                   SrxBaseErrorWidget(errorMessage: errorMessage, onRetry: () => context.read<ProjectEditViewmodel>().loadModel()),
             ),
             Padding(
@@ -39,9 +41,9 @@ class ProjectEditDialog extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  OutlinedButton(onPressed: () => GetIt.I.get<SrxNavigationService>().pop(null), child: Text('CANCEL')),
-                  SizedBox(width: 6),
-                  ElevatedButton(onPressed: () => _onOkPressed(context.read<ProjectEditViewmodel>()), child: Text('OK'))
+                  OutlinedButton(onPressed: () => GetIt.I.get<SrxNavigationService>().pop(null), child: Text('srx.common.cancel'.tr())),
+                  FormFieldSpacer(),
+                  ElevatedButton(onPressed: () => _onOkPressed(context.read<ProjectEditViewmodel>()), child: Text('srx.common.ok'.tr()))
                 ],
               ),
             )
@@ -55,33 +57,26 @@ class ProjectEditDialog extends StatelessWidget {
     return ReactiveForm(
         formGroup: viewmodel.form,
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          _buildProjectNameField(viewmodel),
-          SizedBox(height: 8),
+          FormRow(children: [Expanded(child: _buildProjectNameField(viewmodel))]),
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
+            padding: const EdgeInsets.only(bottom: 16),
             child: Text(
-              'MQTT settings',
-              style: Theme.of(context).textTheme.subtitle2!.apply(fontWeightDelta: 1),
+              'projectedit.mqttsetting.label'.tr(),
+              style: Theme.of(context).textTheme.subtitle2, //!.apply(fontWeightDelta: 1),
             ),
           ),
-          Row(
+          FormRow(
             children: [
               Flexible(flex: 3, child: _buildMqttHostnameField(viewmodel)),
-              SizedBox(
-                width: 12,
-              ),
+              FormFieldSpacer(),
               Flexible(flex: 1, child: _buildPortField(viewmodel)),
             ],
           ),
-          SizedBox(height: 16),
-          _buildClientIdField(viewmodel),
-          SizedBox(height: 16),
-          Row(
+          FormRow(children: [Expanded(child: _buildClientIdField(viewmodel))]),
+          FormRow(
             children: [
               Flexible(flex: 2, child: _buildUsernameField(viewmodel)),
-              SizedBox(
-                width: 12,
-              ),
+              FormFieldSpacer(),
               Flexible(flex: 2, child: _buildPasswordField(viewmodel)),
             ],
           ),

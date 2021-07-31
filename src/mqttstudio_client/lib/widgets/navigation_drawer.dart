@@ -21,7 +21,11 @@ class NavigationDrawer extends SrxNavigationDrawerWidget {
   List<Widget> buildItems(BuildContext context) {
     return [
       Divider(),
-      ListTile(onTap: () => _onProjectSettingsTap(context), leading: Icon(Icons.settings_ethernet), title: Text('Project Settings'))
+      ListTile(onTap: () => _onProjectSettingsTap(context), leading: Icon(Icons.settings), title: Text('Project Settings')),
+      Divider(),
+      ListTile(onTap: () => _onOpenProjectTap(context), leading: Icon(Icons.folder_open), title: Text('Open Project')),
+      ListTile(onTap: () => _onsaveProjectTap(context), leading: Icon(Icons.save), title: Text('Save Project')),
+      ListTile(onTap: () => _onCloseProjectTap(context), leading: Icon(Icons.close), title: Text('Close Project')),
     ];
   }
 
@@ -33,6 +37,12 @@ class NavigationDrawer extends SrxNavigationDrawerWidget {
       return;
     }
 
-    projectGlobalViewmodel.currentProject = project;
+    projectGlobalViewmodel.openProject(project);
   }
+
+  _onOpenProjectTap(BuildContext context) {}
+
+  _onCloseProjectTap(BuildContext context) {}
+
+  _onsaveProjectTap(BuildContext context) {}
 }

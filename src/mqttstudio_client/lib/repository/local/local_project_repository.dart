@@ -1,12 +1,8 @@
 import 'package:mqttstudio/model/project.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 
-class LocalProjectRepository extends SrxBaseLocalCrudRepository<Project> {
-  LocalProjectRepository() : super("projects");
-
-  Project createModel(Map<String, dynamic> json) {
-    return Project.fromJson(json);
-  }
+class LocalProjectRepository extends SrxLocalCrudRepository<Project, Project> {
+  LocalProjectRepository() : super("projects", (json) => Project.fromJson(json), (json) => Project.fromJson(json));
 
   @override
   Future getChangedSinceLastSync(DateTime? lastSyncDate) {
