@@ -1,4 +1,5 @@
 import 'package:json_annotation/json_annotation.dart';
+import 'package:mqttstudio/model/topic_subscription.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 
 import 'mqtt_settings.dart';
@@ -10,6 +11,7 @@ part 'project.g.dart';
 class Project extends SrxBaseModel {
   String name;
   MqttSettings mqttSettings;
+  List<TopicSubscription> topicSubscriptions = [];
 
   Project(this.mqttSettings, {this.name = 'New Project'});
 

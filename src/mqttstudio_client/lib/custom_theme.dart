@@ -37,4 +37,5 @@ extension ThemeDataEx on ThemeData {
 class CustomColors {
   Color connectedColor = Colors.green;
   Color disconnectedColor = Colors.red;
+  Color watermark = Color(0xffe9e9e9);
 }

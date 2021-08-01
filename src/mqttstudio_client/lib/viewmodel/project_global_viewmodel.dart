@@ -1,5 +1,7 @@
 import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/model/project.dart';
+import 'package:mqttstudio/model/topic_subscription.dart';
+import 'package:mqttstudio/service/service_error.dart';
 import 'package:mqttstudio/viewmodel/mqtt_global_viewmodel.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 
@@ -28,6 +30,21 @@ class ProjectGlobalViewmodel extends SrxChangeNotifier {
 
   void closeProject() {
     _currentProject = null;
+    notifyListeners();
+  }
+
+  void addTopicSubscription(TopicSubscription subscription) {
+    assert(isProjectOpen);
+    if (_currentProject!.topicSubscriptions.any((x) => x.topic == subscription.topic)) {
+      throw SrxServiceException('Trying to add duplicate topic \'${subscription.topic}\'', ServiceError.DuplicateTopic);
+    }
+    _currentProject!.topicSubscriptions.add(subscription);
+    notifyListeners();
+  }
+
+  void removeTopicSubscription(String topic) {
+    assert(isProjectOpen);
+    _currentProject!.topicSubscriptions.removeWhere((x) => x.topic == topic);
     notifyListeners();
   }
 }

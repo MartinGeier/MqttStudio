@@ -15,7 +15,10 @@ Project _$ProjectFromJson(Map<String, dynamic> json) {
     ..createdOn = parseDateTime(json['createdOn'] as String?)
     ..lastModifiedOn = parseDateTime(json['lastModifiedOn'] as String?)
     ..createdBy = json['createdBy'] as String?
-    ..lastModifiedBy = json['lastModifiedBy'] as String?;
+    ..lastModifiedBy = json['lastModifiedBy'] as String?
+    ..topicSubscriptions = (json['topicSubscriptions'] as List<dynamic>)
+        .map((e) => TopicSubscription.fromJson(e as Map<String, dynamic>))
+        .toList();
 }
 
 Map<String, dynamic> _$ProjectToJson(Project instance) => <String, dynamic>{
@@ -26,4 +29,6 @@ Map<String, dynamic> _$ProjectToJson(Project instance) => <String, dynamic>{
       'lastModifiedBy': instance.lastModifiedBy,
       'name': instance.name,
       'mqttSettings': instance.mqttSettings.toJson(),
+      'topicSubscriptions':
+          instance.topicSubscriptions.map((e) => e.toJson()).toList(),
     };
