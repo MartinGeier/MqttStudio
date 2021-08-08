@@ -39,12 +39,24 @@ class ProjectGlobalViewmodel extends SrxChangeNotifier {
       throw SrxServiceException('Trying to add duplicate topic \'${subscription.topic}\'', ServiceError.DuplicateTopic);
     }
     _currentProject!.topicSubscriptions.add(subscription);
+
+    var mqttGlobalViewmodel = GetIt.I.get<MqttGlobalViewmodel>();
+    if (mqttGlobalViewmodel.isConnected()) {
+      mqttGlobalViewmodel.subscribeToTopic(subscription.topic, subscription.qos);
+    }
+
     notifyListeners();
   }
 
   void removeTopicSubscription(String topic) {
     assert(isProjectOpen);
     _currentProject!.topicSubscriptions.removeWhere((x) => x.topic == topic);
+
+    var mqttGlobalViewmodel = GetIt.I.get<MqttGlobalViewmodel>();
+    if (mqttGlobalViewmodel.isConnected()) {
+      mqttGlobalViewmodel.unSubscribeFromTopic(topic);
+    }
+
     notifyListeners();
   }
 }

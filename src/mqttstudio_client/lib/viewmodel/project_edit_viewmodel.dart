@@ -22,7 +22,7 @@ class ProjectEditViewmodel extends SrxBaseFormViewModel<Project> {
     notifyListeners();
   }
 
-  ProjectEditViewmodel(String? projectId) : super(projectId);
+  ProjectEditViewmodel(String? projectId) : super(projectId, true);
 
   @override
   FormGroup buildFormGroup() {

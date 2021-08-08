@@ -46,10 +46,18 @@ class MqttController {
     return _client.connectionStatus!.state == MqttConnectionState.connected;
   }
 
-  void subscribeToTopic(
-    String topic,
-  ) {
-    _client.subscribe(topic, MqttQos.exactlyOnce);
+  void subscribeToTopic(String topic, MqttQos qos) {
+    if (!isConnected()) {
+      throw new SrxServiceException('Not connected to MQTT broker', ServiceError.MqttNotConnected);
+    }
+    _client.subscribe(topic, qos);
+  }
+
+  void unSubscribeFromTopic(String topic) {
+    if (!isConnected()) {
+      throw new SrxServiceException('Not connected to MQTT broker', ServiceError.MqttNotConnected);
+    }
+    _client.unsubscribeStringTopic(topic);
   }
 
   void publish(String topic, String payload, bool retain) {

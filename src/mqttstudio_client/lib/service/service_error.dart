@@ -1,1 +1,1 @@
-enum ServiceError { MqttCannotConnect, DuplicateTopic }
+enum ServiceError { MqttCannotConnect, MqttNotConnected, DuplicateTopic }

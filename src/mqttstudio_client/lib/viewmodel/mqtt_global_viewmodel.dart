@@ -1,4 +1,5 @@
 import 'package:get_it/get_it.dart';
+import 'package:mqtt5_client/mqtt5_client.dart';
 import 'package:mqttstudio/contoller/mqtt_controller.dart';
 import 'package:mqttstudio/model/mqtt_settings.dart';
 import 'package:srx_flutter/srx_flutter.dart';
@@ -46,6 +47,16 @@ class MqttGlobalViewmodel extends SrxChangeNotifier {
   }
 
   onDisconnected() {
+    notifyListeners();
+  }
+
+  void subscribeToTopic(String topic, MqttQos qos) {
+    _controller.subscribeToTopic(topic, qos);
+    notifyListeners();
+  }
+
+  void unSubscribeFromTopic(String topic) {
+    _controller.unSubscribeFromTopic(topic);
     notifyListeners();
   }
 }

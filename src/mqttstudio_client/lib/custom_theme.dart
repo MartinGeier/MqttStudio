@@ -32,6 +32,10 @@ class CustomTheme {
 
 extension ThemeDataEx on ThemeData {
   CustomColors get custom => new CustomColors();
+
+  Color getTextColor([Color bgColor = CustomTheme._greyPalette]) {
+    return bgColor.computeLuminance() > 0.5 ? Colors.black : Colors.white;
+  }
 }
 
 class CustomColors {
