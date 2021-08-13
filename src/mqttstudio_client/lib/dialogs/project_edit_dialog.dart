@@ -30,6 +30,7 @@ class ProjectEditDialog extends StatelessWidget {
           children: [
             SrxBaseFormWidget<Project, ProjectEditViewmodel>(
               formWidget: (viewmodel) => _buildForm(viewmodel, context),
+              useFullHeight: false,
             ),
             Padding(
               padding: const EdgeInsets.only(top: 24),
@@ -83,6 +84,7 @@ class ProjectEditDialog extends StatelessWidget {
 
   ReactiveTextField<String> _buildProjectNameField(ProjectEditViewmodel viewmodel) {
     return ReactiveTextField(
+      autofocus: true,
       textInputAction: TextInputAction.next,
       maxLines: 1,
       decoration: InputDecoration(border: OutlineInputBorder(), labelText: 'projectedit.projectname.label'.tr(), isDense: true),

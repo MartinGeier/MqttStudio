@@ -11,7 +11,7 @@ class TopicChip extends StatelessWidget {
   final TopicColor topicColor;
   final String topic;
   final bool paused;
-  final void Function()? onDeletePressed;
+  final void Function(String)? onDeletePressed;
   final void Function()? onPressed;
 
   @override
@@ -28,7 +28,7 @@ class TopicChip extends StatelessWidget {
         label: AutoSizeText(topic, minFontSize: 10, style: Theme.of(context).textTheme.subtitle2!.copyWith(color: textColor)),
         backgroundColor: topicColor.color,
         deleteIcon: Icon(Icons.cancel_rounded, color: textColor),
-        onDeleted: onDeletePressed != null ? onDeletePressed : null,
+        onDeleted: () => onDeletePressed != null ? onDeletePressed!(topic) : null,
         elevation: 2,
       ),
     );

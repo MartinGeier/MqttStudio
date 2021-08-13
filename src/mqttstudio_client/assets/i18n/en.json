@@ -23,6 +23,9 @@
     "srx.loginform.username.label": "User",
     "srx.loginform.password.label": "Password",
     "srx.loginform.loginbutton.label": "LOGIN",
+    "srx.dialog.errortitle": "Error",
+    "srx.dialog.informationtitle": "Informarion",
+    "srx.dialog.confirmtitle": "Confirm",
     "common.fieldcontenttolong.error": "Value too long",
     "common.fieldcontenttoshort.error": "Value too short",
     "projectedit.title": "Edit project",
@@ -34,5 +37,13 @@
     "projectedit.username.label": "Username",
     "projectedit.password.label": "Password",
     "projectedit.mqttsetting.label": "MQTT settings",
-    "mqtt.connecting.error": "Error connecting to MQTT broker"
+    "mqtt.connecting.error": "Error connecting to MQTT broker",
+    "topicsubscriptionpanel.watermark": "Subscribed Topics",
+    "addtopicdialog.title": "Add Topic",
+    "addtopicdialog.topicname.label": "Topic Name",
+    "addtopicdialog.qos.label": "Qos",
+    "addtopicdialog.duplicatetopic.error": "Trying to add duplicate subscription!",
+    "MqttQos.atMostOnce": "At most once",
+    "MqttQos.atLeastOnce": "At least once",
+    "MqttQos.exactlyOnce": "Exactly  once"
 }

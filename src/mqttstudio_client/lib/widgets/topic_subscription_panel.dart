@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:mqtt5_client/mqtt5_client.dart';
 import 'package:mqttstudio/custom_theme.dart';
-import 'package:mqttstudio/model/topic_subscription.dart';
+import 'package:mqttstudio/dialogs/add_topic_dialog.dart';
 import 'package:mqttstudio/viewmodel/project_global_viewmodel.dart';
 import 'package:mqttstudio/widgets/topic_chip.dart';
 import 'package:provider/provider.dart';
+import 'package:easy_localization/easy_localization.dart';
 
 class TopicSubscriptionPanel extends StatelessWidget {
   const TopicSubscriptionPanel({Key? key}) : super(key: key);
@@ -26,7 +26,7 @@ class TopicSubscriptionPanel extends StatelessWidget {
                   children: [
                     Center(
                       child: Text(
-                        'Subscribed Topics',
+                        'topicsubscriptionpanel.watermark'.tr(),
                         style: Theme.of(context).textTheme.headline4!.copyWith(color: Theme.of(context).custom.watermark),
                         textAlign: TextAlign.center,
                       ),
@@ -44,7 +44,7 @@ class TopicSubscriptionPanel extends StatelessWidget {
                           topic: topicSubscription.topic,
                           topicColor: topicSubscription.color,
                           onPressed: () => _topicPressed(),
-                          onDeletePressed: () => _onDeletePressed(),
+                          onDeletePressed: (topic) => _onDeletePressed(viewmodel, topic),
                         );
                       }),
                     ),
@@ -52,7 +52,8 @@ class TopicSubscriptionPanel extends StatelessWidget {
                 ),
               ),
               SizedBox(width: 12),
-              FloatingActionButton( child: Icon(Icons.add), onPressed: viewmodel.isProjectOpen ? () => _addTopicPressed(viewmodel) : null)
+              FloatingActionButton(
+                  child: Icon(Icons.add), onPressed: viewmodel.isProjectOpen ? () => _addTopicPressed(viewmodel, context) : null)
             ],
           ));
     });
@@ -60,11 +61,18 @@ class TopicSubscriptionPanel extends StatelessWidget {
 
   _topicPressed() {}
 
-  _onDeletePressed() {}
-
-  _addTopicPressed(ProjectGlobalViewmodel viewmodel) {
+  _onDeletePressed(ProjectGlobalViewmodel viewmodel, String topicName) {
     if (viewmodel.isProjectOpen) {
-      viewmodel.addTopicSubscription(TopicSubscription('production/milling/m02/humitidy', MqttQos.atLeastOnce));
+      viewmodel.removeTopicSubscription(topicName);
+    }
+  }
+
+  _addTopicPressed(ProjectGlobalViewmodel viewmodel, BuildContext context) async {
+    if (viewmodel.isProjectOpen) {
+      var topicSubscription = await showDialog(context: context, builder: (context) => AddTopicDialog());
+      if (topicSubscription != null) {
+        viewmodel.addTopicSubscription(topicSubscription);
+      }
     }
   }
 }

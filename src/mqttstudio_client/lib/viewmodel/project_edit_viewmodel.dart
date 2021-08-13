@@ -1,5 +1,4 @@
 import 'dart:math';
-
 import 'package:mqttstudio/model/mqtt_settings.dart';
 import 'package:mqttstudio/model/project.dart';
 import 'package:reactive_forms/reactive_forms.dart';
