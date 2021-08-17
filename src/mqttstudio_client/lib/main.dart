@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/contoller/mqtt_controller.dart';
 import 'package:mqttstudio/custom_theme.dart';
+import 'package:mqttstudio/viewmodel/message_buffer_viewmodel.dart';
 import 'package:provider/provider.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 import 'model/project.dart';
@@ -47,6 +48,7 @@ void setupServiceLocator() {
   GetIt.I.registerSingleton(MqttController());
 
   // global viewmodels
+  GetIt.I.registerSingleton(MessageBufferViewmodel());
   GetIt.I.registerSingleton(MqttGlobalViewmodel());
   GetIt.I.registerSingleton(ProjectGlobalViewmodel());
 }

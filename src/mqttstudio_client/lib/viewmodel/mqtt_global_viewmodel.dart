@@ -2,18 +2,25 @@ import 'package:get_it/get_it.dart';
 import 'package:mqtt5_client/mqtt5_client.dart';
 import 'package:mqttstudio/contoller/mqtt_controller.dart';
 import 'package:mqttstudio/model/mqtt_settings.dart';
+import 'package:mqttstudio/model/received_mqtt_message.dart';
+import 'package:mqttstudio/viewmodel/message_buffer_viewmodel.dart';
 import 'package:srx_flutter/srx_flutter.dart';
-
-typedef void OnErrorFunction(String errorMessage);
 
 class MqttGlobalViewmodel extends SrxChangeNotifier {
   final _controller = GetIt.I.get<MqttController>();
   bool isBusy = false;
-  OnErrorFunction? onError;
+  late MessageBufferViewmodel _messageBufferViewmodel;
 
-  MqttGlobalViewmodel({this.onError}) {
+  void Function(String errorMessage)? onError;
+  void Function()? onDisconnected;
+  void Function()? onConnected;
+  void Function(ReceivedMqttMessage msg)? onMessageReceived;
+
+  MqttGlobalViewmodel({this.onError, this.onConnected, this.onDisconnected, this.onMessageReceived}) {
     _controller.onConnected = _onConnected;
-    _controller.onDisconnected = onDisconnected;
+    _controller.onDisconnected = _onDisconnected;
+    _controller.onMessageReceived = _onMessageReceived;
+    _messageBufferViewmodel = GetIt.I.get<MessageBufferViewmodel>();
   }
 
   Future connect(MqttSettings mqttSettings) async {
@@ -43,10 +50,16 @@ class MqttGlobalViewmodel extends SrxChangeNotifier {
   }
 
   _onConnected() {
+    if (onConnected != null) {
+      onConnected!();
+    }
     notifyListeners();
   }
 
-  onDisconnected() {
+  _onDisconnected() {
+    if (onDisconnected != null) {
+      onDisconnected!();
+    }
     notifyListeners();
   }
 
@@ -57,6 +70,11 @@ class MqttGlobalViewmodel extends SrxChangeNotifier {
 
   void unSubscribeFromTopic(String topic) {
     _controller.unSubscribeFromTopic(topic);
+    notifyListeners();
+  }
+
+  _onMessageReceived(ReceivedMqttMessage msg) {
+    _messageBufferViewmodel.storeMessage(msg);
     notifyListeners();
   }
 }

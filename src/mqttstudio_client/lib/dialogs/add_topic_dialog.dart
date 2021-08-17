@@ -18,7 +18,7 @@ class AddTopicDialog extends StatelessWidget {
       builder: (context, child) {
         return SimpleDialog(title: Text('addtopicdialog.title'.tr()), contentPadding: EdgeInsets.all(16), children: [
           ConstrainedBox(
-            constraints: BoxConstraints(minWidth: 400, maxWidth: 400),
+            constraints: BoxConstraints(minWidth: 480, maxWidth: 480),
             child: Column(
               children: [
                 _buildForm(context),
@@ -33,7 +33,9 @@ class AddTopicDialog extends StatelessWidget {
                           },
                           child: Text('srx.common.cancel'.tr())),
                       SrxFormFieldSpacer(),
-                      ElevatedButton(onPressed: () => _onOkPressed(context), child: Text('srx.common.ok'.tr()))
+                      ElevatedButton(onPressed: () => _onOkPressed(context), child: Text('addtopicdialog.subscribe.button'.tr())),
+                      SrxFormFieldSpacer(),
+                      ElevatedButton(onPressed: () => _onOkPressed(context, true), child: Text('addtopicdialog.subscribenew.button'.tr()))
                     ],
                   ),
                 )
@@ -45,10 +47,15 @@ class AddTopicDialog extends StatelessWidget {
     );
   }
 
-  _onOkPressed(BuildContext context) async {
+  _onOkPressed(BuildContext context, [bool subscribeAndNew = false]) async {
     try {
-      if (context.read<AddTopicViewmodel>().addTopic()) {
-        GetIt.I.get<SrxNavigationService>().pop();
+      var vm = context.read<AddTopicViewmodel>();
+      if (vm.addTopic()) {
+        if (!subscribeAndNew) {
+          GetIt.I.get<SrxNavigationService>().pop();
+        } else {
+          vm.form.control(AddTopicViewmodel.topicNameField).reset();
+        }
       }
     } on SrxServiceException catch (exc) {
       if (exc.serviceError == ServiceError.DuplicateTopic) {

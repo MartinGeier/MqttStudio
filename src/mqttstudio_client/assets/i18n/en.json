@@ -43,6 +43,8 @@
     "addtopicdialog.topicname.label": "Topic Name",
     "addtopicdialog.qos.label": "Qos",
     "addtopicdialog.duplicatetopic.error": "Trying to add duplicate subscription!",
+    "addtopicdialog.subscribe.button": "Subscribe",
+    "addtopicdialog.subscribenew.button": "Subscribe & New",
     "MqttQos.atMostOnce": "At most once",
     "MqttQos.atLeastOnce": "At least once",
     "MqttQos.exactlyOnce": "Exactly  once"

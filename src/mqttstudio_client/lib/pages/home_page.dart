@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mqttstudio/viewmodel/project_global_viewmodel.dart';
 import 'package:mqttstudio/widgets/connect_button.dart';
+import 'package:mqttstudio/widgets/grouped_messages_viewer.dart';
 import 'package:mqttstudio/widgets/navigation_drawer.dart';
 import 'package:mqttstudio/widgets/topic_subscription_panel.dart';
 import 'package:provider/provider.dart';
@@ -56,10 +57,7 @@ class HomePage extends StatelessWidget {
             drawer: NavigationDrawer(),
             body: Container(
               child: Column(
-                children: [
-                  TopicSubscriptionPanel(),
-                  Divider(),
-                ],
+                children: [TopicSubscriptionPanel(), Divider(), GroupedMessagesViewer()],
               ),
             ),
           );

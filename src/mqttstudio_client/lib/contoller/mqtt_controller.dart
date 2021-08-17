@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:mqtt5_client/mqtt5_client.dart';
 import 'package:mqtt5_client/mqtt5_server_client.dart';
 import 'package:mqttstudio/model/mqtt_settings.dart';
+import 'package:mqttstudio/model/received_mqtt_message.dart';
 import 'package:mqttstudio/service/service_error.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 
@@ -10,6 +11,7 @@ class MqttController {
   Map<String, MqttSubscription> _activeSubscriptions = Map();
   Function? onConnected;
   Function? onDisconnected;
+  Function(ReceivedMqttMessage msg)? onMessageReceived;
 
   Future connect(MqttSettings mqttSettings) async {
     _client = MqttServerClient(mqttSettings.hostname, mqttSettings.clientId);
@@ -80,9 +82,13 @@ class MqttController {
     }
   }
 
-  String _onDataReceived(List<MqttReceivedMessage<MqttMessage>> event) {
-    var msg = event.first.payload as MqttPublishMessage;
-    return MqttUtilities.bytesToStringAsString(msg.payload.message!);
+  void _onDataReceived(List<MqttReceivedMessage<MqttMessage>> event) {
+    if (onMessageReceived != null) {
+      var rawMsg = event.first.payload as MqttPublishMessage;
+      var payload = MqttUtilities.bytesToStringAsString(rawMsg.payload.message!);
+      ReceivedMqttMessage msg = ReceivedMqttMessage.received(rawMsg.variableHeader!.topicName, payload, rawMsg.header!.qos);
+      onMessageReceived!(msg);
+    }
   }
 
   void _onSubscribed(MqttSubscription subscription) {
