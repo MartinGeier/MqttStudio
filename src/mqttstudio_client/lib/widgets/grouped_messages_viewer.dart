@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/viewmodel/message_buffer_viewmodel.dart';
+import 'package:mqttstudio/viewmodel/project_global_viewmodel.dart';
 import 'package:mqttstudio/widgets/topic_chip.dart';
 import 'package:provider/provider.dart';
 
@@ -11,9 +12,9 @@ class GroupedMessagesViewer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider.value(
-        value: GetIt.I.get<MessageBufferViewmodel>(),
+        value: GetIt.I.get<ProjectGlobalViewmodel>().messageBufferViewmodel,
         child: Consumer<MessageBufferViewmodel>(builder: (context, viewmodel, child) {
-          var groupedMessages = viewmodel.getGroupMessages(MessageGroupTimePeriod.second);
+          var groupedMessages = viewmodel.getGroupMessages(MessageGroupTimePeriod.tenSeconds);
           return Expanded(
               child: Scrollbar(
                   isAlwaysShown: true,
@@ -37,7 +38,7 @@ class GroupedMessagesViewerRow extends StatelessWidget {
   Widget build(BuildContext context) {
     var topics = List<TopicChip>.generate(messageGroup.messages.length, (index) {
       var topicName = messageGroup.messages[index].topicName;
-      return TopicChip(topic: topicName, topicColor: viewmodel.getTopicColor(topicName), onPressed: () {});
+      return TopicChip(topic: topicName, topicColor: GetIt.I.get<ProjectGlobalViewmodel>().getTopicColor(topicName), onPressed: () {});
     });
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),

@@ -1,19 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/model/project.dart';
+import 'package:mqttstudio/model/received_mqtt_message.dart';
 import 'package:mqttstudio/model/topic_color.dart';
 import 'package:mqttstudio/model/topic_subscription.dart';
 import 'package:mqttstudio/service/service_error.dart';
+import 'package:mqttstudio/viewmodel/message_buffer_viewmodel.dart';
 import 'package:mqttstudio/viewmodel/mqtt_global_viewmodel.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 
 class ProjectGlobalViewmodel extends SrxChangeNotifier {
   Project? _currentProject;
+  MessageBufferViewmodel messageBufferViewmodel = MessageBufferViewmodel();
   late MqttGlobalViewmodel _mqttGlobalViewmodel;
 
   ProjectGlobalViewmodel() {
     _mqttGlobalViewmodel = GetIt.I.get<MqttGlobalViewmodel>();
     _mqttGlobalViewmodel.onConnected = onMqttConntected;
+    _mqttGlobalViewmodel.onMessageReceived = onMessageReceived;
   }
 
   Project? get currentProject => _currentProject;
@@ -24,7 +28,7 @@ class ProjectGlobalViewmodel extends SrxChangeNotifier {
     if (_mqttGlobalViewmodel.isConnected()) {
       if (newProject == null) {
         _mqttGlobalViewmodel.disconnect();
-      } else if (_currentProject != null && _currentProject!.mqttSettings.connectionSettingsChanged(newProject.mqttSettings)) {
+      } else if (_currentProject != null) {
         // if connection setting have been changed than reconnect
         _mqttGlobalViewmodel.disconnect();
         _mqttGlobalViewmodel.connect(newProject.mqttSettings);
@@ -65,17 +69,6 @@ class ProjectGlobalViewmodel extends SrxChangeNotifier {
     notifyListeners();
   }
 
-  TopicColor getTopicColor(String topicName) {
-    var subscriptions = _currentProject!.topicSubscriptions.where((x) => topicName.startsWith(x.topic));
-    if (subscriptions.length == 1) {
-      return subscriptions.first.color;
-    } else if (subscriptions.length < 1) {
-      return TopicColor.random();
-    } else {
-      return TopicColor(Colors.black);
-    }
-  }
-
   void onMqttConntected() {
     // subscribe to all topics
     if (_currentProject != null) {
@@ -83,5 +76,23 @@ class ProjectGlobalViewmodel extends SrxChangeNotifier {
         _mqttGlobalViewmodel.subscribeToTopic(sub.topic, sub.qos);
       }
     }
+  }
+
+  void onMessageReceived(ReceivedMqttMessage msg) {
+    assert(isProjectOpen);
+
+    var sub = TopicSubscription.getTopicSubscriptionMatch(msg.topicName, _currentProject!.topicSubscriptions);
+    if (sub != null) {
+      _currentProject!.topicColors[msg.topicName] = sub.color;
+    } else {
+      _currentProject!.topicColors[msg.topicName] = TopicColor(Colors.black);
+    }
+    messageBufferViewmodel.storeMessage(msg);
+  }
+
+  TopicColor getTopicColor(String topicName) {
+    assert(isProjectOpen);
+
+    return _currentProject!.topicColors[topicName]!;
   }
 }

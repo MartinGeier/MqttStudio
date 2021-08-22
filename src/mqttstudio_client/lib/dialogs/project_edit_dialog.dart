@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/viewmodel/project_global_viewmodel.dart';
-import 'package:mqttstudio/model/project.dart';
 import 'package:mqttstudio/viewmodel/project_edit_viewmodel.dart';
 import 'package:provider/provider.dart';
 import 'package:reactive_forms/reactive_forms.dart';
@@ -13,25 +12,23 @@ class ProjectEditDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    var currentProjectId = context.read<ProjectGlobalViewmodel>().currentProject?.id;
+    var currentProject = context.read<ProjectGlobalViewmodel>().currentProject;
 
     return ChangeNotifierProvider<ProjectEditViewmodel>(
-        create: (_) => ProjectEditViewmodel(currentProjectId),
+        create: (_) => ProjectEditViewmodel(currentProject),
         builder: (context, child) {
           return _buildBody(context);
         });
   }
 
   Widget _buildBody(BuildContext context) {
+    var viewmodel = context.read<ProjectEditViewmodel>();
     return SimpleDialog(title: Text('projectedit.title'.tr()), contentPadding: EdgeInsets.all(16), children: [
       ConstrainedBox(
         constraints: BoxConstraints(minWidth: 400, maxWidth: 400),
         child: Column(
           children: [
-            SrxBaseFormWidget<Project, ProjectEditViewmodel>(
-              formWidget: (viewmodel) => _buildForm(viewmodel, context),
-              useFullHeight: false,
-            ),
+            ReactiveForm(formGroup: viewmodel.form, child: _buildForm(viewmodel, context)),
             Padding(
               padding: const EdgeInsets.only(top: 24),
               child: Row(
@@ -39,12 +36,11 @@ class ProjectEditDialog extends StatelessWidget {
                 children: [
                   OutlinedButton(
                       onPressed: () {
-                        context.read<ProjectEditViewmodel>().isEdit = false;
                         GetIt.I.get<SrxNavigationService>().pop(null);
                       },
                       child: Text('srx.common.cancel'.tr())),
                   SrxFormFieldSpacer(),
-                  ElevatedButton(onPressed: () => _onOkPressed(context.read<ProjectEditViewmodel>()), child: Text('srx.common.ok'.tr()))
+                  ElevatedButton(onPressed: () => _onOkPressed(viewmodel), child: Text('srx.common.ok'.tr()))
                 ],
               ),
             )
@@ -136,10 +132,6 @@ class ProjectEditDialog extends StatelessWidget {
     );
   }
 
-  void newMethod(ProjectEditViewmodel viewmodel) {
-    viewmodel.form.control(ProjectEditViewmodel.mqttHostnameField).value = 'test.mosquitto.org';
-  }
-
   ReactiveTextField<String> _buildClientIdField(ProjectEditViewmodel viewmodel) {
     return ReactiveTextField(
       textInputAction: TextInputAction.next,
@@ -198,8 +190,8 @@ class ProjectEditDialog extends StatelessWidget {
   }
 
   _onOkPressed(ProjectEditViewmodel viewmodel) async {
-    if (await viewmodel.saveModel(validateForm: true)) {
-      GetIt.I.get<SrxNavigationService>().pop(viewmodel.model);
+    if (viewmodel.saveModel(validateForm: true)) {
+      GetIt.I.get<SrxNavigationService>().pop(viewmodel.project);
     }
   }
 }
