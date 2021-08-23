@@ -5,12 +5,17 @@ class MessageBufferViewmodel extends SrxChangeNotifier {
   List<ReceivedMqttMessage> _buffer = [];
   MessageGroupTimePeriod? _currentPeriod;
   List<MessageGroup> _groupedMessages = [];
+  DateTime _lastRefresh = DateTime.now();
 
   void storeMessage(ReceivedMqttMessage msg) {
     _buffer.insert(0, msg);
     addToLastMessageGroup(msg);
 
-    notifyListeners();
+    // limit rebuild at one per seconds
+    if (DateTime.now().subtract(Duration(seconds: 1)).isAfter(_lastRefresh)) {
+      _lastRefresh = DateTime.now();
+      notifyListeners();
+    }
   }
 
   int get length => _buffer.length;
@@ -24,14 +29,14 @@ class MessageBufferViewmodel extends SrxChangeNotifier {
     if (_buffer.isEmpty) {
       return _groupedMessages;
     }
-    DateTime groupEndTime = calcGroupEndTime(_buffer.first.receivedOn, period);
-    DateTime groupBeginTime = calcGroupBeginTime(groupEndTime, period);
+    DateTime groupEndTime = _calcGroupEndTime(_buffer.first.receivedOn, period);
+    DateTime groupBeginTime = _calcGroupBeginTime(groupEndTime, period);
     MessageGroup msgGroup = MessageGroup(groupBeginTime);
     _groupedMessages.add(msgGroup);
     for (var msg in _buffer) {
       if (msg.receivedOn.isBefore(groupBeginTime)) {
-        groupEndTime = calcGroupEndTime(msg.receivedOn, period);
-        groupBeginTime = calcGroupBeginTime(groupEndTime, period);
+        groupEndTime = _calcGroupEndTime(msg.receivedOn, period);
+        groupBeginTime = _calcGroupBeginTime(groupEndTime, period);
         msgGroup = MessageGroup(groupBeginTime);
         _groupedMessages.add(msgGroup);
       }
@@ -47,8 +52,8 @@ class MessageBufferViewmodel extends SrxChangeNotifier {
       return;
     }
 
-    DateTime groupEndTime = calcGroupEndTime(msg.receivedOn, _currentPeriod!);
-    DateTime groupBeginTime = calcGroupBeginTime(groupEndTime, _currentPeriod!);
+    DateTime groupEndTime = _calcGroupEndTime(msg.receivedOn, _currentPeriod!);
+    DateTime groupBeginTime = _calcGroupBeginTime(groupEndTime, _currentPeriod!);
     MessageGroup msgGroup = MessageGroup(groupBeginTime);
     if (_groupedMessages.isEmpty || _groupedMessages.first.beginOfPeriod.isBefore(groupBeginTime)) {
       msgGroup.messages.add(msg);
@@ -58,7 +63,11 @@ class MessageBufferViewmodel extends SrxChangeNotifier {
     }
   }
 
-  DateTime calcGroupEndTime(DateTime lastEntryTime, MessageGroupTimePeriod period) {
+  void refresh() {
+    notifyListeners();
+  }
+
+  DateTime _calcGroupEndTime(DateTime lastEntryTime, MessageGroupTimePeriod period) {
     switch (period) {
       case MessageGroupTimePeriod.second:
         return DateTime.fromMicrosecondsSinceEpoch(((lastEntryTime.microsecondsSinceEpoch / 1000000).ceil()) * 1000000);
@@ -71,7 +80,7 @@ class MessageBufferViewmodel extends SrxChangeNotifier {
     }
   }
 
-  DateTime calcGroupBeginTime(DateTime groupEndTime, MessageGroupTimePeriod period) {
+  DateTime _calcGroupBeginTime(DateTime groupEndTime, MessageGroupTimePeriod period) {
     switch (period) {
       case MessageGroupTimePeriod.second:
         return DateTime.fromMicrosecondsSinceEpoch((((groupEndTime.microsecondsSinceEpoch - 1) / 1000000).floor()) * 1000000);

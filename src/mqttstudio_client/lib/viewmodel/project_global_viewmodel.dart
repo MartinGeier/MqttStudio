@@ -50,11 +50,13 @@ class ProjectGlobalViewmodel extends SrxChangeNotifier {
       throw SrxServiceException('Trying to add duplicate topic \'${subscription.topic}\'', ServiceError.DuplicateTopic);
     }
     _currentProject!.topicSubscriptions.add(subscription);
+    _currentProject!.topicColors[subscription.topic] = subscription.color;
 
     if (_mqttGlobalViewmodel.isConnected()) {
       _mqttGlobalViewmodel.subscribeToTopic(subscription.topic, subscription.qos);
     }
 
+    messageBufferViewmodel.refresh();
     notifyListeners();
   }
 

@@ -45,6 +45,7 @@
     "addtopicdialog.duplicatetopic.error": "Trying to add duplicate subscription!",
     "addtopicdialog.subscribe.button": "Subscribe",
     "addtopicdialog.subscribenew.button": "Subscribe & New",
+    "addtopicdialog.color.label": "Color",
     "MqttQos.atMostOnce": "At most once",
     "MqttQos.atLeastOnce": "At least once",
     "MqttQos.exactlyOnce": "Exactly  once"

@@ -8,7 +8,19 @@ part 'topic_color.g.dart';
 
 @JsonSerializable(explicitToJson: true)
 class TopicColor {
-  static List<Color> defaultColors = [Colors.pink, Colors.green, Colors.blue, Colors.orange, Colors.brown, Colors.teal, Colors.deepPurple];
+  static List<Color> defaultColors = [
+    Colors.indigo,
+    Colors.blue,
+    Colors.pink,
+    Colors.amberAccent,
+    Colors.deepPurple,
+    Colors.orange,
+    Colors.deepOrange,
+    Colors.brown,
+    Colors.green,
+    Colors.teal,
+    Colors.lime,
+  ];
 
   @_ColorConverter()
   final Color color;

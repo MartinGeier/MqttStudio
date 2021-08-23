@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqtt5_client/mqtt5_client.dart';
+import 'package:mqttstudio/model/topic_color.dart';
 import 'package:mqttstudio/service/service_error.dart';
 import 'package:mqttstudio/viewmodel/add_topic_viewmodel.dart';
 import 'package:provider/provider.dart';
@@ -73,13 +74,17 @@ class AddTopicDialog extends StatelessWidget {
       child: Column(
         children: [
           SrxFormRow(children: [Expanded(child: _buildTopicNameField(context))]),
-          SrxFormRow(children: [Expanded(child: _buildQosField(context))]),
+          SrxFormRow(children: [
+            Flexible(flex: 3, child: _buildQosField(context)),
+            SrxFormFieldSpacer(),
+            Flexible(flex: 1, child: _buildColorField(context))
+          ]),
         ],
       ),
     );
   }
 
-  _buildTopicNameField(BuildContext context) {
+  Widget _buildTopicNameField(BuildContext context) {
     return ReactiveTextField(
       autofocus: true,
       textInputAction: TextInputAction.next,
@@ -90,13 +95,30 @@ class AddTopicDialog extends StatelessWidget {
     );
   }
 
-  _buildQosField(BuildContext context) {
+  Widget _buildQosField(BuildContext context) {
     var items = List<DropdownMenuItem>.generate(
         3, (index) => DropdownMenuItem(value: MqttQos.values[index], child: Text(MqttQos.values[index].toString().tr())));
     return ReactiveDropdownField(
       items: items,
       decoration: InputDecoration(border: OutlineInputBorder(), labelText: 'addtopicdialog.qos.label'.tr(), isDense: true),
       formControlName: AddTopicViewmodel.qosField,
+      validationMessages: (control) => {'required': 'srx.common.fieldrequired'.tr()},
+    );
+  }
+
+  Widget _buildColorField(BuildContext context) {
+    var items = List<DropdownMenuItem>.generate(
+        TopicColor.defaultColors.length,
+        (index) => DropdownMenuItem(
+            value: TopicColor.defaultColors[index],
+            child: Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: SizedBox(height: 24, width: 80, child: Container(color: TopicColor.defaultColors[index])),
+            )));
+    return ReactiveDropdownField(
+      items: items,
+      decoration: InputDecoration(border: OutlineInputBorder(), labelText: 'addtopicdialog.color.label'.tr(), isDense: true),
+      formControlName: AddTopicViewmodel.colorField,
       validationMessages: (control) => {'required': 'srx.common.fieldrequired'.tr()},
     );
   }

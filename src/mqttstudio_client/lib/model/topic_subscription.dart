@@ -36,13 +36,24 @@ class TopicSubscription {
     var topicNameLevels = topicName.split('/');
     var subscriptionLevels = subscriptionName.split('/');
     for (int i = 0; i < subscriptionLevels.length; i++) {
-      var level = subscriptionLevels[i];
-      if (level == topicNameLevels[i] || level == '+') {
-        continue;
-      }
-      if (level == '#') {
+      var subsLevel = subscriptionLevels[i];
+      if (subsLevel == '#') {
         return 0;
       }
+      if (i > topicNameLevels.length - 1) {
+        return -1;
+      }
+      if (subsLevel == '+' || subsLevel == topicNameLevels[i]) {
+        continue;
+      }
+      if (subsLevel != topicNameLevels[i]) {
+        return -1;
+      }
+
+      if (topicNameLevels.length == subscriptionLevels.length) {
+        return 1;
+      }
+
       return -1;
     }
 
