@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:mqttstudio/dialogs/project_edit_dialog.dart';
+import 'package:mqttstudio/project/project_edit_dialog.dart';
 import 'package:mqttstudio/model/project.dart';
-import 'package:mqttstudio/viewmodel/mqtt_global_viewmodel.dart';
-import 'package:mqttstudio/viewmodel/project_global_viewmodel.dart';
+import 'package:mqttstudio/common/mqtt_global_viewmodel.dart';
+import 'package:mqttstudio/project/project_global_viewmodel.dart';
 import 'package:provider/provider.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:mqttstudio/widgets/error_snackbar.dart';
+import 'package:mqttstudio/common/widgets/error_snackbar.dart';
 import 'package:mqttstudio/custom_theme.dart';
 
 class ConnectButton extends StatelessWidget {

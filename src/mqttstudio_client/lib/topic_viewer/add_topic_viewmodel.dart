@@ -6,11 +6,11 @@ import 'package:mqttstudio/model/topic_subscription.dart';
 import 'package:reactive_forms/reactive_forms.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 
-import 'project_global_viewmodel.dart';
+import '../project/project_global_viewmodel.dart';
 
 class AddTopicViewmodel extends SrxChangeNotifier {
   static String topicNameField = 'topicName';
-  static String qosField = 'retain';
+  static String qosField = 'qos';
   static String colorField = 'color';
 
   late FormGroup form;

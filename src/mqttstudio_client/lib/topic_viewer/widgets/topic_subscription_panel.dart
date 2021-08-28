@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:mqttstudio/custom_theme.dart';
-import 'package:mqttstudio/dialogs/add_topic_dialog.dart';
-import 'package:mqttstudio/viewmodel/project_global_viewmodel.dart';
-import 'package:mqttstudio/widgets/topic_chip.dart';
+import 'package:mqttstudio/topic_viewer/add_topic_dialog.dart';
+import 'package:mqttstudio/project/project_global_viewmodel.dart';
+import 'package:mqttstudio/common/widgets/topic_chip.dart';
 import 'package:provider/provider.dart';
 import 'package:easy_localization/easy_localization.dart';
 
@@ -43,8 +43,9 @@ class TopicSubscriptionPanel extends StatelessWidget {
                         return TopicChip(
                           topic: topicSubscription.topic,
                           topicColor: topicSubscription.color,
-                          onPressed: () => _topicPressed(),
+                          onPressed: () => _topicPressed(topicSubscription.topic, viewmodel),
                           onDeletePressed: (topic) => _onDeletePressed(viewmodel, topic),
+                          paused: topicSubscription.paused,
                         );
                       }),
                     ),
@@ -62,7 +63,9 @@ class TopicSubscriptionPanel extends StatelessWidget {
     });
   }
 
-  _topicPressed() {}
+  _topicPressed(String topic, ProjectGlobalViewmodel viewmodel) {
+    viewmodel.tooglePauseTopicSubscription(topic);
+  }
 
   _onDeletePressed(ProjectGlobalViewmodel viewmodel, String topicName) {
     if (viewmodel.isProjectOpen) {

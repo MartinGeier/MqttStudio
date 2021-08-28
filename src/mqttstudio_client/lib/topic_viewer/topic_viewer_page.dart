@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:mqttstudio/viewmodel/project_global_viewmodel.dart';
-import 'package:mqttstudio/widgets/connect_button.dart';
-import 'package:mqttstudio/widgets/grouped_messages_viewer.dart';
-import 'package:mqttstudio/widgets/navigation_drawer.dart';
-import 'package:mqttstudio/widgets/topic_subscription_panel.dart';
+import 'package:mqttstudio/project/project_global_viewmodel.dart';
+import 'package:mqttstudio/common/widgets/connect_button.dart';
+import 'package:mqttstudio/topic_viewer/widgets/grouped_messages_viewer.dart';
+import 'package:mqttstudio/common/widgets/navigation_drawer.dart';
+import 'package:mqttstudio/topic_viewer/widgets/topic_subscription_panel.dart';
+import 'package:mqttstudio/topic_viewer/widgets/topics_viewer_command_bar.dart';
 import 'package:provider/provider.dart';
 
-class HomePage extends StatelessWidget {
-  const HomePage();
+class TopicViewerPage extends StatelessWidget {
+  const TopicViewerPage();
 
   @override
   Widget build(BuildContext context) {
@@ -57,7 +58,7 @@ class HomePage extends StatelessWidget {
             drawer: NavigationDrawer(),
             body: Container(
               child: Column(
-                children: [TopicSubscriptionPanel(), Divider(), GroupedMessagesViewer()],
+                children: [TopicSubscriptionPanel(), TopicsViewCommandBar(), GroupedMessagesViewer()],
               ),
             ),
           );

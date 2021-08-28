@@ -3,7 +3,7 @@ import 'package:get_it/get_it.dart';
 import 'package:mqtt5_client/mqtt5_client.dart';
 import 'package:mqttstudio/model/topic_color.dart';
 import 'package:mqttstudio/service/service_error.dart';
-import 'package:mqttstudio/viewmodel/add_topic_viewmodel.dart';
+import 'package:mqttstudio/topic_viewer/add_topic_viewmodel.dart';
 import 'package:provider/provider.dart';
 import 'package:reactive_forms/reactive_forms.dart';
 import 'package:srx_flutter/srx_flutter.dart';

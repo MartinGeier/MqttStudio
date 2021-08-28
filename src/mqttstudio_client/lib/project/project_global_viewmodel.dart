@@ -1,18 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
+import 'package:mqttstudio/model/mqtt_payload_type.dart';
 import 'package:mqttstudio/model/project.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
 import 'package:mqttstudio/model/topic_color.dart';
 import 'package:mqttstudio/model/topic_subscription.dart';
 import 'package:mqttstudio/service/service_error.dart';
-import 'package:mqttstudio/viewmodel/message_buffer_viewmodel.dart';
-import 'package:mqttstudio/viewmodel/mqtt_global_viewmodel.dart';
+import 'package:mqttstudio/topic_viewer/message_buffer_viewmodel.dart';
+import 'package:mqttstudio/common/mqtt_global_viewmodel.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 
 class ProjectGlobalViewmodel extends SrxChangeNotifier {
   Project? _currentProject;
   MessageBufferViewmodel messageBufferViewmodel = MessageBufferViewmodel();
   late MqttGlobalViewmodel _mqttGlobalViewmodel;
+  bool paused = false;
 
   ProjectGlobalViewmodel() {
     _mqttGlobalViewmodel = GetIt.I.get<MqttGlobalViewmodel>();
@@ -52,30 +54,68 @@ class ProjectGlobalViewmodel extends SrxChangeNotifier {
     _currentProject!.topicSubscriptions.add(subscription);
     _currentProject!.topicColors[subscription.topic] = subscription.color;
 
-    if (_mqttGlobalViewmodel.isConnected()) {
+    if (_mqttGlobalViewmodel.isConnected() && !paused) {
       _mqttGlobalViewmodel.subscribeToTopic(subscription.topic, subscription.qos);
     }
 
-    messageBufferViewmodel.refresh();
     notifyListeners();
   }
 
   void removeTopicSubscription(String topic) {
     assert(isProjectOpen);
-    _currentProject!.topicSubscriptions.removeWhere((x) => x.topic == topic);
-
     if (_mqttGlobalViewmodel.isConnected()) {
       _mqttGlobalViewmodel.unSubscribeFromTopic(topic);
     }
 
+    _currentProject!.topicSubscriptions.removeWhere((x) => x.topic == topic);
     notifyListeners();
+  }
+
+  void tooglePauseTopicSubscription(String topic) {
+    assert(isProjectOpen);
+    var sub = _currentProject!.topicSubscriptions.singleWhere((x) => x.topic == topic);
+    sub.paused = !sub.paused;
+    if (sub.paused) {
+      _mqttGlobalViewmodel.unSubscribeFromTopic(topic);
+    } else if (!paused) {
+      _mqttGlobalViewmodel.subscribeToTopic(topic, sub.qos);
+    }
+    notifyListeners();
+  }
+
+  void pauseAllTopics() {
+    paused = true;
+    for (var sub in _currentProject!.topicSubscriptions) {
+      _mqttGlobalViewmodel.unSubscribeFromTopic(sub.topic);
+    }
+    notifyListeners();
+  }
+
+  void playAllTopics() {
+    paused = false;
+    for (var sub in _currentProject!.topicSubscriptions) {
+      if (!sub.paused) {
+        _mqttGlobalViewmodel.subscribeToTopic(sub.topic, sub.qos);
+      }
+    }
+    notifyListeners();
+  }
+
+  void clearMessages() {
+    messageBufferViewmodel.clear();
+  }
+
+  void publishTopic(String topic, String payload, MqttPayloadType payloadType, bool retain) {
+    _mqttGlobalViewmodel.publishTopic(topic, payload, payloadType, retain);
   }
 
   void onMqttConntected() {
     // subscribe to all topics
     if (_currentProject != null) {
       for (var sub in _currentProject!.topicSubscriptions) {
-        _mqttGlobalViewmodel.subscribeToTopic(sub.topic, sub.qos);
+        if (!sub.paused) {
+          _mqttGlobalViewmodel.subscribeToTopic(sub.topic, sub.qos);
+        }
       }
     }
   }

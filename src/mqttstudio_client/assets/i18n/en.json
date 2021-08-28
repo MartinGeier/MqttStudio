@@ -48,5 +48,15 @@
     "addtopicdialog.color.label": "Color",
     "MqttQos.atMostOnce": "At most once",
     "MqttQos.atLeastOnce": "At least once",
-    "MqttQos.exactlyOnce": "Exactly  once"
+    "MqttQos.exactlyOnce": "Exactly  once",
+    "topicsviewer_commandbar.play.tooltip": "Start",
+    "topicsviewer_commandbar.pause.tooltip": "Pause",
+    "topicsviewer_commandbar.clear.tooltip": "Clear messages",
+    "topicsviewer_commandbar.groupedviewer.tooltip": "Grouped view",
+    "topicsviewer_commandbar.listviewer.tooltip": "List view",
+    "publishtopicdialog.title": "Publish topic",
+    "publishtopicdialog.publish.button": "PUBLISH",
+    "publishtopicdialog.payload.label": "Payload",
+    "publishtopicdialog.topicname.label": "Topic Name",
+    "publishtopicdialog.retain.label": "Retain"
 }

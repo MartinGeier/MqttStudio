@@ -1,9 +1,9 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
-import 'package:mqttstudio/viewmodel/message_buffer_viewmodel.dart';
-import 'package:mqttstudio/viewmodel/project_global_viewmodel.dart';
-import 'package:mqttstudio/widgets/topic_chip.dart';
+import 'package:mqttstudio/topic_viewer/message_buffer_viewmodel.dart';
+import 'package:mqttstudio/project/project_global_viewmodel.dart';
+import 'package:mqttstudio/common/widgets/topic_chip.dart';
 import 'package:provider/provider.dart';
 
 class GroupedMessagesViewer extends StatelessWidget {

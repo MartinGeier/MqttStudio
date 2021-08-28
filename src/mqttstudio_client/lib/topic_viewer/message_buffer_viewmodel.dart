@@ -9,7 +9,7 @@ class MessageBufferViewmodel extends SrxChangeNotifier {
 
   void storeMessage(ReceivedMqttMessage msg) {
     _buffer.insert(0, msg);
-    addToLastMessageGroup(msg);
+    _addToLastMessageGroup(msg);
 
     // limit rebuild at one per seconds
     if (DateTime.now().subtract(Duration(seconds: 1)).isAfter(_lastRefresh)) {
@@ -47,7 +47,13 @@ class MessageBufferViewmodel extends SrxChangeNotifier {
     return _groupedMessages;
   }
 
-  void addToLastMessageGroup(ReceivedMqttMessage msg) {
+  void clear() {
+    _buffer.clear();
+    _groupedMessages.clear();
+    notifyListeners();
+  }
+
+  void _addToLastMessageGroup(ReceivedMqttMessage msg) {
     if (_currentPeriod == null) {
       return;
     }
@@ -61,10 +67,6 @@ class MessageBufferViewmodel extends SrxChangeNotifier {
     } else {
       _groupedMessages.first.messages.insert(0, msg);
     }
-  }
-
-  void refresh() {
-    notifyListeners();
   }
 
   DateTime _calcGroupEndTime(DateTime lastEntryTime, MessageGroupTimePeriod period) {

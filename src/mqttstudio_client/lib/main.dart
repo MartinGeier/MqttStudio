@@ -1,16 +1,16 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
-import 'package:mqttstudio/contoller/mqtt_controller.dart';
+import 'package:mqttstudio/common/mqtt_controller.dart';
 import 'package:mqttstudio/custom_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 import 'model/project.dart';
-import 'pages/home_page.dart';
-import 'pages/login_page.dart';
+import 'topic_viewer/topic_viewer_page.dart';
+import 'common/login_page.dart';
 import 'repository/local/local_project_repository.dart';
-import 'viewmodel/mqtt_global_viewmodel.dart';
-import 'viewmodel/project_global_viewmodel.dart';
+import 'common/mqtt_global_viewmodel.dart';
+import 'project/project_global_viewmodel.dart';
 
 //final String baseUrlRelease = 'to be defined';
 //final String baseUrlDebug = 'http://192.168.10.100:5001';
@@ -43,7 +43,7 @@ void setupServiceLocator() {
   // common
   GetIt.I.registerSingleton(SrxSessionController(true, '', ''));
   //GetIt.I.registerSingleton(SrxHttpService(baseUrlRelease, baseUrlDebug, versionPath, GetIt.I.get<SessionController>()));
-  GetIt.I.registerSingleton(SrxNavigationService(LoginPage(), HomePage()));
+  GetIt.I.registerSingleton(SrxNavigationService(LoginPage(), TopicViewerPage()));
   GetIt.I.registerSingleton(MqttController());
 
   // global viewmodels
@@ -66,7 +66,7 @@ class MyApp extends StatelessWidget {
               supportedLocales: context.supportedLocales,
               locale: context.locale,
               navigatorKey: GetIt.instance.get<SrxNavigationService>().navigatorKey,
-              home: /*GetIt.instance.get<SSessionController>().isLoggedIn ? */ HomePage())) /*: LoginPage() */,
+              home: /*GetIt.instance.get<SSessionController>().isLoggedIn ? */ TopicViewerPage())) /*: LoginPage() */,
     );
   }
 }

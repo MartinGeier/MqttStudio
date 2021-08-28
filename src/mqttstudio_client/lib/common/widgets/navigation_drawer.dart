@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
-import 'package:mqttstudio/dialogs/project_edit_dialog.dart';
+import 'package:mqttstudio/project/project_edit_dialog.dart';
 import 'package:mqttstudio/model/project.dart';
-import 'package:mqttstudio/viewmodel/project_global_viewmodel.dart';
+import 'package:mqttstudio/project/project_global_viewmodel.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 import 'package:provider/provider.dart';
 

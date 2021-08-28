@@ -10,8 +10,9 @@ class TopicSubscription {
   String topic;
   MqttQos qos;
   late TopicColor color;
+  bool paused;
 
-  TopicSubscription(this.topic, this.qos, {TopicColor? color}) {
+  TopicSubscription(this.topic, this.qos, {TopicColor? color, this.paused = false}) {
     if (color != null) {
       this..color = color;
     } else {

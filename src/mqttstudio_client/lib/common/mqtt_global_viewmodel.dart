@@ -1,6 +1,7 @@
 import 'package:get_it/get_it.dart';
 import 'package:mqtt5_client/mqtt5_client.dart';
-import 'package:mqttstudio/contoller/mqtt_controller.dart';
+import 'package:mqttstudio/common/mqtt_controller.dart';
+import 'package:mqttstudio/model/mqtt_payload_type.dart';
 import 'package:mqttstudio/model/mqtt_settings.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
 import 'package:srx_flutter/srx_flutter.dart';
@@ -68,6 +69,10 @@ class MqttGlobalViewmodel extends SrxChangeNotifier {
   void unSubscribeFromTopic(String topic) {
     _controller.unSubscribeFromTopic(topic);
     notifyListeners();
+  }
+
+  void publishTopic(String topic, String payload, MqttPayloadType payloadType, bool retain) {
+    _controller.publish(topic, payload, payloadType, retain);
   }
 
   _onMessageReceived(ReceivedMqttMessage msg) {

@@ -4,15 +4,15 @@ import 'package:mqttstudio/model/topic_color.dart';
 import 'package:mqttstudio/custom_theme.dart';
 
 class TopicChip extends StatelessWidget {
-  const TopicChip(
-      {Key? key, required this.topic, required this.topicColor, required this.onPressed, this.onDeletePressed, this.paused = false})
-      : super(key: key);
-
   final TopicColor topicColor;
   final String topic;
   final bool paused;
   final void Function(String)? onDeletePressed;
   final void Function()? onPressed;
+
+  const TopicChip(
+      {Key? key, required this.topic, required this.topicColor, required this.onPressed, this.onDeletePressed, this.paused = false})
+      : super(key: key);
 
   @override
   Widget build(BuildContext context) {

@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:mqtt5_client/mqtt5_client.dart';
 import 'package:mqtt5_client/mqtt5_server_client.dart';
+import 'package:mqttstudio/model/mqtt_payload_type.dart';
 import 'package:mqttstudio/model/mqtt_settings.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
 import 'package:mqttstudio/service/service_error.dart';
@@ -23,7 +24,8 @@ class MqttController {
     _client.connectionMessage = MqttConnectMessage().startClean();
     _client.logging(on: true);
     try {
-      await _client.connect(mqttSettings.username, mqttSettings.password);
+      var result = await _client.connect(mqttSettings.username, mqttSettings.password);
+      print(result);
       _client.updates.listen((event) => _onDataReceived(event));
     } on SocketException catch (exc) {
       print('MQTT: error connecting [${exc.message}, ${exc.osError?.message}]');
@@ -62,10 +64,23 @@ class MqttController {
     _client.unsubscribeStringTopic(topic);
   }
 
-  void publish(String topic, String payload, bool retain) {
+  void publish(String topic, dynamic payload, MqttPayloadType payloadType, bool retain) {
     var payloadBuilder = MqttPayloadBuilder();
-    payloadBuilder.addString(payload);
-    _client.publishMessage(topic, MqttQos.exactlyOnce, payloadBuilder.payload!, retain: retain);
+    switch (payloadType) {
+      case MqttPayloadType.string:
+        payloadBuilder.addString(payload);
+        break;
+
+      case MqttPayloadType.bool:
+        payloadBuilder.addBool(val: payload);
+        break;
+
+      case MqttPayloadType.binary:
+        payloadBuilder.addBuffer(payload);
+        break;
+    }
+
+    _client.publishMessage(topic, MqttQos.atLeastOnce, payloadBuilder.payload!, retain: retain);
   }
 
   void _onConnected() {
