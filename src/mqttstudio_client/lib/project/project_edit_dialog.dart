@@ -17,7 +17,9 @@ class ProjectEditDialog extends StatelessWidget {
     return ChangeNotifierProvider<ProjectEditViewmodel>(
         create: (_) => ProjectEditViewmodel(currentProject),
         builder: (context, child) {
-          return _buildBody(context);
+          return Consumer<ProjectEditViewmodel>(builder: (context, viewmodel, child) {
+            return _buildBody(context);
+          });
         });
   }
 

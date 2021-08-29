@@ -24,8 +24,7 @@ class MqttController {
     _client.connectionMessage = MqttConnectMessage().startClean();
     _client.logging(on: true);
     try {
-      var result = await _client.connect(mqttSettings.username, mqttSettings.password);
-      print(result);
+      await _client.connect(mqttSettings.username, mqttSettings.password);
       _client.updates.listen((event) => _onDataReceived(event));
     } on SocketException catch (exc) {
       print('MQTT: error connecting [${exc.message}, ${exc.osError?.message}]');

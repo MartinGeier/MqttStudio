@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqtt5_client/mqtt5_client.dart';
 import 'package:mqttstudio/model/topic_color.dart';
+import 'package:mqttstudio/project/project_global_viewmodel.dart';
 import 'package:mqttstudio/service/service_error.dart';
 import 'package:mqttstudio/topic_viewer/add_topic_viewmodel.dart';
 import 'package:provider/provider.dart';
@@ -85,13 +86,32 @@ class AddTopicDialog extends StatelessWidget {
   }
 
   Widget _buildTopicNameField(BuildContext context) {
+    var vm = context.read<AddTopicViewmodel>();
+    var recentTopics = context.read<ProjectGlobalViewmodel>().currentProject?.recentTopics;
     return ReactiveTextField(
       autofocus: true,
       textInputAction: TextInputAction.next,
       maxLines: 1,
-      decoration: InputDecoration(border: OutlineInputBorder(), labelText: 'addtopicdialog.topicname.label'.tr(), isDense: true),
+      decoration: InputDecoration(
+        border: OutlineInputBorder(),
+        labelText: 'addtopicdialog.topicname.label'.tr(),
+        isDense: true,
+        suffixIcon: PopupMenuButton(
+          onSelected: (topic) => vm.form.control(AddTopicViewmodel.topicNameField).value = topic,
+          icon: Icon(Icons.arrow_drop_down),
+          itemBuilder: (context) {
+            return List<PopupMenuItem>.generate(
+                recentTopics?.length ?? 0,
+                (index) => PopupMenuItem(
+                      child: Text(recentTopics?[index] ?? ''),
+                      value: recentTopics?[index] ?? '',
+                    ));
+          },
+        ),
+      ),
       formControlName: AddTopicViewmodel.topicNameField,
       validationMessages: (control) => {'maxLength': 'fieldcontenttolong.error'.tr(), 'required': 'srx.common.fieldrequired'.tr()},
+      onSubmitted: () => _onOkPressed(context),
     );
   }
 

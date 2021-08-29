@@ -18,6 +18,12 @@ Project _$ProjectFromJson(Map<String, dynamic> json) {
     ..lastModifiedBy = json['lastModifiedBy'] as String?
     ..topicSubscriptions = (json['topicSubscriptions'] as List<dynamic>)
         .map((e) => TopicSubscription.fromJson(e as Map<String, dynamic>))
+        .toList()
+    ..topicColors = (json['topicColors'] as Map<String, dynamic>).map(
+      (k, e) => MapEntry(k, TopicColor.fromJson(e as Map<String, dynamic>)),
+    )
+    ..recentTopics = (json['recentTopics'] as List<dynamic>)
+        .map((e) => e as String)
         .toList();
 }
 
@@ -31,4 +37,7 @@ Map<String, dynamic> _$ProjectToJson(Project instance) => <String, dynamic>{
       'mqttSettings': instance.mqttSettings.toJson(),
       'topicSubscriptions':
           instance.topicSubscriptions.map((e) => e.toJson()).toList(),
+      'topicColors':
+          instance.topicColors.map((k, e) => MapEntry(k, e.toJson())),
+      'recentTopics': instance.recentTopics,
     };

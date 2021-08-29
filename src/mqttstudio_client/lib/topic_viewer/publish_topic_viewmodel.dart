@@ -1,5 +1,4 @@
 import 'package:get_it/get_it.dart';
-import 'package:mqttstudio/main.dart';
 import 'package:mqttstudio/model/mqtt_payload_type.dart';
 import 'package:reactive_forms/reactive_forms.dart';
 import 'package:srx_flutter/srx_flutter.dart';
@@ -21,7 +20,7 @@ class PublishTopicViewmodel extends SrxChangeNotifier {
     return FormGroup({
       topicNameField: FormControl<String>(validators: [Validators.required, Validators.maxLength(200)]),
       retainField: FormControl<bool>(),
-      payloadField: FormControl<String>(validators: [Validators.maxLength(2000)]),
+      payloadField: FormControl<String>(validators: [Validators.maxLength(20000)]),
     });
   }
 

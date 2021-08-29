@@ -13,6 +13,7 @@ TopicSubscription _$TopicSubscriptionFromJson(Map<String, dynamic> json) {
     color: json['color'] == null
         ? null
         : TopicColor.fromJson(json['color'] as Map<String, dynamic>),
+    paused: json['paused'] as bool,
   );
 }
 
@@ -21,6 +22,7 @@ Map<String, dynamic> _$TopicSubscriptionToJson(TopicSubscription instance) =>
       'topic': instance.topic,
       'qos': _$MqttQosEnumMap[instance.qos],
       'color': instance.color.toJson(),
+      'paused': instance.paused,
     };
 
 K _$enumDecode<K, V>(

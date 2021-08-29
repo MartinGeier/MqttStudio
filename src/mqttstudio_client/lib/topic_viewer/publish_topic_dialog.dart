@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/common/widgets/checkbox_field.dart';
+import 'package:mqttstudio/project/project_global_viewmodel.dart';
 import 'package:provider/provider.dart';
 import 'package:reactive_forms/reactive_forms.dart';
 import 'package:srx_flutter/srx_flutter.dart';
@@ -68,13 +70,32 @@ class PublishTopicDialog extends StatelessWidget {
   }
 
   Widget _buildTopicNameField(BuildContext context) {
+    var vm = context.read<PublishTopicViewmodel>();
+    var recentTopics = context.read<ProjectGlobalViewmodel>().currentProject?.recentTopics;
     return ReactiveTextField(
       autofocus: true,
       textInputAction: TextInputAction.next,
       maxLines: 1,
-      decoration: InputDecoration(border: OutlineInputBorder(), labelText: 'publishtopicdialog.topicname.label'.tr(), isDense: true),
+      decoration: InputDecoration(
+        border: OutlineInputBorder(),
+        labelText: 'publishtopicdialog.topicname.label'.tr(),
+        isDense: true,
+        suffixIcon: PopupMenuButton(
+          onSelected: (topic) => vm.form.control(PublishTopicViewmodel.topicNameField).value = topic,
+          icon: Icon(Icons.arrow_drop_down),
+          itemBuilder: (context) {
+            return List<PopupMenuItem>.generate(
+                recentTopics?.length ?? 0,
+                (index) => PopupMenuItem(
+                      child: Text(recentTopics?[index] ?? ''),
+                      value: recentTopics?[index] ?? '',
+                    ));
+          },
+        ),
+      ),
       formControlName: PublishTopicViewmodel.topicNameField,
       validationMessages: (control) => {'maxLength': 'fieldcontenttolong.error'.tr(), 'required': 'srx.common.fieldrequired'.tr()},
+      onSubmitted: () => _onOkPressed(context),
     );
   }
 
@@ -90,7 +111,8 @@ class PublishTopicDialog extends StatelessWidget {
       decoration: InputDecoration(border: OutlineInputBorder(), labelText: 'publishtopicdialog.payload.label'.tr(), isDense: true),
       formControlName: PublishTopicViewmodel.payloadField,
       validationMessages: (control) => {'required': 'srx.common.fieldrequired'.tr()},
-      maxLength: 2000,
+      maxLengthEnforcement: MaxLengthEnforcement.enforced,
+      maxLength: 20000,
       maxLines: 10,
     );
   }

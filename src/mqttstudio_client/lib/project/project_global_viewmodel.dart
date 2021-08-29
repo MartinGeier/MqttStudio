@@ -53,6 +53,7 @@ class ProjectGlobalViewmodel extends SrxChangeNotifier {
     }
     _currentProject!.topicSubscriptions.add(subscription);
     _currentProject!.topicColors[subscription.topic] = subscription.color;
+    _addRecentTopic(subscription.topic);
 
     if (_mqttGlobalViewmodel.isConnected() && !paused) {
       _mqttGlobalViewmodel.subscribeToTopic(subscription.topic, subscription.qos);
@@ -107,6 +108,7 @@ class ProjectGlobalViewmodel extends SrxChangeNotifier {
 
   void publishTopic(String topic, String payload, MqttPayloadType payloadType, bool retain) {
     _mqttGlobalViewmodel.publishTopic(topic, payload, payloadType, retain);
+    _addRecentTopic(topic);
   }
 
   void onMqttConntected() {
@@ -136,5 +138,17 @@ class ProjectGlobalViewmodel extends SrxChangeNotifier {
     assert(isProjectOpen);
 
     return _currentProject!.topicColors[topicName]!;
+  }
+
+  void _addRecentTopic(String topic) {
+    assert(isProjectOpen);
+
+    if (!currentProject!.recentTopics.contains(topic)) {
+      currentProject!.recentTopics.insert(0, topic);
+    }
+
+    if (currentProject!.recentTopics.length > 20) {
+      _currentProject!.recentTopics.removeLast();
+    }
   }
 }
