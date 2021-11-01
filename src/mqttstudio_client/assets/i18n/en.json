@@ -53,7 +53,7 @@
     "topicsviewer_commandbar.pause.tooltip": "Pause",
     "topicsviewer_commandbar.clear.tooltip": "Clear messages",
     "topicsviewer_commandbar.groupedviewer.tooltip": "Grouped view",
-    "topicsviewer_commandbar.listviewer.tooltip": "List view",
+    "topicsviewer_commandbar.sequentialviewer.tooltip": "Sequential view",
     "publishtopicdialog.title": "Publish topic",
     "publishtopicdialog.publish.button": "PUBLISH",
     "publishtopicdialog.payload.label": "Payload",

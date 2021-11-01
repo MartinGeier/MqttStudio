@@ -7,11 +7,18 @@ class TopicChip extends StatelessWidget {
   final TopicColor topicColor;
   final String topic;
   final bool paused;
+  final bool dense;
   final void Function(String)? onDeletePressed;
   final void Function()? onPressed;
 
   const TopicChip(
-      {Key? key, required this.topic, required this.topicColor, required this.onPressed, this.onDeletePressed, this.paused = false})
+      {Key? key,
+      required this.topic,
+      required this.topicColor,
+      required this.onPressed,
+      this.onDeletePressed,
+      this.paused = false,
+      this.dense = true})
       : super(key: key);
 
   @override
@@ -19,7 +26,7 @@ class TopicChip extends StatelessWidget {
     var bgColor = paused ? Theme.of(context).custom.watermark : topicColor.color;
     var textColor = bgColor.computeLuminance() > 0.5 ? Colors.black : Colors.white;
     return ConstrainedBox(
-      constraints: BoxConstraints(maxWidth: 400),
+      constraints: BoxConstraints(maxWidth: dense ? 400 : 800),
       child: InputChip(
         showCheckmark: false,
         selected: paused,

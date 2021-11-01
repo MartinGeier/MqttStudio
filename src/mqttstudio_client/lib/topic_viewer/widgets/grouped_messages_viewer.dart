@@ -4,6 +4,7 @@ import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/topic_viewer/message_buffer_viewmodel.dart';
 import 'package:mqttstudio/project/project_global_viewmodel.dart';
 import 'package:mqttstudio/common/widgets/topic_chip.dart';
+import 'package:mqttstudio/topic_viewer/topic_viewer_viewmodel.dart';
 import 'package:provider/provider.dart';
 
 class GroupedMessagesViewer extends StatelessWidget {
@@ -13,32 +14,41 @@ class GroupedMessagesViewer extends StatelessWidget {
   Widget build(BuildContext context) {
     return ChangeNotifierProvider.value(
         value: GetIt.I.get<ProjectGlobalViewmodel>().messageBufferViewmodel,
-        child: Consumer<MessageBufferViewmodel>(builder: (context, viewmodel, child) {
-          var groupedMessages = viewmodel.getGroupMessages(MessageGroupTimePeriod.tenSeconds);
-          return Expanded(
+        child: Consumer<MessageBufferViewmodel>(builder: (context, msgBufferViewmodel, child) {
+          return Consumer<TopicViewerViewmodel>(builder: (context, viewmodel, child) {
+            var groupedMessages = msgBufferViewmodel.getGroupMessages(viewmodel.groupTimePeriod);
+            return Expanded(
+                child: Padding(
+              padding: const EdgeInsets.only(top: 8),
               child: Scrollbar(
                   isAlwaysShown: true,
                   showTrackOnHover: true,
                   child: ListView.builder(
                       itemCount: groupedMessages.length,
                       itemBuilder: (context, index) {
-                        return GroupedMessagesViewerRow(groupedMessages[index], viewmodel);
-                      })));
+                        return GroupedMessagesViewerRow(groupedMessages[index], msgBufferViewmodel, viewmodel);
+                      })),
+            ));
+          });
         }));
   }
 }
 
 class GroupedMessagesViewerRow extends StatelessWidget {
   final MessageGroup messageGroup;
-  final MessageBufferViewmodel viewmodel;
+  final MessageBufferViewmodel msgBufferViewmodel;
+  final TopicViewerViewmodel viewmodel;
 
-  const GroupedMessagesViewerRow(this.messageGroup, this.viewmodel, {Key? key}) : super(key: key);
+  const GroupedMessagesViewerRow(this.messageGroup, this.msgBufferViewmodel, this.viewmodel, {Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     var topics = List<TopicChip>.generate(messageGroup.messages.length, (index) {
       var topicName = messageGroup.messages[index].topicName;
-      return TopicChip(topic: topicName, topicColor: GetIt.I.get<ProjectGlobalViewmodel>().getTopicColor(topicName), onPressed: () {});
+      return TopicChip(
+          topic: topicName,
+          topicColor: GetIt.I.get<ProjectGlobalViewmodel>().getTopicColor(topicName),
+          onPressed: () => viewmodel.selectedMessage = messageGroup.messages[index]);
     });
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),

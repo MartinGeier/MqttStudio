@@ -33,6 +33,10 @@ class MessageBufferViewmodel extends SrxChangeNotifier {
     }
   }
 
+  List<ReceivedMqttMessage> getMessages() {
+    return _buffer.take(500).toList();
+  }
+
   List<MessageGroup> getGroupMessages(MessageGroupTimePeriod period) {
     if (period == _currentPeriod && _groupedMessages.isNotEmpty) {
       return _groupedMessages;
