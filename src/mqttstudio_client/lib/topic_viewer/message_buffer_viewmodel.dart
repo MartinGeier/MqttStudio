@@ -1,24 +1,37 @@
 import 'package:mqttstudio/model/received_mqtt_message.dart';
 import 'package:srx_flutter/srx_flutter.dart';
+import 'dart:async';
 
 class MessageBufferViewmodel extends SrxChangeNotifier {
+  final _refreshPeriod = 200;
+
   List<ReceivedMqttMessage> _buffer = [];
   MessageGroupTimePeriod? _currentPeriod;
   List<MessageGroup> _groupedMessages = [];
   DateTime _lastRefresh = DateTime.now();
 
+  MessageBufferViewmodel() {
+    Timer.periodic(Duration(milliseconds: _refreshPeriod), _clearBuffer);
+  }
+
   void storeMessage(ReceivedMqttMessage msg) {
     _buffer.insert(0, msg);
     _addToLastMessageGroup(msg);
 
-    // limit rebuild at one per seconds
-    if (DateTime.now().subtract(Duration(seconds: 1)).isAfter(_lastRefresh)) {
+    // limit rebuild at one in 200 milliseconds
+    if (DateTime.now().subtract(Duration(milliseconds: _refreshPeriod)).isAfter(_lastRefresh)) {
       _lastRefresh = DateTime.now();
       notifyListeners();
     }
   }
 
   int get length => _buffer.length;
+
+  void _clearBuffer(Timer timer) {
+    if (_buffer.isNotEmpty) {
+      notifyListeners();
+    }
+  }
 
   List<MessageGroup> getGroupMessages(MessageGroupTimePeriod period) {
     if (period == _currentPeriod && _groupedMessages.isNotEmpty) {

@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 
 class CustomTheme {
   static ThemeData lightTheme = ThemeData(
-    brightness: Brightness.light,
-    primarySwatch: _greyPalette,
-    accentColor: Color(0xffB71C1C),
-    errorColor: Color(0xfff62a00),
+    colorScheme: ColorScheme.fromSwatch(
+        accentColor: Color(0xffB71C1C), primarySwatch: _primaryPalette, errorColor: Color(0xfff62a00), brightness: Brightness.light),
+    toggleableActiveColor: _primaryPalette,
     inputDecorationTheme: InputDecorationTheme(errorStyle: TextStyle(height: 0.6)),
     //popupMenuTheme: PopupMenuThemeData(textStyle: TextStyle(fontSize: 12)),
     elevatedButtonTheme: ElevatedButtonThemeData(style: ButtonStyle(minimumSize: MaterialStateProperty.all(Size(150, 48)))),
@@ -16,7 +15,7 @@ class CustomTheme {
 
   // create with http://mcg.mbitson.com/
   static const int _grey = 0xFF616161;
-  static const MaterialColor _greyPalette = MaterialColor(_grey, <int, Color>{
+  static const MaterialColor _primaryPalette = MaterialColor(_grey, <int, Color>{
     50: Color(0xFFECECEC),
     100: Color(0xFFD0D0D0),
     200: Color(0xFFB0B0B0),
@@ -33,7 +32,7 @@ class CustomTheme {
 extension ThemeDataEx on ThemeData {
   CustomColors get custom => new CustomColors();
 
-  Color getTextColor([Color bgColor = CustomTheme._greyPalette]) {
+  Color getTextColor([Color bgColor = CustomTheme._primaryPalette]) {
     return bgColor.computeLuminance() > 0.5 ? Colors.black : Colors.white;
   }
 }

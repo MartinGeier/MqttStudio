@@ -36,7 +36,7 @@ dependencies:
   jwt_decoder: ^2.0.1
   reactive_forms: ^10.2.0
   sembast: ^3.1.0+2
-  mqtt5_client: ^3.1.0
+  mqtt_client: ^9.6.1
   auto_size_text_pk: ^3.0.0
   
   # The following adds the Cupertino Icons font to your application.

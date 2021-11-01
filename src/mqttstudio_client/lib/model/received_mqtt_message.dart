@@ -1,4 +1,4 @@
-import 'package:mqtt5_client/mqtt5_client.dart';
+import 'package:mqtt_client/mqtt_client.dart';
 
 class ReceivedMqttMessage {
   String topicName;
