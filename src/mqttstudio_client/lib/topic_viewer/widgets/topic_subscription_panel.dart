@@ -54,6 +54,7 @@ class TopicSubscriptionPanel extends StatelessWidget {
               ),
               SizedBox(width: 12),
               FloatingActionButton(
+                tooltip: "Subscribe to topic",
                 child: Icon(Icons.add),
                 onPressed: viewmodel.isProjectOpen ? () => _addTopicPressed(viewmodel, context) : null,
                 backgroundColor: viewmodel.isProjectOpen ? Theme.of(context).colorScheme.secondary : Colors.grey,

@@ -13,22 +13,20 @@ class SequentialMessagesViewer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider.value(
-        value: GetIt.I.get<ProjectGlobalViewmodel>().messageBufferViewmodel,
-        child: Consumer<MessageBufferViewmodel>(builder: (context, msgBufferViewmodel, child) {
-          return Consumer<TopicViewerViewmodel>(builder: (context, viewmodel, child) {
-            var messages = msgBufferViewmodel.getMessages();
-            return Expanded(
-                child: Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: ListView.builder(
-                  itemCount: messages.length,
-                  itemBuilder: (context, index) {
-                    return MessagesViewerRow(messages[index], msgBufferViewmodel, viewmodel);
-                  }),
-            ));
-          });
-        }));
+    return Consumer<MessageBufferViewmodel>(builder: (context, msgBufferViewmodel, child) {
+      return Consumer<TopicViewerViewmodel>(builder: (context, viewmodel, child) {
+        var messages = msgBufferViewmodel.getMessages();
+        return Expanded(
+            child: Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: ListView.builder(
+              itemCount: messages.length,
+              itemBuilder: (context, index) {
+                return MessagesViewerRow(messages[index], msgBufferViewmodel, viewmodel);
+              }),
+        ));
+      });
+    });
   }
 }
 

@@ -4,6 +4,7 @@ import 'dart:async';
 
 class MessageBufferViewmodel extends SrxChangeNotifier {
   final _refreshPeriod = 200;
+  bool paused = false;
 
   List<ReceivedMqttMessage> _buffer = [];
   MessageGroupTimePeriod? _currentPeriod;
@@ -15,6 +16,10 @@ class MessageBufferViewmodel extends SrxChangeNotifier {
   }
 
   void storeMessage(ReceivedMqttMessage msg) {
+    if (paused) {
+      return;
+    }
+
     _buffer.insert(0, msg);
     _addToLastMessageGroup(msg);
 
@@ -26,6 +31,16 @@ class MessageBufferViewmodel extends SrxChangeNotifier {
   }
 
   int get length => _buffer.length;
+
+  void pause() {
+    paused = true;
+    notifyListeners();
+  }
+
+  void play() {
+    paused = false;
+    notifyListeners();
+  }
 
   void _clearBuffer(Timer timer) {
     if (_buffer.isNotEmpty) {

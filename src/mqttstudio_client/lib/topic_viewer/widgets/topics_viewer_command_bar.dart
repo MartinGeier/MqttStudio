@@ -13,47 +13,52 @@ class TopicsViewCommandBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     var projectViewmodel = context.read<ProjectGlobalViewmodel>();
-    return Consumer<TopicViewerViewmodel>(
-      builder: (context, viewmodel, child) {
-        return Container(
-          child: Column(
-            children: [
-              Divider(height: 4),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      _buildPlayPauseButtons(projectViewmodel),
-                      SizedBox(height: 40, child: VerticalDivider()),
-                      _buildViewModeSelectionButtons(viewmodel, projectViewmodel),
-                      SizedBox(height: 40, child: VerticalDivider()),
-                      _buildGroupingPeriodDropDown(viewmodel, projectViewmodel),
-                    ],
-                  ),
-                  _buildPublishButton(projectViewmodel, context),
-                ],
-              ),
-              Divider(height: 4),
-            ],
-          ),
-        );
-      },
-    );
+    return Consumer<MessageBufferViewmodel>(builder: (context, msgBufferViewmodel, child) {
+      return Consumer<TopicViewerViewmodel>(
+        builder: (context, viewmodel, child) {
+          return Container(
+            child: Column(
+              children: [
+                Divider(height: 4),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        _buildPlayPauseButtons(projectViewmodel, msgBufferViewmodel),
+                        SizedBox(height: 40, child: VerticalDivider()),
+                        _buildViewModeSelectionButtons(viewmodel, projectViewmodel),
+                        SizedBox(height: 40, child: VerticalDivider()),
+                        _buildGroupingPeriodDropDown(viewmodel, projectViewmodel),
+                      ],
+                    ),
+                    _buildPublishButton(projectViewmodel, context),
+                  ],
+                ),
+                Divider(height: 4),
+              ],
+            ),
+          );
+        },
+      );
+    });
   }
 
   Padding _buildPublishButton(ProjectGlobalViewmodel projectViewmodel, BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(right: 16),
-      child: TextButton(
-          onPressed: projectViewmodel.isProjectOpen ? () => _publishTopicPressed(projectViewmodel, context) : null,
-          child: Row(
-            children: [
-              Icon(Icons.send),
-              SizedBox(width: 6),
-              Text('PUBLISH'),
-            ],
-          )),
+      child: Tooltip(
+        message: "Publish a message",
+        child: TextButton(
+            onPressed: projectViewmodel.isProjectOpen ? () => _publishTopicPressed(projectViewmodel, context) : null,
+            child: Row(
+              children: [
+                Icon(Icons.send),
+                SizedBox(width: 6),
+                Text('PUBLISH'),
+              ],
+            )),
+      ),
     );
   }
 
@@ -62,16 +67,19 @@ class TopicsViewCommandBar extends StatelessWidget {
       visible: viewmodel.topicViewMode == TopicViewMode.Grouped,
       child: ButtonBar(
         children: [
-          DropdownButton<MessageGroupTimePeriod>(
-              isDense: true,
-              onChanged: projectViewmodel.isProjectOpen ? (value) => viewmodel.groupTimePeriod = value! : null,
-              value: viewmodel.groupTimePeriod,
-              items: [
-                DropdownMenuItem(value: MessageGroupTimePeriod.second, child: Text('1s')),
-                DropdownMenuItem(value: MessageGroupTimePeriod.tenSeconds, child: Text('10s')),
-                DropdownMenuItem(value: MessageGroupTimePeriod.minute, child: Text('1m')),
-                DropdownMenuItem(value: MessageGroupTimePeriod.hour, child: Text('1h'))
-              ])
+          Tooltip(
+            message: "Choose grouping time period",
+            child: DropdownButton<MessageGroupTimePeriod>(
+                isDense: true,
+                onChanged: projectViewmodel.isProjectOpen ? (value) => viewmodel.groupTimePeriod = value! : null,
+                value: viewmodel.groupTimePeriod,
+                items: [
+                  DropdownMenuItem(value: MessageGroupTimePeriod.second, child: Text('1s')),
+                  DropdownMenuItem(value: MessageGroupTimePeriod.tenSeconds, child: Text('10s')),
+                  DropdownMenuItem(value: MessageGroupTimePeriod.minute, child: Text('1m')),
+                  DropdownMenuItem(value: MessageGroupTimePeriod.hour, child: Text('1h'))
+                ]),
+          )
         ],
       ),
     );
@@ -99,16 +107,16 @@ class TopicsViewCommandBar extends StatelessWidget {
         ]);
   }
 
-  ButtonBar _buildPlayPauseButtons(ProjectGlobalViewmodel projectViewmodel) {
+  ButtonBar _buildPlayPauseButtons(ProjectGlobalViewmodel projectViewmodel, MessageBufferViewmodel messageBufferViewmodel) {
     return ButtonBar(
       children: [
         IconButton(
-            onPressed: projectViewmodel.isProjectOpen && projectViewmodel.paused ? () => projectViewmodel.playAllTopics() : null,
+            onPressed: projectViewmodel.isProjectOpen && messageBufferViewmodel.paused ? () => messageBufferViewmodel.play() : null,
             icon: Icon(Icons.play_arrow),
             color: Colors.green,
             tooltip: 'topicsviewer_commandbar.play.tooltip'.tr()),
         IconButton(
-            onPressed: projectViewmodel.isProjectOpen && !projectViewmodel.paused ? () => projectViewmodel.pauseAllTopics() : null,
+            onPressed: projectViewmodel.isProjectOpen && !messageBufferViewmodel.paused ? () => messageBufferViewmodel.pause() : null,
             icon: Icon(Icons.pause),
             color: Colors.blue,
             tooltip: 'topicsviewer_commandbar.pause.tooltip'.tr()),

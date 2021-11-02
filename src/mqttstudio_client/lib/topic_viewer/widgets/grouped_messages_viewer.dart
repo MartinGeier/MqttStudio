@@ -12,25 +12,23 @@ class GroupedMessagesViewer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider.value(
-        value: GetIt.I.get<ProjectGlobalViewmodel>().messageBufferViewmodel,
-        child: Consumer<MessageBufferViewmodel>(builder: (context, msgBufferViewmodel, child) {
-          return Consumer<TopicViewerViewmodel>(builder: (context, viewmodel, child) {
-            var groupedMessages = msgBufferViewmodel.getGroupMessages(viewmodel.groupTimePeriod);
-            return Expanded(
-                child: Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Scrollbar(
-                  isAlwaysShown: true,
-                  showTrackOnHover: true,
-                  child: ListView.builder(
-                      itemCount: groupedMessages.length,
-                      itemBuilder: (context, index) {
-                        return GroupedMessagesViewerRow(groupedMessages[index], msgBufferViewmodel, viewmodel);
-                      })),
-            ));
-          });
-        }));
+    return Consumer<MessageBufferViewmodel>(builder: (context, msgBufferViewmodel, child) {
+      return Consumer<TopicViewerViewmodel>(builder: (context, viewmodel, child) {
+        var groupedMessages = msgBufferViewmodel.getGroupMessages(viewmodel.groupTimePeriod);
+        return Expanded(
+            child: Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Scrollbar(
+              isAlwaysShown: true,
+              showTrackOnHover: true,
+              child: ListView.builder(
+                  itemCount: groupedMessages.length,
+                  itemBuilder: (context, index) {
+                    return GroupedMessagesViewerRow(groupedMessages[index], msgBufferViewmodel, viewmodel);
+                  })),
+        ));
+      });
+    });
   }
 }
 
