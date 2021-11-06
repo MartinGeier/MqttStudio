@@ -1,5 +1,10 @@
+import 'dart:convert';
+import 'dart:typed_data';
+import 'package:mqtt_client/mqtt_client.dart';
+import 'package:typed_data/typed_buffers.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_json_viewer/flutter_json_viewer.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/common/widgets/topic_chip.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
@@ -25,6 +30,7 @@ class MessageDetailView extends StatelessWidget {
       return Container(
           width: 500,
           padding: EdgeInsets.all(6),
+          decoration: BoxDecoration(border: Border(left: BorderSide(color: Theme.of(context).dividerColor))),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
               IconButton(onPressed: () {}, icon: Icon(Icons.pause)),
@@ -32,11 +38,11 @@ class MessageDetailView extends StatelessWidget {
             ]),
             SizedBox(height: 12),
             _buildTopicChip(topic, context),
-            SizedBox(height: 32),
+            SizedBox(height: 16),
             _buildInfoRow(context, topic),
-            SizedBox(height: 32),
+            SizedBox(height: 16),
             _buildReceivedOn(context, topic, nf),
-            SizedBox(height: 32),
+            SizedBox(height: 16),
             _buildPayload(context, topic),
           ]));
     });
@@ -105,6 +111,24 @@ class MessageDetailView extends StatelessWidget {
   }
 
   Widget _buildPayload(BuildContext context, ReceivedMqttMessage topic) {
+    var payLoadType = detectPayloadType(topic.payload);
+    String payloadString = MqttPublishPayload.bytesToStringAsString(topic.payload);
+
+    Widget viewer;
+    switch (payLoadType) {
+      case PayloadType.Json:
+        viewer = _buildJsonViewer(payloadString, context);
+        break;
+
+      case PayloadType.Image:
+        viewer = _buildImageViewer(topic.payload, context);
+        break;
+
+      default:
+        viewer = _buildTextViewer(payloadString, context);
+        break;
+    }
+
     return Expanded(
       child: Padding(
         padding: const EdgeInsets.only(left: 12, right: 12),
@@ -113,16 +137,68 @@ class MessageDetailView extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('Payload', style: Theme.of(context).textTheme.subtitle1),
-              IconButton(
-                  tooltip: 'Copy payload', onPressed: () => Clipboard.setData(ClipboardData(text: topic.payload)), icon: Icon(Icons.copy)),
+              Visibility(
+                visible: payLoadType != PayloadType.Image,
+                maintainSize: true,
+                maintainAnimation: true,
+                maintainState: true,
+                child: IconButton(
+                    tooltip: 'Copy payload',
+                    onPressed: () => Clipboard.setData(ClipboardData(text: MqttPublishPayload.bytesToStringAsString(topic.payload))),
+                    icon: Icon(Icons.copy)),
+              ),
             ],
           ),
-          Expanded(
-              child: SingleChildScrollView(
-                  controller: _scrollController,
-                  child: SelectableText(topic.payload, style: Theme.of(context).textTheme.bodyText1!.copyWith(height: 1.7))))
+          viewer
         ]),
       ),
     );
   }
+
+  Widget _buildTextViewer(String payload, BuildContext context) {
+    return Expanded(
+        child: SingleChildScrollView(
+            controller: _scrollController,
+            child: SelectableText(payload,
+                style: payload.length < 25
+                    ? Theme.of(context).textTheme.headline4
+                    : Theme.of(context).textTheme.bodyText1!.copyWith(height: 1.7))));
+  }
+
+  Widget _buildJsonViewer(String payload, BuildContext context) {
+    return Expanded(child: SingleChildScrollView(controller: _scrollController, child: JsonViewer(jsonDecode(payload))));
+  }
+
+  Widget _buildImageViewer(Uint8Buffer payload, BuildContext context) {
+    return Expanded(child: SingleChildScrollView(controller: _scrollController, child: Image.memory(Uint8List.view(payload.buffer))));
+  }
+
+  PayloadType detectPayloadType(Uint8Buffer payload) {
+    String payloadString = MqttPublishPayload.bytesToStringAsString(payload);
+
+    if (double.tryParse(payloadString) != null) {
+      return PayloadType.Number;
+    }
+
+    try {
+      jsonDecode(payloadString);
+      return PayloadType.Json;
+    } catch (error) {
+      // ignore errors
+    }
+
+    // PNG
+    if (payload[0] == 137 && payload[1] == 80 && payload[2] == 78 && payload[3] == 71) {
+      return PayloadType.Image;
+    }
+
+    // JPG
+    if (payload[0] == 255 && payload[1] == 216 && payload[2] == 255) {
+      return PayloadType.Image;
+    }
+
+    return PayloadType.Text;
+  }
 }
+
+enum PayloadType { Text, Number, Json, Image }

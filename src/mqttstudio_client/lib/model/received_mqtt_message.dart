@@ -1,9 +1,10 @@
 import 'package:mqtt_client/mqtt_client.dart';
+import 'package:typed_data/typed_buffers.dart';
 
 class ReceivedMqttMessage {
   int? id;
   String topicName;
-  String payload;
+  Uint8Buffer payload;
   MqttQos qos;
   late DateTime receivedOn;
   bool retain;

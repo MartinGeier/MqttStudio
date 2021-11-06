@@ -106,7 +106,7 @@ class ProjectGlobalViewmodel extends SrxChangeNotifier {
     messageBufferViewmodel.clear();
   }
 
-  void publishTopic(String topic, String payload, MqttPayloadType payloadType, bool retain) {
+  void publishTopic(String topic, dynamic payload, MqttPayloadType payloadType, bool retain) {
     _mqttGlobalViewmodel.publishTopic(topic, payload, payloadType, retain);
     _addRecentTopic(topic);
   }

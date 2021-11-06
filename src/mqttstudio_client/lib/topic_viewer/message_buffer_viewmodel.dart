@@ -11,9 +11,9 @@ class MessageBufferViewmodel extends SrxChangeNotifier {
   List<MessageGroup> _groupedMessages = [];
   DateTime _lastRefresh = DateTime.now();
 
-  MessageBufferViewmodel() {
-    Timer.periodic(Duration(milliseconds: _refreshPeriod), _clearBuffer);
-  }
+  // MessageBufferViewmodel() {
+  //   Timer.periodic(Duration(milliseconds: _refreshPeriod), _notifyListeners);
+  // }
 
   void storeMessage(ReceivedMqttMessage msg) {
     if (paused) {
@@ -40,12 +40,6 @@ class MessageBufferViewmodel extends SrxChangeNotifier {
   void play() {
     paused = false;
     notifyListeners();
-  }
-
-  void _clearBuffer(Timer timer) {
-    if (_buffer.isNotEmpty) {
-      notifyListeners();
-    }
   }
 
   List<ReceivedMqttMessage> getMessages() {

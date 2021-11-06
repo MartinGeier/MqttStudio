@@ -71,7 +71,7 @@ class MqttGlobalViewmodel extends SrxChangeNotifier {
     notifyListeners();
   }
 
-  void publishTopic(String topic, String payload, MqttPayloadType payloadType, bool retain) {
+  void publishTopic(String topic, dynamic payload, MqttPayloadType payloadType, bool retain) {
     _controller.publish(topic, payload, payloadType, retain);
   }
 

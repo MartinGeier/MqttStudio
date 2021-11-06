@@ -100,7 +100,7 @@ class MqttController {
   void _onDataReceived(List<MqttReceivedMessage<MqttMessage>> data) {
     if (onMessageReceived != null) {
       var pubMsg = data.first.payload as MqttPublishMessage;
-      var payload = MqttPublishPayload.bytesToStringAsString(pubMsg.payload.message);
+      var payload = pubMsg.payload.message;
       ReceivedMqttMessage msg = ReceivedMqttMessage.received(pubMsg.variableHeader!.messageIdentifier, pubMsg.variableHeader!.topicName,
           payload, pubMsg.header!.qos, pubMsg.header?.retain ?? false);
       onMessageReceived!(msg);
