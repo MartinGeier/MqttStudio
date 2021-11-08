@@ -2,6 +2,7 @@ import 'package:auto_size_text_pk/auto_size_text_pk.dart';
 import 'package:flutter/material.dart';
 import 'package:mqttstudio/model/topic_color.dart';
 import 'package:mqttstudio/custom_theme.dart';
+import 'package:mqttstudio/common/ColorExt.dart';
 
 class TopicChip extends StatelessWidget {
   final TopicColor topicColor;
@@ -9,6 +10,7 @@ class TopicChip extends StatelessWidget {
   final bool paused;
   final bool dense;
   final bool unlimitedWidth;
+  final bool selected;
   final void Function(String)? onDeletePressed;
   final void Function()? onPressed;
 
@@ -18,6 +20,7 @@ class TopicChip extends StatelessWidget {
       required this.topicColor,
       required this.onPressed,
       this.onDeletePressed,
+      this.selected = false,
       this.paused = false,
       this.dense = true,
       this.unlimitedWidth = false})
@@ -25,7 +28,11 @@ class TopicChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    var bgColor = paused ? Theme.of(context).custom.watermark : topicColor.color;
+    var bgColor = paused
+        ? Theme.of(context).custom.watermark
+        : selected
+            ? topicColor.color.lighten(0.3)
+            : topicColor.color;
     var textColor = bgColor.computeLuminance() > 0.5 ? Colors.black : Colors.white;
     var labelWidget = AutoSizeText(topic, minFontSize: 10, style: Theme.of(context).textTheme.subtitle2!.copyWith(color: textColor));
     return ConstrainedBox(
@@ -37,8 +44,8 @@ class TopicChip extends StatelessWidget {
                   : 800),
       child: InputChip(
         showCheckmark: false,
-        selected: paused,
-        selectedColor: Theme.of(context).custom.watermark,
+        selected: paused || selected,
+        selectedColor: selected ? topicColor.color.lighten(0.3) : Theme.of(context).custom.watermark,
         onPressed: onPressed,
         label: unlimitedWidth
             ? Padding(

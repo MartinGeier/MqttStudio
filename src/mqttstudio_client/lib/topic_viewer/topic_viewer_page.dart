@@ -10,6 +10,7 @@ import 'package:mqttstudio/topic_viewer/widgets/sequential_messages_viewer.dart'
 import 'package:mqttstudio/topic_viewer/widgets/topic_subscription_panel.dart';
 import 'package:mqttstudio/topic_viewer/widgets/topics_viewer_command_bar.dart';
 import 'package:provider/provider.dart';
+import 'package:easy_localization/easy_localization.dart';
 
 class TopicViewerPage extends StatelessWidget {
   const TopicViewerPage();
@@ -31,7 +32,7 @@ class TopicViewerPage extends StatelessWidget {
                         children: [
                           ConstrainedBox(
                               constraints: BoxConstraints(maxWidth: 250),
-                              child: Text(projectController.currentProject?.name ?? '<No project>')),
+                              child: Text(projectController.currentProject?.name ?? 'topicviewerpage.noproject.label'.tr())),
                           SizedBox(
                             width: 48,
                           ),
@@ -44,19 +45,19 @@ class TopicViewerPage extends StatelessWidget {
                                 tabs: [
                                   Padding(
                                     padding: const EdgeInsets.symmetric(horizontal: 36),
-                                    child: Text('TOPICS'),
+                                    child: Text('topicviewerpage.menuitem.topicviewer'.tr()),
                                   ),
                                   Padding(
                                     padding: const EdgeInsets.symmetric(horizontal: 48),
-                                    child: Text('SIMULATOR'),
+                                    child: Text('topicviewerpage.menuitem.simulator'.tr()),
                                   ),
                                   Padding(
                                     padding: const EdgeInsets.symmetric(horizontal: 48),
-                                    child: Text('RECORDER'),
+                                    child: Text('topicviewerpage.menuitem.recorder'.tr()),
                                   ),
                                   Padding(
                                     padding: const EdgeInsets.symmetric(horizontal: 48),
-                                    child: Text('DOCUMENTATION'),
+                                    child: Text('topicviewerpage.menuitem.documentation'.tr()),
                                   ),
                                 ]),
                           )

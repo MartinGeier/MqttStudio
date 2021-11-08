@@ -43,6 +43,7 @@ class MessagesViewerRow extends StatelessWidget {
     var topic = TopicChip(
         topic: message.topicName,
         topicColor: GetIt.I.get<ProjectGlobalViewmodel>().getTopicColor(message.topicName),
+        selected: viewmodel.selectedMessage == message,
         onPressed: () => viewmodel.selectedMessage = message,
         dense: false);
     return Padding(

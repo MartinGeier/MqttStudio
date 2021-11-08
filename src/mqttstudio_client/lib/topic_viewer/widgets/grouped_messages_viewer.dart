@@ -46,6 +46,7 @@ class GroupedMessagesViewerRow extends StatelessWidget {
       return TopicChip(
           topic: topicName,
           topicColor: GetIt.I.get<ProjectGlobalViewmodel>().getTopicColor(topicName),
+          selected: viewmodel.selectedMessage == messageGroup.messages[index],
           onPressed: () => viewmodel.selectedMessage = messageGroup.messages[index]);
     });
     return Padding(

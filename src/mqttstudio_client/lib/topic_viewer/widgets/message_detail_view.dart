@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:mqtt_client/mqtt_client.dart';
 import 'package:typed_data/typed_buffers.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -33,7 +34,7 @@ class MessageDetailView extends StatelessWidget {
           decoration: BoxDecoration(border: Border(left: BorderSide(color: Theme.of(context).dividerColor))),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              IconButton(onPressed: () {}, icon: Icon(Icons.pause)),
+              _buildAutoSelectButton(viewmodel),
               IconButton(onPressed: () => viewmodel.selectedMessage = null, icon: Icon(Icons.close))
             ]),
             SizedBox(height: 12),
@@ -46,6 +47,25 @@ class MessageDetailView extends StatelessWidget {
             _buildPayload(context, topic),
           ]));
     });
+  }
+
+  Widget _buildAutoSelectButton(TopicViewerViewmodel viewmodel) {
+    return ToggleButtons(
+        renderBorder: false,
+        isSelected: [viewmodel.autoSelect],
+        onPressed: (_) {
+          viewmodel.autoSelect = !viewmodel.autoSelect;
+        },
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(children: [
+              viewmodel.autoSelect ? Icon(Icons.pause, color: Colors.blue) : Icon(Icons.play_arrow, color: Colors.green),
+              SizedBox(width: 12),
+              Text('messagedetailview.autoselectbutton.label'.tr())
+            ]),
+          )
+        ]);
   }
 
   Widget _buildTopicChip(ReceivedMqttMessage topic, BuildContext context) {
@@ -62,7 +82,7 @@ class MessageDetailView extends StatelessWidget {
           right: 4,
           child: IconButton(
               color: Theme.of(context).getTextColor(color.color),
-              tooltip: 'Copy topic name',
+              tooltip: 'messagedetailview.copytopic.tooltip'.tr(),
               onPressed: () => Clipboard.setData(ClipboardData(text: topic.topicName)),
               icon: Icon(Icons.copy)),
         ),
@@ -75,7 +95,7 @@ class MessageDetailView extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(mainAxisAlignment: MainAxisAlignment.start, children: [
         Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Received on', style: Theme.of(context).textTheme.subtitle1),
+          Text('messagedetailview.receivedon.label'.tr(), style: Theme.of(context).textTheme.subtitle1),
           SelectableText(DateFormat('HH:mm:ss').format(topic.receivedOn) + nf.format(topic.receivedOn.millisecond / 1000),
               style: Theme.of(context).textTheme.headline4)
         ]),
@@ -90,19 +110,19 @@ class MessageDetailView extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Qos', style: Theme.of(context).textTheme.subtitle1),
+            Text('messagedetailview.qos.label'.tr(), style: Theme.of(context).textTheme.subtitle1),
             SelectableText(topic.qos.index.toString(), style: Theme.of(context).textTheme.headline4)
           ]),
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Retain', style: Theme.of(context).textTheme.subtitle1),
+            Text('messagedetailview.retain.label'.tr(), style: Theme.of(context).textTheme.subtitle1),
             SelectableText(topic.retain.toString(), style: Theme.of(context).textTheme.headline4)
           ]),
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Payload size', style: Theme.of(context).textTheme.subtitle1),
+            Text('messagedetailview.payloadsize.label'.tr(), style: Theme.of(context).textTheme.subtitle1),
             SelectableText('${topic.payload.length.toString()} B', style: Theme.of(context).textTheme.headline4)
           ]),
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Id', style: Theme.of(context).textTheme.subtitle1),
+            Text('messagedetailview.id.label'.tr(), style: Theme.of(context).textTheme.subtitle1),
             SelectableText(topic.id.toString(), style: Theme.of(context).textTheme.headline4)
           ])
         ],
@@ -136,14 +156,24 @@ class MessageDetailView extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Payload', style: Theme.of(context).textTheme.subtitle1),
+              Row(
+                children: [
+                  Text('messagedetailview.payload.label'.tr(), style: Theme.of(context).textTheme.subtitle1),
+                  SizedBox(width: 32),
+                  Chip(
+                    label: Text(describeEnum(payLoadType)),
+                    // onPressed: () {},
+                    // topicColor: TopicColor(Theme.of(context).colorScheme.primary),
+                  ),
+                ],
+              ),
               Visibility(
                 visible: payLoadType != PayloadType.Image,
                 maintainSize: true,
                 maintainAnimation: true,
                 maintainState: true,
                 child: IconButton(
-                    tooltip: 'Copy payload',
+                    tooltip: 'messagedetailview.copypayload.label'.tr(),
                     onPressed: () => Clipboard.setData(ClipboardData(text: MqttPublishPayload.bytesToStringAsString(topic.payload))),
                     icon: Icon(Icons.copy)),
               ),
@@ -181,8 +211,10 @@ class MessageDetailView extends StatelessWidget {
     }
 
     try {
-      jsonDecode(payloadString);
-      return PayloadType.Json;
+      if (payloadString.trim().startsWith('{')) {
+        jsonDecode(payloadString);
+        return PayloadType.Json;
+      }
     } catch (error) {
       // ignore errors
     }

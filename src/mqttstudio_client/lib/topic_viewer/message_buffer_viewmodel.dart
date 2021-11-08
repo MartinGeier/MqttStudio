@@ -1,6 +1,5 @@
 import 'package:mqttstudio/model/received_mqtt_message.dart';
 import 'package:srx_flutter/srx_flutter.dart';
-import 'dart:async';
 
 class MessageBufferViewmodel extends SrxChangeNotifier {
   final _refreshPeriod = 200;
@@ -44,6 +43,10 @@ class MessageBufferViewmodel extends SrxChangeNotifier {
 
   List<ReceivedMqttMessage> getMessages() {
     return _buffer.take(500).toList();
+  }
+
+  ReceivedMqttMessage getLastMessage() {
+    return _buffer.first;
   }
 
   List<MessageGroup> getGroupMessages(MessageGroupTimePeriod period) {

@@ -48,14 +48,14 @@ class TopicsViewCommandBar extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(right: 16),
       child: Tooltip(
-        message: "Publish a message",
+        message: 'topicsviewer_commandbar.publishbutton.tooltip'.tr(),
         child: TextButton(
             onPressed: projectViewmodel.isProjectOpen ? () => _publishTopicPressed(projectViewmodel, context) : null,
             child: Row(
               children: [
                 Icon(Icons.send),
                 SizedBox(width: 6),
-                Text('PUBLISH'),
+                Text('topicsviewer_commandbar.publishbutton.label'.tr()),
               ],
             )),
       ),

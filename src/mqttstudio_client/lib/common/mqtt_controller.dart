@@ -21,8 +21,8 @@ class MqttController {
     _client.onDisconnected = _onDisconnected;
     _client.onSubscribed = _onSubscribed;
     _client.onUnsubscribed = _onUnsubscribed;
-    _client.connectionMessage = MqttConnectMessage().startClean();
-    //_client.keepAlivePeriod = 20;
+    _client.connectionMessage = MqttConnectMessage().startClean().withClientIdentifier(mqttSettings.clientId);
+    _client.keepAlivePeriod = 60;
     _client.logging(on: true);
     try {
       await _client.connect(mqttSettings.username, mqttSettings.password);

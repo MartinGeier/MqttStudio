@@ -29,7 +29,8 @@ class PublishTopicDialog extends StatelessWidget {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      OutlinedButton(onPressed: () => _publishFile(context), child: Text('PUBLISH FILE')),
+                      OutlinedButton(
+                          onPressed: () => _publishFile(context), child: Text('publishtopicdialog.publishfilebutton.label'.tr())),
                       Spacer(),
                       OutlinedButton(
                           onPressed: () {
@@ -137,7 +138,7 @@ class PublishTopicDialog extends StatelessWidget {
         GetIt.I.get<SrxNavigationService>().pop();
       }
     } on Exception {
-      showDialog(context: context, builder: (_) => SrxDialogs.srxErrorDialog('Maximum file size is 500k!', context));
+      showDialog(context: context, builder: (_) => SrxDialogs.srxErrorDialog('publishtopicdialog.maxfilesize.error'.tr(), context));
     }
   }
 }
