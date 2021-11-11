@@ -27,17 +27,27 @@ Project _$ProjectFromJson(Map<String, dynamic> json) {
         .toList();
 }
 
-Map<String, dynamic> _$ProjectToJson(Project instance) => <String, dynamic>{
-      'id': instance.id,
-      'createdOn': instance.createdOn?.toIso8601String(),
-      'lastModifiedOn': instance.lastModifiedOn?.toIso8601String(),
-      'createdBy': instance.createdBy,
-      'lastModifiedBy': instance.lastModifiedBy,
-      'name': instance.name,
-      'mqttSettings': instance.mqttSettings.toJson(),
-      'topicSubscriptions':
-          instance.topicSubscriptions.map((e) => e.toJson()).toList(),
-      'topicColors':
-          instance.topicColors.map((k, e) => MapEntry(k, e.toJson())),
-      'recentTopics': instance.recentTopics,
-    };
+Map<String, dynamic> _$ProjectToJson(Project instance) {
+  final val = <String, dynamic>{
+    'id': SrxBaseModel.setIdIfNull(instance.id),
+  };
+
+  void writeNotNull(String key, dynamic value) {
+    if (value != null) {
+      val[key] = value;
+    }
+  }
+
+  writeNotNull('createdOn', instance.createdOn?.toIso8601String());
+  writeNotNull('lastModifiedOn', instance.lastModifiedOn?.toIso8601String());
+  writeNotNull('createdBy', instance.createdBy);
+  writeNotNull('lastModifiedBy', instance.lastModifiedBy);
+  val['name'] = instance.name;
+  val['mqttSettings'] = instance.mqttSettings.toJson();
+  val['topicSubscriptions'] =
+      instance.topicSubscriptions.map((e) => e.toJson()).toList();
+  val['topicColors'] =
+      instance.topicColors.map((k, e) => MapEntry(k, e.toJson()));
+  val['recentTopics'] = instance.recentTopics;
+  return val;
+}

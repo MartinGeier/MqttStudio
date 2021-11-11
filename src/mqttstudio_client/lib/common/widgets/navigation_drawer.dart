@@ -6,6 +6,8 @@ import 'package:mqttstudio/project/project_global_viewmodel.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 import 'package:provider/provider.dart';
 
+import '../localstore.dart';
+
 class NavigationDrawer extends SrxNavigationDrawerWidget {
   NavigationDrawer()
       : super(
@@ -19,13 +21,21 @@ class NavigationDrawer extends SrxNavigationDrawerWidget {
 
   @override
   List<Widget> buildItems(BuildContext context) {
+    var projectGlobalViewmodel = GetIt.I.get<ProjectGlobalViewmodel>();
     return [
       Divider(),
       ListTile(onTap: () => _onProjectSettingsTap(context), leading: Icon(Icons.settings), title: Text('Project Settings')),
       Divider(),
-      ListTile(onTap: () => _onOpenProjectTap(context), leading: Icon(Icons.folder_open), title: Text('Open Project')),
-      ListTile(onTap: () => _onsaveProjectTap(context), leading: Icon(Icons.save), title: Text('Save Project')),
-      ListTile(onTap: () => _onCloseProjectTap(context), leading: Icon(Icons.close), title: Text('Close Project')),
+      ListTile(
+          onTap: () => _onOpenProjectTap(projectGlobalViewmodel, context), leading: Icon(Icons.folder_open), title: Text('Open Project')),
+      ListTile(
+          onTap: projectGlobalViewmodel.isProjectOpen ? () => _onsaveProjectTap(projectGlobalViewmodel, context) : null,
+          leading: Icon(Icons.save),
+          title: Text('Save Project')),
+      ListTile(
+          onTap: projectGlobalViewmodel.isProjectOpen ? () => _onCloseProjectTap(projectGlobalViewmodel, context) : null,
+          leading: Icon(Icons.close),
+          title: Text('Close Project')),
     ];
   }
 
@@ -40,9 +50,19 @@ class NavigationDrawer extends SrxNavigationDrawerWidget {
     projectGlobalViewmodel.openProject(project);
   }
 
-  _onOpenProjectTap(BuildContext context) {}
+  _onOpenProjectTap(ProjectGlobalViewmodel projectGlobalViewmodel, BuildContext context) async {
+    var projects = await LocalStore().getProjects();
+    projectGlobalViewmodel.openProject(projects.first); // TODO
+    GetIt.I.get<SrxNavigationService>().pop();
+  }
 
-  _onCloseProjectTap(BuildContext context) {}
+  _onCloseProjectTap(ProjectGlobalViewmodel projectGlobalViewmodel, BuildContext context) {
+    projectGlobalViewmodel.closeProject();
+    GetIt.I.get<SrxNavigationService>().pop();
+  }
 
-  _onsaveProjectTap(BuildContext context) {}
+  _onsaveProjectTap(ProjectGlobalViewmodel projectGlobalViewmodel, BuildContext context) {
+    LocalStore().saveProject(projectGlobalViewmodel.currentProject!);
+    GetIt.I.get<SrxNavigationService>().pop();
+  }
 }

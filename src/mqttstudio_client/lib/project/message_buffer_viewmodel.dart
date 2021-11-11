@@ -45,8 +45,8 @@ class MessageBufferViewmodel extends SrxChangeNotifier {
     return _buffer.take(500).toList();
   }
 
-  ReceivedMqttMessage getLastMessage() {
-    return _buffer.first;
+  ReceivedMqttMessage? getLastMessage() {
+    return _buffer.isEmpty ? null : _buffer.first;
   }
 
   List<MessageGroup> getGroupMessages(MessageGroupTimePeriod period) {

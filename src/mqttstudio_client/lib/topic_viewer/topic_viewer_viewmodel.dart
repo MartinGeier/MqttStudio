@@ -1,7 +1,9 @@
+import 'dart:async';
+
 import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
 import 'package:mqttstudio/project/project_global_viewmodel.dart';
-import 'package:mqttstudio/topic_viewer/message_buffer_viewmodel.dart';
+import 'package:mqttstudio/project/message_buffer_viewmodel.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 
 class TopicViewerViewmodel extends SrxChangeNotifier {
@@ -9,6 +11,7 @@ class TopicViewerViewmodel extends SrxChangeNotifier {
   MessageGroupTimePeriod _groupTimePeriod = MessageGroupTimePeriod.tenSeconds;
   ReceivedMqttMessage? _selectedMessage;
   bool _autoSelect = false;
+  StreamSubscription? _closeProjectStreamSubscription;
   late MessageBufferViewmodel msgBufferViewmodel;
 
   bool get autoSelect => _autoSelect;
@@ -21,6 +24,14 @@ class TopicViewerViewmodel extends SrxChangeNotifier {
   TopicViewerViewmodel() {
     msgBufferViewmodel = GetIt.I.get<ProjectGlobalViewmodel>().messageBufferViewmodel;
     msgBufferViewmodel.addListener(_onMessageReceived);
+    _closeProjectStreamSubscription =
+        GetIt.I.get<ProjectGlobalViewmodel>().closeProjectStreamController.stream.listen((_) => selectedMessage = null);
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+    _closeProjectStreamSubscription?.cancel();
   }
 
   ReceivedMqttMessage? get selectedMessage => _selectedMessage;
@@ -46,7 +57,7 @@ class TopicViewerViewmodel extends SrxChangeNotifier {
 
   void _onMessageReceived() {
     var lastMsg = msgBufferViewmodel.getLastMessage();
-    if (autoSelect && lastMsg.topicName == _selectedMessage?.topicName) {
+    if (autoSelect && lastMsg?.topicName == _selectedMessage?.topicName) {
       selectedMessage = lastMsg;
     }
   }

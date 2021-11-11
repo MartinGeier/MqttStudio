@@ -22,7 +22,7 @@ class TopicViewerPage extends StatelessWidget {
         child: ChangeNotifierProvider(
           create: (context) => TopicViewerViewmodel(),
           child: Consumer<TopicViewerViewmodel>(builder: (context, viewmodel, child) {
-            return Consumer<ProjectGlobalViewmodel>(builder: (context, projectController, child) {
+            return Consumer<ProjectGlobalViewmodel>(builder: (context, projectGlobalViewmodel, child) {
               return ChangeNotifierProvider.value(
                   value: GetIt.I.get<ProjectGlobalViewmodel>().messageBufferViewmodel,
                   child: Scaffold(
@@ -32,7 +32,7 @@ class TopicViewerPage extends StatelessWidget {
                         children: [
                           ConstrainedBox(
                               constraints: BoxConstraints(maxWidth: 250),
-                              child: Text(projectController.currentProject?.name ?? 'topicviewerpage.noproject.label'.tr())),
+                              child: Text(projectGlobalViewmodel.currentProject?.name ?? 'topicviewerpage.noproject.label'.tr())),
                           SizedBox(
                             width: 48,
                           ),
@@ -74,8 +74,16 @@ class TopicViewerPage extends StatelessWidget {
                           Expanded(
                             child: Row(
                               children: [
-                                viewmodel.topicViewMode == TopicViewMode.Grouped ? GroupedMessagesViewer() : SequentialMessagesViewer(),
-                                viewmodel.selectedMessage != null ? MessageDetailView() : Container(),
+                                projectGlobalViewmodel.isProjectOpen
+                                    ? viewmodel.topicViewMode == TopicViewMode.Grouped
+                                        ? GroupedMessagesViewer()
+                                        : SequentialMessagesViewer()
+                                    : Container(),
+                                projectGlobalViewmodel.isProjectOpen
+                                    ? viewmodel.selectedMessage != null
+                                        ? MessageDetailView()
+                                        : Container()
+                                    : Container(),
                               ],
                             ),
                           )
