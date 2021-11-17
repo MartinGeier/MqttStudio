@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
-import 'package:mqttstudio/common/localstore.dart';
 import 'package:mqttstudio/model/mqtt_payload_type.dart';
 import 'package:mqttstudio/model/project.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
@@ -10,7 +9,6 @@ import 'package:mqttstudio/model/topic_subscription.dart';
 import 'package:mqttstudio/service/service_error.dart';
 import 'package:mqttstudio/project/message_buffer_viewmodel.dart';
 import 'package:mqttstudio/common/mqtt_global_viewmodel.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 
 class ProjectGlobalViewmodel extends SrxChangeNotifier {
@@ -31,6 +29,8 @@ class ProjectGlobalViewmodel extends SrxChangeNotifier {
   bool get isProjectOpen => _currentProject != null;
 
   void openProject(Project? newProject) {
+    closeProject();
+
     if (_mqttGlobalViewmodel.isConnected()) {
       if (newProject == null) {
         _mqttGlobalViewmodel.disconnect();

@@ -10,7 +10,7 @@ class LocalStore {
 
   LocalStoreData data = LocalStoreData();
 
-  void saveProject(Project project) async {
+  Future saveProject(Project project) async {
     await _readLocalStore();
     data.projects!.update(project.name, (_) => project, ifAbsent: () => project);
 
@@ -19,6 +19,13 @@ class LocalStore {
 
   Future<List<Project>> getProjects() async {
     await _readLocalStore();
+    return data.projects?.values.toList() ?? List.empty();
+  }
+
+  Future<List<Project>> deleteProject(Project project) async {
+    await _readLocalStore();
+    data.projects?.remove(project.name);
+    await _saveLocalStore();
     return data.projects?.values.toList() ?? List.empty();
   }
 

@@ -77,5 +77,6 @@
     "topicviewerpage.menuitem.topicviewer": "TOPIC VIEWER",
     "topicviewerpage.menuitem.simulator": "SIMULATOR",
     "topicviewerpage.menuitem.recorder": "RECORDER",
-    "topicviewerpage.menuitem.documentation": "DOCUMENTATION"
+    "topicviewerpage.menuitem.documentation": "DOCUMENTATION",
+    "open_project.title": "Open project"
 }

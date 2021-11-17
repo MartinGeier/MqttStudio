@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
+import 'package:mqttstudio/project/open_project_dialog.dart';
 import 'package:mqttstudio/project/project_edit_dialog.dart';
 import 'package:mqttstudio/model/project.dart';
 import 'package:mqttstudio/project/project_global_viewmodel.dart';
@@ -27,6 +28,10 @@ class NavigationDrawer extends SrxNavigationDrawerWidget {
       ListTile(onTap: () => _onProjectSettingsTap(context), leading: Icon(Icons.settings), title: Text('Project Settings')),
       Divider(),
       ListTile(
+          onTap: () => _onNewProjectTap(projectGlobalViewmodel, context),
+          leading: Icon(Icons.create_new_folder_outlined),
+          title: Text('New Project')),
+      ListTile(
           onTap: () => _onOpenProjectTap(projectGlobalViewmodel, context), leading: Icon(Icons.folder_open), title: Text('Open Project')),
       ListTile(
           onTap: projectGlobalViewmodel.isProjectOpen ? () => _onsaveProjectTap(projectGlobalViewmodel, context) : null,
@@ -51,9 +56,8 @@ class NavigationDrawer extends SrxNavigationDrawerWidget {
   }
 
   _onOpenProjectTap(ProjectGlobalViewmodel projectGlobalViewmodel, BuildContext context) async {
-    var projects = await LocalStore().getProjects();
-    projectGlobalViewmodel.openProject(projects.first); // TODO
     GetIt.I.get<SrxNavigationService>().pop();
+    await showDialog(context: context, builder: (context) => OpenProjectDialog());
   }
 
   _onCloseProjectTap(ProjectGlobalViewmodel projectGlobalViewmodel, BuildContext context) {
@@ -64,5 +68,10 @@ class NavigationDrawer extends SrxNavigationDrawerWidget {
   _onsaveProjectTap(ProjectGlobalViewmodel projectGlobalViewmodel, BuildContext context) {
     LocalStore().saveProject(projectGlobalViewmodel.currentProject!);
     GetIt.I.get<SrxNavigationService>().pop();
+  }
+
+  _onNewProjectTap(ProjectGlobalViewmodel projectGlobalViewmodel, BuildContext context) {
+    projectGlobalViewmodel.closeProject();
+    _onProjectSettingsTap(context);
   }
 }
