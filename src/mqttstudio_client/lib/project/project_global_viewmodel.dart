@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/model/mqtt_payload_type.dart';
@@ -6,7 +7,7 @@ import 'package:mqttstudio/model/received_mqtt_message.dart';
 import 'package:mqttstudio/model/topic_color.dart';
 import 'package:mqttstudio/model/topic_subscription.dart';
 import 'package:mqttstudio/service/service_error.dart';
-import 'package:mqttstudio/topic_viewer/message_buffer_viewmodel.dart';
+import 'package:mqttstudio/project/message_buffer_viewmodel.dart';
 import 'package:mqttstudio/common/mqtt_global_viewmodel.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 
@@ -14,6 +15,7 @@ class ProjectGlobalViewmodel extends SrxChangeNotifier {
   Project? _currentProject;
   MessageBufferViewmodel messageBufferViewmodel = MessageBufferViewmodel();
   late MqttGlobalViewmodel _mqttGlobalViewmodel;
+  var closeProjectStreamController = StreamController.broadcast();
   bool paused = false;
 
   ProjectGlobalViewmodel() {
@@ -27,6 +29,8 @@ class ProjectGlobalViewmodel extends SrxChangeNotifier {
   bool get isProjectOpen => _currentProject != null;
 
   void openProject(Project? newProject) {
+    closeProject();
+
     if (_mqttGlobalViewmodel.isConnected()) {
       if (newProject == null) {
         _mqttGlobalViewmodel.disconnect();
@@ -42,6 +46,9 @@ class ProjectGlobalViewmodel extends SrxChangeNotifier {
   }
 
   void closeProject() {
+    _mqttGlobalViewmodel.disconnect();
+    messageBufferViewmodel.clear();
+    closeProjectStreamController.add(null);
     _currentProject = null;
     notifyListeners();
   }
@@ -106,7 +113,7 @@ class ProjectGlobalViewmodel extends SrxChangeNotifier {
     messageBufferViewmodel.clear();
   }
 
-  void publishTopic(String topic, String payload, MqttPayloadType payloadType, bool retain) {
+  void publishTopic(String topic, dynamic payload, MqttPayloadType payloadType, bool retain) {
     _mqttGlobalViewmodel.publishTopic(topic, payload, payloadType, retain);
     _addRecentTopic(topic);
   }

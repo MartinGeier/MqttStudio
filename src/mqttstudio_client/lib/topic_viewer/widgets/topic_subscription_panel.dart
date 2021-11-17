@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:mqttstudio/custom_theme.dart';
 import 'package:mqttstudio/topic_viewer/add_topic_dialog.dart';
 import 'package:mqttstudio/project/project_global_viewmodel.dart';
 import 'package:mqttstudio/common/widgets/topic_chip.dart';
@@ -27,7 +26,7 @@ class TopicSubscriptionPanel extends StatelessWidget {
                     Center(
                       child: Text(
                         'topicsubscriptionpanel.watermark'.tr(),
-                        style: Theme.of(context).textTheme.headline4!.copyWith(color: Theme.of(context).custom.watermark),
+                        style: Theme.of(context).textTheme.headline4!.copyWith(color: Theme.of(context).dividerColor),
                         textAlign: TextAlign.center,
                       ),
                     ),
@@ -54,9 +53,10 @@ class TopicSubscriptionPanel extends StatelessWidget {
               ),
               SizedBox(width: 12),
               FloatingActionButton(
+                tooltip: "topicsubscriptionpanel.subscribebutton.tooltip".tr(),
                 child: Icon(Icons.add),
                 onPressed: viewmodel.isProjectOpen ? () => _addTopicPressed(viewmodel, context) : null,
-                backgroundColor: viewmodel.isProjectOpen ? Theme.of(context).accentColor : Colors.grey,
+                backgroundColor: viewmodel.isProjectOpen ? Theme.of(context).colorScheme.secondary : Colors.grey,
               )
             ],
           ));

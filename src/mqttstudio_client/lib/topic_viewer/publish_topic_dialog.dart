@@ -8,6 +8,7 @@ import 'package:reactive_forms/reactive_forms.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'publish_topic_viewmodel.dart';
+import 'package:file_picker/file_picker.dart';
 
 class PublishTopicDialog extends StatelessWidget {
   const PublishTopicDialog({Key? key}) : super(key: key);
@@ -29,6 +30,9 @@ class PublishTopicDialog extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       OutlinedButton(
+                          onPressed: () => _publishFile(context), child: Text('publishtopicdialog.publishfilebutton.label'.tr())),
+                      Spacer(),
+                      OutlinedButton(
                           onPressed: () {
                             GetIt.I.get<SrxNavigationService>().pop(null);
                           },
@@ -48,7 +52,7 @@ class PublishTopicDialog extends StatelessWidget {
 
   _onOkPressed(BuildContext context) async {
     var vm = context.read<PublishTopicViewmodel>();
-    if (vm.publishTopic()) {
+    if (await vm.publishTopic()) {
       GetIt.I.get<SrxNavigationService>().pop();
     }
   }
@@ -115,5 +119,26 @@ class PublishTopicDialog extends StatelessWidget {
       maxLength: 20000,
       maxLines: 10,
     );
+  }
+
+  _publishFile(BuildContext context) async {
+    var vm = context.read<PublishTopicViewmodel>();
+    vm.form.markAllAsTouched();
+    if (!vm.form.valid) {
+      return false;
+    }
+
+    var filePickerResult = await FilePicker.platform.pickFiles();
+    if (filePickerResult == null || filePickerResult.count != 1) {
+      return;
+    }
+
+    try {
+      if (await vm.publishTopicFromFile(filePickerResult.files.first.path!)) {
+        GetIt.I.get<SrxNavigationService>().pop();
+      }
+    } on Exception {
+      showDialog(context: context, builder: (_) => SrxDialogs.srxErrorDialog('publishtopicdialog.maxfilesize.error'.tr(), context));
+    }
   }
 }
