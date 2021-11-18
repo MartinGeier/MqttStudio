@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mqttstudio/common/mqtt_global_viewmodel.dart';
 import 'package:mqttstudio/project/project_global_viewmodel.dart';
 import 'package:mqttstudio/project/message_buffer_viewmodel.dart';
 import 'package:mqttstudio/topic_viewer/topic_viewer_viewmodel.dart';
@@ -16,41 +17,47 @@ class TopicsViewCommandBar extends StatelessWidget {
     return Consumer<MessageBufferViewmodel>(builder: (context, msgBufferViewmodel, child) {
       return Consumer<TopicViewerViewmodel>(
         builder: (context, viewmodel, child) {
-          return Container(
-            child: Column(
-              children: [
-                Divider(height: 4),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          return Consumer<MqttGlobalViewmodel>(
+            builder: (context, mqttGlobalViewmodel, child) {
+              return Container(
+                child: Column(
                   children: [
+                    Divider(height: 4),
                     Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        _buildPlayPauseButtons(projectViewmodel, msgBufferViewmodel),
-                        SizedBox(height: 40, child: VerticalDivider()),
-                        _buildViewModeSelectionButtons(viewmodel, projectViewmodel),
-                        SizedBox(height: 40, child: VerticalDivider()),
-                        _buildGroupingPeriodDropDown(viewmodel, projectViewmodel),
+                        Row(
+                          children: [
+                            _buildPlayPauseButtons(projectViewmodel, msgBufferViewmodel),
+                            SizedBox(height: 40, child: VerticalDivider()),
+                            _buildViewModeSelectionButtons(viewmodel, projectViewmodel),
+                            SizedBox(height: 40, child: VerticalDivider()),
+                            _buildGroupingPeriodDropDown(viewmodel, projectViewmodel),
+                          ],
+                        ),
+                        _buildPublishButton(projectViewmodel, mqttGlobalViewmodel, context),
                       ],
                     ),
-                    _buildPublishButton(projectViewmodel, context),
+                    Divider(height: 4),
                   ],
                 ),
-                Divider(height: 4),
-              ],
-            ),
+              );
+            },
           );
         },
       );
     });
   }
 
-  Padding _buildPublishButton(ProjectGlobalViewmodel projectViewmodel, BuildContext context) {
+  Padding _buildPublishButton(ProjectGlobalViewmodel projectViewmodel, MqttGlobalViewmodel mqttGlobalViewmodel, BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(right: 16),
       child: Tooltip(
         message: 'topicsviewer_commandbar.publishbutton.tooltip'.tr(),
         child: TextButton(
-            onPressed: projectViewmodel.isProjectOpen ? () => _publishTopicPressed(projectViewmodel, context) : null,
+            onPressed: projectViewmodel.isProjectOpen && mqttGlobalViewmodel.isConnected()
+                ? () => _publishTopicPressed(projectViewmodel, context)
+                : null,
             child: Row(
               children: [
                 Icon(Icons.send),

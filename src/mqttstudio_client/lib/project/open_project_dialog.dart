@@ -8,7 +8,7 @@ import 'package:srx_flutter/srx_flutter.dart';
 import 'package:easy_localization/easy_localization.dart';
 
 class OpenProjectDialog extends StatelessWidget {
-  const OpenProjectDialog({Key? key}) : super(key: key);
+  final ScrollController _scrollController = ScrollController();
 
   @override
   Widget build(BuildContext context) {
@@ -26,9 +26,14 @@ class OpenProjectDialog extends StatelessWidget {
               child: Column(
                 children: [
                   Expanded(
-                      child: ListView.builder(
-                          itemCount: viewmodel.projects.length,
-                          itemBuilder: (context, index) => _buildProjectItem(context, index, viewmodel))),
+                      child: Scrollbar(
+                    controller: _scrollController,
+                    isAlwaysShown: true,
+                    child: ListView.builder(
+                        controller: _scrollController,
+                        itemCount: viewmodel.projects.length,
+                        itemBuilder: (context, index) => _buildProjectItem(context, index, viewmodel)),
+                  )),
                   Padding(
                     padding: const EdgeInsets.only(top: 24),
                     child: Row(

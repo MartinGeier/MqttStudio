@@ -15,6 +15,7 @@ class Project extends SrxBaseModel {
   List<TopicSubscription> topicSubscriptions = [];
   Map<String, TopicColor> topicColors = Map();
   List<String> recentTopics = [];
+  DateTime? lastUsed;
 
   Project(this.mqttSettings, {this.name = 'New Project'});
 

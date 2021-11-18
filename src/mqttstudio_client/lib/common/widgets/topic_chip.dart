@@ -2,7 +2,7 @@ import 'package:auto_size_text_pk/auto_size_text_pk.dart';
 import 'package:flutter/material.dart';
 import 'package:mqttstudio/model/topic_color.dart';
 import 'package:mqttstudio/custom_theme.dart';
-import 'package:mqttstudio/common/ColorExt.dart';
+import 'package:mqttstudio/common/colorExt.dart';
 
 class TopicChip extends StatelessWidget {
   final TopicColor topicColor;

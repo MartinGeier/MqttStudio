@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
+import 'package:mqttstudio/common/localstore.dart';
 import 'package:mqttstudio/model/mqtt_payload_type.dart';
 import 'package:mqttstudio/model/project.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
@@ -42,6 +43,13 @@ class ProjectGlobalViewmodel extends SrxChangeNotifier {
     }
 
     _currentProject = newProject;
+    if (newProject?.lastUsed != null) {
+      _currentProject?.lastUsed = DateTime.now();
+      LocalStore().saveProject(_currentProject!);
+    } else {
+      _currentProject?.lastUsed = DateTime.now();
+    }
+
     notifyListeners();
   }
 

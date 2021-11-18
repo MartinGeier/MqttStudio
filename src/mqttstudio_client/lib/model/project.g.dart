@@ -16,15 +16,13 @@ Project _$ProjectFromJson(Map<String, dynamic> json) {
     ..lastModifiedOn = parseDateTime(json['lastModifiedOn'] as String?)
     ..createdBy = json['createdBy'] as String?
     ..lastModifiedBy = json['lastModifiedBy'] as String?
-    ..topicSubscriptions = (json['topicSubscriptions'] as List<dynamic>)
-        .map((e) => TopicSubscription.fromJson(e as Map<String, dynamic>))
-        .toList()
+    ..topicSubscriptions =
+        (json['topicSubscriptions'] as List<dynamic>).map((e) => TopicSubscription.fromJson(e as Map<String, dynamic>)).toList()
     ..topicColors = (json['topicColors'] as Map<String, dynamic>).map(
       (k, e) => MapEntry(k, TopicColor.fromJson(e as Map<String, dynamic>)),
     )
-    ..recentTopics = (json['recentTopics'] as List<dynamic>)
-        .map((e) => e as String)
-        .toList();
+    ..recentTopics = (json['recentTopics'] as List<dynamic>).map((e) => e as String).toList()
+    ..lastUsed = json['lastSaved'] == null ? null : DateTime.parse(json['lastSaved'] as String);
 }
 
 Map<String, dynamic> _$ProjectToJson(Project instance) {
@@ -44,10 +42,9 @@ Map<String, dynamic> _$ProjectToJson(Project instance) {
   writeNotNull('lastModifiedBy', instance.lastModifiedBy);
   val['name'] = instance.name;
   val['mqttSettings'] = instance.mqttSettings.toJson();
-  val['topicSubscriptions'] =
-      instance.topicSubscriptions.map((e) => e.toJson()).toList();
-  val['topicColors'] =
-      instance.topicColors.map((k, e) => MapEntry(k, e.toJson()));
+  val['topicSubscriptions'] = instance.topicSubscriptions.map((e) => e.toJson()).toList();
+  val['topicColors'] = instance.topicColors.map((k, e) => MapEntry(k, e.toJson()));
   val['recentTopics'] = instance.recentTopics;
+  val['lastSaved'] = instance.lastUsed?.toIso8601String();
   return val;
 }

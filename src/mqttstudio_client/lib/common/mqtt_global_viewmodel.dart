@@ -62,17 +62,23 @@ class MqttGlobalViewmodel extends SrxChangeNotifier {
   }
 
   void subscribeToTopic(String topic, MqttQos qos) {
-    _controller.subscribeToTopic(topic, qos);
-    notifyListeners();
+    if (_controller.isConnected()) {
+      _controller.subscribeToTopic(topic, qos);
+      notifyListeners();
+    }
   }
 
   void unSubscribeFromTopic(String topic) {
-    _controller.unSubscribeFromTopic(topic);
-    notifyListeners();
+    if (_controller.isConnected()) {
+      _controller.unSubscribeFromTopic(topic);
+      notifyListeners();
+    }
   }
 
   void publishTopic(String topic, dynamic payload, MqttPayloadType payloadType, bool retain) {
-    _controller.publish(topic, payload, payloadType, retain);
+    if (_controller.isConnected()) {
+      _controller.publish(topic, payload, payloadType, retain);
+    }
   }
 
   _onMessageReceived(ReceivedMqttMessage msg) {

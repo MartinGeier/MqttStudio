@@ -25,8 +25,6 @@ class NavigationDrawer extends SrxNavigationDrawerWidget {
     var projectGlobalViewmodel = GetIt.I.get<ProjectGlobalViewmodel>();
     return [
       Divider(),
-      ListTile(onTap: () => _onProjectSettingsTap(context), leading: Icon(Icons.settings), title: Text('Project Settings')),
-      Divider(),
       ListTile(
           onTap: () => _onNewProjectTap(projectGlobalViewmodel, context),
           leading: Icon(Icons.create_new_folder_outlined),
@@ -36,11 +34,19 @@ class NavigationDrawer extends SrxNavigationDrawerWidget {
       ListTile(
           onTap: projectGlobalViewmodel.isProjectOpen ? () => _onsaveProjectTap(projectGlobalViewmodel, context) : null,
           leading: Icon(Icons.save),
-          title: Text('Save Project')),
+          title: Text('Save Project'),
+          enabled: projectGlobalViewmodel.isProjectOpen),
       ListTile(
           onTap: projectGlobalViewmodel.isProjectOpen ? () => _onCloseProjectTap(projectGlobalViewmodel, context) : null,
           leading: Icon(Icons.close),
-          title: Text('Close Project')),
+          title: Text('Close Project'),
+          enabled: projectGlobalViewmodel.isProjectOpen),
+      Divider(),
+      ListTile(
+          onTap: () => _onProjectSettingsTap(context),
+          leading: Icon(Icons.settings),
+          title: Text('Project Settings'),
+          enabled: projectGlobalViewmodel.isProjectOpen),
     ];
   }
 
@@ -60,9 +66,18 @@ class NavigationDrawer extends SrxNavigationDrawerWidget {
     await showDialog(context: context, builder: (context) => OpenProjectDialog());
   }
 
-  _onCloseProjectTap(ProjectGlobalViewmodel projectGlobalViewmodel, BuildContext context) {
-    projectGlobalViewmodel.closeProject();
+  _onCloseProjectTap(ProjectGlobalViewmodel projectGlobalViewmodel, BuildContext context) async {
+    if (projectGlobalViewmodel.currentProject?.lastUsed == null) {
+      if (!(await showDialog<bool>(
+              context: context, builder: (context) => SrxDialogs.srxConfirmDialog('Project has not been saved! Continue?', context)) ??
+          false)) {
+        GetIt.I.get<SrxNavigationService>().pop();
+        return;
+      }
+    }
+
     GetIt.I.get<SrxNavigationService>().pop();
+    projectGlobalViewmodel.closeProject();
   }
 
   _onsaveProjectTap(ProjectGlobalViewmodel projectGlobalViewmodel, BuildContext context) {

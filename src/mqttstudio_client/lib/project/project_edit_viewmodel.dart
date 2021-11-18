@@ -80,7 +80,6 @@ class ProjectEditViewmodel extends SrxChangeNotifier {
     }
 
     toProject();
-    GetIt.I.get<ProjectGlobalViewmodel>().openProject(project);
     return true;
   }
 }
