@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
-import 'package:mqtt_client/mqtt_client.dart';
+import 'package:mqtt5_client/mqtt5_client.dart';
 import 'package:typed_data/typed_buffers.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -132,7 +132,7 @@ class MessageDetailView extends StatelessWidget {
 
   Widget _buildPayload(BuildContext context, ReceivedMqttMessage topic) {
     var payLoadType = detectPayloadType(topic.payload);
-    String payloadString = MqttPublishPayload.bytesToStringAsString(topic.payload);
+    String payloadString = MqttUtilities.bytesToStringAsString(topic.payload);
 
     Widget viewer;
     switch (payLoadType) {
@@ -174,7 +174,7 @@ class MessageDetailView extends StatelessWidget {
                 maintainState: true,
                 child: IconButton(
                     tooltip: 'messagedetailview.copypayload.label'.tr(),
-                    onPressed: () => Clipboard.setData(ClipboardData(text: MqttPublishPayload.bytesToStringAsString(topic.payload))),
+                    onPressed: () => Clipboard.setData(ClipboardData(text: MqttUtilities.bytesToStringAsString(topic.payload))),
                     icon: Icon(Icons.copy)),
               ),
             ],
@@ -204,7 +204,7 @@ class MessageDetailView extends StatelessWidget {
   }
 
   PayloadType detectPayloadType(Uint8Buffer payload) {
-    String payloadString = MqttPublishPayload.bytesToStringAsString(payload);
+    String payloadString = MqttUtilities.bytesToStringAsString(payload);
 
     if (double.tryParse(payloadString) != null) {
       return PayloadType.Number;

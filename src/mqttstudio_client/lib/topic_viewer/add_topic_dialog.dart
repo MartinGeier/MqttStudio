@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
-import 'package:mqtt_client/mqtt_client.dart';
+import 'package:mqtt5_client/mqtt5_client.dart';
 import 'package:mqttstudio/model/topic_color.dart';
 import 'package:mqttstudio/project/project_global_viewmodel.dart';
 import 'package:mqttstudio/service/service_error.dart';

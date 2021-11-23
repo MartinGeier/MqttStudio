@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 class CustomTheme {
   static ThemeData lightTheme = ThemeData(
     colorScheme: ColorScheme.fromSwatch(
-        accentColor: Color(0xffB71C1C), primarySwatch: _primaryPalette, errorColor: Color(0xfff62a00), brightness: Brightness.light),
+        accentColor: Color(0xffFAD200), primarySwatch: _primaryPalette, errorColor: Color(0xfff62a00), brightness: Brightness.light),
     toggleableActiveColor: _primaryPalette,
     inputDecorationTheme: InputDecorationTheme(errorStyle: TextStyle(height: 0.6)),
     //popupMenuTheme: PopupMenuThemeData(textStyle: TextStyle(fontSize: 12)),

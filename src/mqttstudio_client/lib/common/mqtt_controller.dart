@@ -1,18 +1,20 @@
 import 'dart:io';
-import 'package:mqtt_client/mqtt_client.dart';
-import 'package:mqtt_client/mqtt_server_client.dart';
+import 'package:mqtt5_client/mqtt5_client.dart';
+import 'package:mqtt5_client/mqtt5_server_client.dart';
 import 'package:mqttstudio/model/mqtt_payload_type.dart';
 import 'package:mqttstudio/model/mqtt_settings.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
 import 'package:mqttstudio/service/service_error.dart';
 import 'package:srx_flutter/srx_flutter.dart';
+import 'package:synchronized/synchronized.dart' as lock;
 
 class MqttController {
   MqttClient _client = MqttServerClient('', '');
-  List<String> _activeSubscriptions = List.empty(growable: true);
+  Map<String, MqttSubscription> _activeSubscriptions = Map();
   Function? onConnected;
   Function? onDisconnected;
   Function(ReceivedMqttMessage msg)? onMessageReceived;
+  var _lock = new lock.Lock();
 
   Future connect(MqttSettings mqttSettings) async {
     _client = MqttServerClient(mqttSettings.hostname, mqttSettings.clientId);
@@ -21,17 +23,16 @@ class MqttController {
     _client.onDisconnected = _onDisconnected;
     _client.onSubscribed = _onSubscribed;
     _client.onUnsubscribed = _onUnsubscribed;
-    _client.connectionMessage = MqttConnectMessage().startClean().withClientIdentifier(mqttSettings.clientId);
-    _client.keepAlivePeriod = 60;
+    _client.connectionMessage = MqttConnectMessage().withClientIdentifier(mqttSettings.clientId).startClean();
     _client.logging(on: true);
     try {
       await _client.connect(mqttSettings.username, mqttSettings.password);
-      _client.updates!.listen((event) => _onDataReceived(event));
+      _client.updates.listen((messages) => _onDataReceived(messages));
     } on SocketException catch (exc) {
       print('MQTT: error connecting [${exc.message}, ${exc.osError?.message}]');
       _client.disconnect();
       throw new SrxServiceException('${exc.message}, ${exc.osError}', ServiceError.MqttCannotConnect);
-    } on NoConnectionException catch (exc) {
+    } on MqttNoConnectionException catch (exc) {
       print('MQTT: error connecting [$exc]');
       _client.disconnect();
       throw new SrxServiceException(exc.toString(), ServiceError.MqttCannotConnect);
@@ -61,11 +62,11 @@ class MqttController {
     if (!isConnected()) {
       throw new SrxServiceException('Not connected to MQTT broker', ServiceError.MqttNotConnected);
     }
-    _client.unsubscribe(topic);
+    _client.unsubscribeStringTopic(topic);
   }
 
   void publish(String topic, dynamic payload, MqttPayloadType payloadType, bool retain) {
-    var payloadBuilder = MqttClientPayloadBuilder();
+    var payloadBuilder = MqttPayloadBuilder();
     switch (payloadType) {
       case MqttPayloadType.string:
         payloadBuilder.addString(payload);
@@ -97,21 +98,25 @@ class MqttController {
     }
   }
 
-  void _onDataReceived(List<MqttReceivedMessage<MqttMessage>> data) {
-    if (onMessageReceived != null) {
-      var pubMsg = data.first.payload as MqttPublishMessage;
-      var payload = pubMsg.payload.message;
-      ReceivedMqttMessage msg = ReceivedMqttMessage.received(pubMsg.variableHeader!.messageIdentifier, pubMsg.variableHeader!.topicName,
-          payload, pubMsg.header!.qos, pubMsg.header?.retain ?? false);
-      onMessageReceived!(msg);
-    }
+  void _onDataReceived(List<MqttReceivedMessage<MqttMessage>> messages) async {
+    await _lock.synchronized(() async {
+      if (onMessageReceived != null) {
+        for (var msg in messages) {
+          var rawMsg = msg.payload as MqttPublishMessage;
+          var payload = rawMsg.payload.message!;
+          ReceivedMqttMessage receivedMsg = ReceivedMqttMessage.received(rawMsg.variableHeader!.messageIdentifier,
+              rawMsg.variableHeader!.topicName, payload, rawMsg.header!.qos, rawMsg.header?.retain ?? false);
+          onMessageReceived!(receivedMsg);
+        }
+      }
+    });
   }
 
-  void _onSubscribed(String topic) {
-    _activeSubscriptions.add(topic);
+  void _onSubscribed(MqttSubscription subscription) {
+    _activeSubscriptions[subscription.topic.rawTopic!] = subscription;
   }
 
-  void _onUnsubscribed(String? topic) {
-    _activeSubscriptions.remove(topic);
+  void _onUnsubscribed(MqttSubscription subscription) {
+    _activeSubscriptions.remove(subscription.topic.rawTopic!);
   }
 }
