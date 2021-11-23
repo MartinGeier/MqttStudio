@@ -1,8 +1,6 @@
 import 'dart:math';
-import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/model/mqtt_settings.dart';
 import 'package:mqttstudio/model/project.dart';
-import 'package:mqttstudio/project/project_global_viewmodel.dart';
 import 'package:reactive_forms/reactive_forms.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 

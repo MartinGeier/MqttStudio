@@ -66,7 +66,7 @@ class MqttController {
     _client.unsubscribe(topic, expectAcknowledge: true);
   }
 
-  void publish(String topic, dynamic payload, MqttPayloadType payloadType, bool retain) {
+  void publish(String topic, dynamic payload, MqttPayloadType payloadType, bool retain, [MqttQos qos = MqttQos.atMostOnce]) {
     var payloadBuilder = MqttClientPayloadBuilder();
     switch (payloadType) {
       case MqttPayloadType.string:
@@ -82,7 +82,7 @@ class MqttController {
         break;
     }
 
-    _client.publishMessage(topic, MqttQos.atLeastOnce, payloadBuilder.payload!, retain: retain);
+    _client.publishMessage(topic, qos, payloadBuilder.payload!, retain: retain);
   }
 
   void _onConnected() {
@@ -104,7 +104,7 @@ class MqttController {
       if (onMessageReceived != null) {
         for (var msg in messages) {
           var rawMsg = msg.payload as MqttPublishMessage;
-          var payload = rawMsg.payload.message!;
+          var payload = rawMsg.payload.message;
           ReceivedMqttMessage receivedMsg = ReceivedMqttMessage.received(rawMsg.variableHeader!.messageIdentifier,
               rawMsg.variableHeader!.topicName, payload, rawMsg.header!.qos, rawMsg.header?.retain ?? false);
           onMessageReceived!(receivedMsg);

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
+import 'package:mqtt_client/mqtt_client.dart';
 import 'package:mqttstudio/common/localstore.dart';
 import 'package:mqttstudio/model/mqtt_payload_type.dart';
 import 'package:mqttstudio/model/project.dart';
@@ -121,8 +122,8 @@ class ProjectGlobalViewmodel extends SrxChangeNotifier {
     messageBufferViewmodel.clear();
   }
 
-  void publishTopic(String topic, dynamic payload, MqttPayloadType payloadType, bool retain) {
-    _mqttGlobalViewmodel.publishTopic(topic, payload, payloadType, retain);
+  void publishTopic(String topic, dynamic payload, MqttPayloadType payloadType, bool retain, [MqttQos qos = MqttQos.atMostOnce]) {
+    _mqttGlobalViewmodel.publishTopic(topic, payload, payloadType, retain, qos);
     _addRecentTopic(topic);
   }
 

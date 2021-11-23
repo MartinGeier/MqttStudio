@@ -35,6 +35,9 @@ class MessageDetailView extends StatelessWidget {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
               _buildAutoSelectButton(viewmodel),
+              _buildClearRetainedButton(viewmodel),
+              _buildRepublishButton(viewmodel),
+              Spacer(),
               IconButton(onPressed: () => viewmodel.selectedMessage = null, icon: Icon(Icons.close))
             ]),
             SizedBox(height: 12),
@@ -42,7 +45,10 @@ class MessageDetailView extends StatelessWidget {
             SizedBox(height: 16),
             _buildInfoRow(context, topic),
             SizedBox(height: 16),
-            _buildReceivedOn(context, topic, nf),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [_buildReceivedOn(context, topic, nf), _buildMessageCount(context, viewmodel, nf), SizedBox(width: 92)],
+            ),
             SizedBox(height: 16),
             _buildPayload(context, topic),
           ]));
@@ -59,13 +65,44 @@ class MessageDetailView extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(children: [
-              viewmodel.autoSelect ? Icon(Icons.pause, color: Colors.blue) : Icon(Icons.play_arrow, color: Colors.green),
-              SizedBox(width: 12),
-              Text('messagedetailview.autoselectbutton.label'.tr())
-            ]),
+            child: Tooltip(
+              message: "messagedetailview.autoselectbutton.tooltip".tr(),
+              child: Row(children: [
+                viewmodel.autoSelect ? Icon(Icons.pause, color: Colors.blue) : Icon(Icons.play_arrow, color: Colors.green),
+                SizedBox(width: 12),
+                Text('messagedetailview.autoselectbutton.label'.tr())
+              ]),
+            ),
           )
         ]);
+  }
+
+  Widget _buildClearRetainedButton(TopicViewerViewmodel viewmodel) {
+    return Tooltip(
+      message: "messagedetailview.clearretainedbutton.tooltip".tr(),
+      child: TextButton(
+          onPressed: viewmodel.selectedMessage?.retain ?? false ? () => viewmodel.clearRetainedTopic() : null,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(children: [
+              Icon(Icons.unpublished_outlined),
+              SizedBox(width: 12),
+              Text('messagedetailview.clearretainedbutton.label'.tr())
+            ]),
+          )),
+    );
+  }
+
+  Widget _buildRepublishButton(TopicViewerViewmodel viewmodel) {
+    return Tooltip(
+      message: "messagedetailview.republishbutton.tooltip".tr(),
+      child: TextButton(
+          onPressed: () => viewmodel.rePublish(),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(children: [Icon(Icons.send), SizedBox(width: 12), Text('messagedetailview.republishbutton.label'.tr())]),
+          )),
+    );
   }
 
   Widget _buildTopicChip(ReceivedMqttMessage topic, BuildContext context) {
@@ -98,6 +135,19 @@ class MessageDetailView extends StatelessWidget {
           Text('messagedetailview.receivedon.label'.tr(), style: Theme.of(context).textTheme.subtitle1),
           SelectableText(DateFormat('HH:mm:ss').format(topic.receivedOn) + nf.format(topic.receivedOn.millisecond / 1000),
               style: Theme.of(context).textTheme.headline4)
+        ]),
+      ]),
+    );
+  }
+
+  Padding _buildMessageCount(BuildContext context, TopicViewerViewmodel viewmodel, NumberFormat nf) {
+    var msgCount = viewmodel.getSelectedMessageCount();
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Row(mainAxisAlignment: MainAxisAlignment.start, children: [
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('messagedetailview.messagecount.label'.tr(), style: Theme.of(context).textTheme.subtitle1),
+          SelectableText(msgCount.toString(), style: Theme.of(context).textTheme.headline4)
         ]),
       ]),
     );
@@ -220,12 +270,12 @@ class MessageDetailView extends StatelessWidget {
     }
 
     // PNG
-    if (payload[0] == 137 && payload[1] == 80 && payload[2] == 78 && payload[3] == 71) {
+    if (payload.isNotEmpty && payload[0] == 137 && payload[1] == 80 && payload[2] == 78 && payload[3] == 71) {
       return PayloadType.Image;
     }
 
     // JPG
-    if (payload[0] == 255 && payload[1] == 216 && payload[2] == 255) {
+    if (payload.isNotEmpty && payload[0] == 255 && payload[1] == 216 && payload[2] == 255) {
       return PayloadType.Image;
     }
 

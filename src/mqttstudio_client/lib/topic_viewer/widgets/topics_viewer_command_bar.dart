@@ -28,7 +28,7 @@ class TopicsViewCommandBar extends StatelessWidget {
                       children: [
                         Row(
                           children: [
-                            _buildPlayPauseButtons(projectViewmodel, msgBufferViewmodel),
+                            _buildPlayPauseButtons(projectViewmodel, msgBufferViewmodel, viewmodel),
                             SizedBox(height: 40, child: VerticalDivider()),
                             _buildViewModeSelectionButtons(viewmodel, projectViewmodel),
                             SizedBox(height: 40, child: VerticalDivider()),
@@ -114,7 +114,8 @@ class TopicsViewCommandBar extends StatelessWidget {
         ]);
   }
 
-  ButtonBar _buildPlayPauseButtons(ProjectGlobalViewmodel projectViewmodel, MessageBufferViewmodel messageBufferViewmodel) {
+  ButtonBar _buildPlayPauseButtons(
+      ProjectGlobalViewmodel projectViewmodel, MessageBufferViewmodel messageBufferViewmodel, TopicViewerViewmodel topicViewerViewmodel) {
     return ButtonBar(
       children: [
         IconButton(
@@ -128,7 +129,12 @@ class TopicsViewCommandBar extends StatelessWidget {
             color: Colors.blue,
             tooltip: 'topicsviewer_commandbar.pause.tooltip'.tr()),
         IconButton(
-          onPressed: projectViewmodel.isProjectOpen ? () => projectViewmodel.clearMessages() : null,
+          onPressed: projectViewmodel.isProjectOpen
+              ? () {
+                  projectViewmodel.clearMessages();
+                  topicViewerViewmodel.selectedMessage = null;
+                }
+              : null,
           icon: Icon(Icons.not_interested),
           tooltip: 'topicsviewer_commandbar.clear.tooltip'.tr(),
         ),

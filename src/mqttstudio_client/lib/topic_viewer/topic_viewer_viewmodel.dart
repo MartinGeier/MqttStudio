@@ -1,6 +1,6 @@
 import 'dart:async';
-
 import 'package:get_it/get_it.dart';
+import 'package:mqttstudio/model/mqtt_payload_type.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
 import 'package:mqttstudio/project/project_global_viewmodel.dart';
 import 'package:mqttstudio/project/message_buffer_viewmodel.dart';
@@ -12,7 +12,7 @@ class TopicViewerViewmodel extends SrxChangeNotifier {
   ReceivedMqttMessage? _selectedMessage;
   bool _autoSelect = false;
   StreamSubscription? _closeProjectStreamSubscription;
-  late MessageBufferViewmodel msgBufferViewmodel;
+  late MessageBufferViewmodel _msgBufferViewmodel;
 
   bool get autoSelect => _autoSelect;
 
@@ -22,8 +22,8 @@ class TopicViewerViewmodel extends SrxChangeNotifier {
   }
 
   TopicViewerViewmodel() {
-    msgBufferViewmodel = GetIt.I.get<ProjectGlobalViewmodel>().messageBufferViewmodel;
-    msgBufferViewmodel.addListener(_onMessageReceived);
+    _msgBufferViewmodel = GetIt.I.get<ProjectGlobalViewmodel>().messageBufferViewmodel;
+    _msgBufferViewmodel.addListener(_onMessageReceived);
     _closeProjectStreamSubscription =
         GetIt.I.get<ProjectGlobalViewmodel>().closeProjectStreamController.stream.listen((_) => selectedMessage = null);
   }
@@ -36,6 +36,10 @@ class TopicViewerViewmodel extends SrxChangeNotifier {
 
   ReceivedMqttMessage? get selectedMessage => _selectedMessage;
 
+  int getSelectedMessageCount() {
+    return selectedMessage != null ? _msgBufferViewmodel.getTopicMessageCount(selectedMessage!.topicName) : 0;
+  }
+
   set selectedMessage(ReceivedMqttMessage? selectedMessage) {
     _selectedMessage = selectedMessage;
     notifyListeners();
@@ -44,6 +48,19 @@ class TopicViewerViewmodel extends SrxChangeNotifier {
   set topicViewMode(TopicViewMode value) {
     _topicViewMode = value;
     notifyListeners();
+  }
+
+  void clearRetainedTopic() {
+    assert(_selectedMessage?.retain ?? false);
+
+    GetIt.I.get<ProjectGlobalViewmodel>().publishTopic(_selectedMessage!.topicName, '', MqttPayloadType.string, true);
+  }
+
+  void rePublish() {
+    assert(_selectedMessage != null);
+
+    GetIt.I.get<ProjectGlobalViewmodel>().publishTopic(
+        _selectedMessage!.topicName, _selectedMessage!.payload, MqttPayloadType.binary, _selectedMessage!.retain, _selectedMessage!.qos);
   }
 
   TopicViewMode get topicViewMode => _topicViewMode;
@@ -56,7 +73,7 @@ class TopicViewerViewmodel extends SrxChangeNotifier {
   MessageGroupTimePeriod get groupTimePeriod => _groupTimePeriod;
 
   void _onMessageReceived() {
-    var lastMsg = msgBufferViewmodel.getLastMessage();
+    var lastMsg = _msgBufferViewmodel.getLastMessage();
     if (autoSelect && lastMsg?.topicName == _selectedMessage?.topicName) {
       selectedMessage = lastMsg;
     }
