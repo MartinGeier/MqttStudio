@@ -6,6 +6,7 @@ import 'package:mqttstudio/model/mqtt_settings.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
 import 'package:mqttstudio/service/service_error.dart';
 import 'package:srx_flutter/srx_flutter.dart';
+import 'package:synchronized/synchronized.dart' as lock;
 
 class MqttController {
   MqttClient _client = MqttServerClient('', '');
@@ -13,6 +14,7 @@ class MqttController {
   Function? onConnected;
   Function? onDisconnected;
   Function(ReceivedMqttMessage msg)? onMessageReceived;
+  var _lock = new lock.Lock();
 
   Future connect(MqttSettings mqttSettings) async {
     _client = MqttServerClient(mqttSettings.hostname, mqttSettings.clientId);
@@ -61,7 +63,7 @@ class MqttController {
     if (!isConnected()) {
       throw new SrxServiceException('Not connected to MQTT broker', ServiceError.MqttNotConnected);
     }
-    _client.unsubscribe(topic);
+    _client.unsubscribe(topic, expectAcknowledge: true);
   }
 
   void publish(String topic, dynamic payload, MqttPayloadType payloadType, bool retain) {
@@ -97,14 +99,18 @@ class MqttController {
     }
   }
 
-  void _onDataReceived(List<MqttReceivedMessage<MqttMessage>> data) {
-    if (onMessageReceived != null) {
-      var pubMsg = data.first.payload as MqttPublishMessage;
-      var payload = pubMsg.payload.message;
-      ReceivedMqttMessage msg = ReceivedMqttMessage.received(pubMsg.variableHeader!.messageIdentifier, pubMsg.variableHeader!.topicName,
-          payload, pubMsg.header!.qos, pubMsg.header?.retain ?? false);
-      onMessageReceived!(msg);
-    }
+  void _onDataReceived(List<MqttReceivedMessage<MqttMessage>> messages) async {
+    await _lock.synchronized(() async {
+      if (onMessageReceived != null) {
+        for (var msg in messages) {
+          var rawMsg = msg.payload as MqttPublishMessage;
+          var payload = rawMsg.payload.message!;
+          ReceivedMqttMessage receivedMsg = ReceivedMqttMessage.received(rawMsg.variableHeader!.messageIdentifier,
+              rawMsg.variableHeader!.topicName, payload, rawMsg.header!.qos, rawMsg.header?.retain ?? false);
+          onMessageReceived!(receivedMsg);
+        }
+      }
+    });
   }
 
   void _onSubscribed(String topic) {
