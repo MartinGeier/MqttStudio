@@ -9,12 +9,16 @@ import 'package:srx_flutter/srx_flutter.dart';
 import 'package:synchronized/synchronized.dart' as lock;
 
 class MqttController {
-  MqttClient _client = MqttServerClient('', '');
+  MqttServerClient _client = MqttServerClient('', '');
   List<String> _activeSubscriptions = List.empty(growable: true);
   Function? onConnected;
   Function? onDisconnected;
   Function(ReceivedMqttMessage msg)? onMessageReceived;
   var _lock = new lock.Lock();
+
+  MqttController() {
+    SecurityContext.defaultContext.setTrustedCertificates('assets/cert/mosquitto.org.crt');
+  }
 
   Future connect(MqttSettings mqttSettings) async {
     _client = MqttServerClient(mqttSettings.hostname, mqttSettings.clientId);
@@ -26,6 +30,9 @@ class MqttController {
     _client.connectionMessage = MqttConnectMessage().startClean().withClientIdentifier(mqttSettings.clientId);
     _client.keepAlivePeriod = 60;
     _client.logging(on: true);
+    _client.secure = mqttSettings.useSsl;
+    _client.useWebSocket = true;
+
     try {
       await _client.connect(mqttSettings.username, mqttSettings.password);
       _client.updates!.listen((event) => _onDataReceived(event));

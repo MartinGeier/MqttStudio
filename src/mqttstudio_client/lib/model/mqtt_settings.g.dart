@@ -13,6 +13,7 @@ MqttSettings _$MqttSettingsFromJson(Map<String, dynamic> json) {
     json['port'] as int,
     username: json['username'] as String?,
     password: json['password'] as String?,
+    useSsl: json['useSsl'] as bool? ?? false,
   );
 }
 
@@ -23,4 +24,5 @@ Map<String, dynamic> _$MqttSettingsToJson(MqttSettings instance) =>
       'port': instance.port,
       'username': instance.username,
       'password': instance.password,
+      'useSsl': instance.useSsl,
     };

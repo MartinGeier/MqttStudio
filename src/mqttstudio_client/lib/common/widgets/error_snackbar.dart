@@ -6,7 +6,7 @@ SnackBar errorSnackBar(String errorMessage, BuildContext context) {
     content: Text(errorMessage),
     backgroundColor: Theme.of(context).errorColor,
     behavior: SnackBarBehavior.floating,
-    duration: Duration(seconds: 6),
+    duration: Duration(seconds: 10),
     padding: EdgeInsets.all(12),
   );
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
+import 'package:mqttstudio/common/widgets/checkbox_field.dart';
 import 'package:mqttstudio/project/project_global_viewmodel.dart';
 import 'package:mqttstudio/project/project_edit_viewmodel.dart';
 import 'package:provider/provider.dart';
@@ -77,7 +78,14 @@ class ProjectEditDialog extends StatelessWidget {
           Flexible(flex: 2, child: _buildPasswordField(viewmodel)),
         ],
       ),
+      SrxFormRow(
+        children: [_buildSslCheckbox(viewmodel)],
+      )
     ]);
+  }
+
+  Widget _buildSslCheckbox(ProjectEditViewmodel viewmodel) {
+    return CheckboxField(formControlName: ProjectEditViewmodel.useSslField, form: viewmodel.form, label: 'Use SSL');
   }
 
   ReactiveTextField<String> _buildProjectNameField(ProjectEditViewmodel viewmodel) {

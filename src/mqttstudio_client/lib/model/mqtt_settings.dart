@@ -11,13 +11,17 @@ class MqttSettings {
   String? username;
   String? password;
 
-  MqttSettings(this.hostname, this.clientId, this.port, {this.username, this.password});
+  @JsonKey(defaultValue: false)
+  bool useSsl = false;
+
+  MqttSettings(this.hostname, this.clientId, this.port, {this.username, this.password, this.useSsl = false});
 
   bool connectionSettingsChanged(MqttSettings otherProject) {
     return this.hostname != otherProject.hostname ||
         this.clientId != otherProject.clientId ||
         this.username != otherProject.username ||
-        this.password != otherProject.password;
+        this.password != otherProject.password ||
+        this.useSsl != otherProject.useSsl;
   }
 
   factory MqttSettings.fromJson(Map<String, dynamic> json) => _$MqttSettingsFromJson(json);
