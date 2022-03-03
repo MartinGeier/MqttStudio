@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:mqtt_client/mqtt_client.dart';
 import 'package:mqtt_client/mqtt_server_client.dart';
 import 'package:mqttstudio/model/mqtt_payload_type.dart';
@@ -9,6 +10,9 @@ import 'package:srx_flutter/srx_flutter.dart';
 import 'package:synchronized/synchronized.dart' as lock;
 
 class MqttController {
+  static const String WebSocketPrefix = "ws://";
+  static const String SecureWebSocketPrefix = "wss://";
+
   MqttServerClient _client = MqttServerClient('', '');
   List<String> _activeSubscriptions = List.empty(growable: true);
   Function? onConnected;
@@ -17,11 +21,18 @@ class MqttController {
   var _lock = new lock.Lock();
 
   MqttController() {
-    SecurityContext.defaultContext.setTrustedCertificates('assets/cert/mosquitto.org.crt');
+    rootBundle
+        .load('assets/cert/mosquitto.org.crt')
+        .then((value) => SecurityContext.defaultContext.setTrustedCertificatesBytes(value.buffer.asInt32List()));
   }
 
   Future connect(MqttSettings mqttSettings) async {
-    _client = MqttServerClient(mqttSettings.hostname, mqttSettings.clientId);
+    var hostname = mqttSettings.hostname;
+    if (mqttSettings.useWebSockets) {
+      hostname = (mqttSettings.useSsl ? SecureWebSocketPrefix : WebSocketPrefix) + hostname;
+    }
+
+    _client = MqttServerClient(hostname, mqttSettings.clientId);
     _client.port = mqttSettings.port;
     _client.onConnected = _onConnected;
     _client.onDisconnected = _onDisconnected;
@@ -30,8 +41,13 @@ class MqttController {
     _client.connectionMessage = MqttConnectMessage().startClean().withClientIdentifier(mqttSettings.clientId);
     _client.keepAlivePeriod = 60;
     _client.logging(on: true);
-    _client.secure = mqttSettings.useSsl;
-    _client.useWebSocket = true;
+    _client.secure = mqttSettings.useSsl
+        ? mqttSettings.useWebSockets
+            ? false
+            : true
+        : false;
+    _client.useWebSocket = mqttSettings.useWebSockets;
+    _client.websocketProtocols = MqttClientConstants.protocolsSingleDefault;
 
     try {
       await _client.connect(mqttSettings.username, mqttSettings.password);

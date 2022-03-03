@@ -6,16 +6,15 @@ part of 'topic_subscription.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
-TopicSubscription _$TopicSubscriptionFromJson(Map<String, dynamic> json) {
-  return TopicSubscription(
-    json['topic'] as String,
-    _$enumDecode(_$MqttQosEnumMap, json['qos']),
-    color: json['color'] == null
-        ? null
-        : TopicColor.fromJson(json['color'] as Map<String, dynamic>),
-    paused: json['paused'] as bool,
-  );
-}
+TopicSubscription _$TopicSubscriptionFromJson(Map<String, dynamic> json) =>
+    TopicSubscription(
+      json['topic'] as String,
+      $enumDecode(_$MqttQosEnumMap, json['qos']),
+      color: json['color'] == null
+          ? null
+          : TopicColor.fromJson(json['color'] as Map<String, dynamic>),
+      paused: json['paused'] as bool? ?? false,
+    );
 
 Map<String, dynamic> _$TopicSubscriptionToJson(TopicSubscription instance) =>
     <String, dynamic>{
@@ -24,32 +23,6 @@ Map<String, dynamic> _$TopicSubscriptionToJson(TopicSubscription instance) =>
       'color': instance.color.toJson(),
       'paused': instance.paused,
     };
-
-K _$enumDecode<K, V>(
-  Map<K, V> enumValues,
-  Object? source, {
-  K? unknownValue,
-}) {
-  if (source == null) {
-    throw ArgumentError(
-      'A value must be provided. Supported values: '
-      '${enumValues.values.join(', ')}',
-    );
-  }
-
-  return enumValues.entries.singleWhere(
-    (e) => e.value == source,
-    orElse: () {
-      if (unknownValue == null) {
-        throw ArgumentError(
-          '`$source` is not one of the supported values: '
-          '${enumValues.values.join(', ')}',
-        );
-      }
-      return MapEntry(unknownValue, enumValues.values.first);
-    },
-  ).key;
-}
 
 const _$MqttQosEnumMap = {
   MqttQos.atMostOnce: 'atMostOnce',

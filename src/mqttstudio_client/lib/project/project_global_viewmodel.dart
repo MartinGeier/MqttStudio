@@ -18,9 +18,11 @@ class ProjectGlobalViewmodel extends SrxChangeNotifier {
   MessageBufferViewmodel messageBufferViewmodel = MessageBufferViewmodel();
   late MqttGlobalViewmodel _mqttGlobalViewmodel;
   var closeProjectStreamController = StreamController.broadcast();
-  bool paused = false;
+  bool _paused = false;
+  int? lastSavedProjectHash;
+  Future Function() _onClosingNotSaved;
 
-  ProjectGlobalViewmodel() {
+  ProjectGlobalViewmodel(this._onClosingNotSaved) {
     _mqttGlobalViewmodel = GetIt.I.get<MqttGlobalViewmodel>();
     _mqttGlobalViewmodel.onConnected = onMqttConntected;
     _mqttGlobalViewmodel.onMessageReceived = onMessageReceived;
@@ -30,8 +32,8 @@ class ProjectGlobalViewmodel extends SrxChangeNotifier {
 
   bool get isProjectOpen => _currentProject != null;
 
-  void openProject(Project? newProject) {
-    closeProject();
+  void openProject(Project? newProject) async {
+    await closeProject(true);
 
     if (_mqttGlobalViewmodel.isConnected()) {
       if (newProject == null) {
@@ -46,20 +48,47 @@ class ProjectGlobalViewmodel extends SrxChangeNotifier {
     _currentProject = newProject;
     if (newProject?.lastUsed != null) {
       _currentProject?.lastUsed = DateTime.now();
-      LocalStore().saveProject(_currentProject!);
+      await saveProject();
     } else {
       _currentProject?.lastUsed = DateTime.now();
     }
 
+    // keep the hash to check for changes
+    lastSavedProjectHash = _currentProject?.getHash();
+
     notifyListeners();
   }
 
-  void closeProject() {
+  Future<bool> closeProject([bool forceSave = false]) async {
+    if (forceSave) {
+      await saveProject();
+    } else if (hasProjectChanged()) {
+      var result = await _onClosingNotSaved();
+
+      if (result == null) {
+        return false;
+      } else if (result != null && result) {
+        await saveProject();
+      }
+    }
+
     _mqttGlobalViewmodel.disconnect();
     messageBufferViewmodel.clear();
     closeProjectStreamController.add(null);
     _currentProject = null;
+    lastSavedProjectHash = null;
     notifyListeners();
+    return true;
+  }
+
+  Future saveProject() async {
+    if (currentProject != null) {
+      await LocalStore().saveProject(currentProject!);
+    }
+  }
+
+  bool hasProjectChanged() {
+    return currentProject?.getHash() != lastSavedProjectHash;
   }
 
   void addTopicSubscription(TopicSubscription subscription) {
@@ -71,7 +100,7 @@ class ProjectGlobalViewmodel extends SrxChangeNotifier {
     _currentProject!.topicColors[subscription.topic] = subscription.color;
     _addRecentTopic(subscription.topic);
 
-    if (_mqttGlobalViewmodel.isConnected() && !paused) {
+    if (_mqttGlobalViewmodel.isConnected() && !_paused) {
       _mqttGlobalViewmodel.subscribeToTopic(subscription.topic, subscription.qos);
     }
 
@@ -94,14 +123,14 @@ class ProjectGlobalViewmodel extends SrxChangeNotifier {
     sub.paused = !sub.paused;
     if (sub.paused) {
       _mqttGlobalViewmodel.unSubscribeFromTopic(topic);
-    } else if (!paused) {
+    } else if (!_paused) {
       _mqttGlobalViewmodel.subscribeToTopic(topic, sub.qos);
     }
     notifyListeners();
   }
 
   void pauseAllTopics() {
-    paused = true;
+    _paused = true;
     for (var sub in _currentProject!.topicSubscriptions) {
       _mqttGlobalViewmodel.unSubscribeFromTopic(sub.topic);
     }
@@ -109,7 +138,7 @@ class ProjectGlobalViewmodel extends SrxChangeNotifier {
   }
 
   void playAllTopics() {
-    paused = false;
+    _paused = false;
     for (var sub in _currentProject!.topicSubscriptions) {
       if (!sub.paused) {
         _mqttGlobalViewmodel.subscribeToTopic(sub.topic, sub.qos);

@@ -6,28 +6,27 @@ part of 'project.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
-Project _$ProjectFromJson(Map<String, dynamic> json) {
-  return Project(
-    MqttSettings.fromJson(json['mqttSettings'] as Map<String, dynamic>),
-    name: json['name'] as String,
-  )
-    ..id = json['id'] as String?
-    ..createdOn = parseDateTime(json['createdOn'] as String?)
-    ..lastModifiedOn = parseDateTime(json['lastModifiedOn'] as String?)
-    ..createdBy = json['createdBy'] as String?
-    ..lastModifiedBy = json['lastModifiedBy'] as String?
-    ..topicSubscriptions = (json['topicSubscriptions'] as List<dynamic>)
-        .map((e) => TopicSubscription.fromJson(e as Map<String, dynamic>))
-        .toList()
-    ..topicColors = (json['topicColors'] as Map<String, dynamic>).map(
-      (k, e) => MapEntry(k, TopicColor.fromJson(e as Map<String, dynamic>)),
+Project _$ProjectFromJson(Map<String, dynamic> json) => Project(
+      MqttSettings.fromJson(json['mqttSettings'] as Map<String, dynamic>),
+      name: json['name'] as String? ?? 'New Project',
     )
-    ..recentTopics =
-        (json['recentTopics'] as List<dynamic>).map((e) => e as String).toList()
-    ..lastUsed = json['lastUsed'] == null
-        ? null
-        : DateTime.parse(json['lastUsed'] as String);
-}
+      ..id = json['id'] as String?
+      ..createdOn = parseDateTime(json['createdOn'] as String?)
+      ..lastModifiedOn = parseDateTime(json['lastModifiedOn'] as String?)
+      ..createdBy = json['createdBy'] as String?
+      ..lastModifiedBy = json['lastModifiedBy'] as String?
+      ..topicSubscriptions = (json['topicSubscriptions'] as List<dynamic>)
+          .map((e) => TopicSubscription.fromJson(e as Map<String, dynamic>))
+          .toList()
+      ..topicColors = (json['topicColors'] as Map<String, dynamic>).map(
+        (k, e) => MapEntry(k, TopicColor.fromJson(e as Map<String, dynamic>)),
+      )
+      ..recentTopics = (json['recentTopics'] as List<dynamic>)
+          .map((e) => e as String)
+          .toList()
+      ..lastUsed = json['lastUsed'] == null
+          ? null
+          : DateTime.parse(json['lastUsed'] as String);
 
 Map<String, dynamic> _$ProjectToJson(Project instance) {
   final val = <String, dynamic>{

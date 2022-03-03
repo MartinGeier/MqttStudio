@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/project/open_project_dialog.dart';
@@ -7,9 +8,7 @@ import 'package:mqttstudio/project/project_global_viewmodel.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 import 'package:provider/provider.dart';
 
-import '../localstore.dart';
-
-class NavigationDrawer extends SrxNavigationDrawerWidget {
+class NavigationDrawer extends SrxNavigationDrawer {
   NavigationDrawer()
       : super(
             showLogout: false,
@@ -28,24 +27,26 @@ class NavigationDrawer extends SrxNavigationDrawerWidget {
       ListTile(
           onTap: () => _onNewProjectTap(projectGlobalViewmodel, context),
           leading: Icon(Icons.create_new_folder_outlined),
-          title: Text('New Project')),
+          title: Text('navigator.newproject_menuitem'.tr())),
       ListTile(
-          onTap: () => _onOpenProjectTap(projectGlobalViewmodel, context), leading: Icon(Icons.folder_open), title: Text('Open Project')),
+          onTap: () => _onOpenProjectTap(projectGlobalViewmodel, context),
+          leading: Icon(Icons.folder_open),
+          title: Text('navigator.openproject_menuitem'.tr())),
       ListTile(
           onTap: projectGlobalViewmodel.isProjectOpen ? () => _onsaveProjectTap(projectGlobalViewmodel, context) : null,
           leading: Icon(Icons.save),
-          title: Text('Save Project'),
+          title: Text('navigator.saveproject_menuitem'.tr()),
           enabled: projectGlobalViewmodel.isProjectOpen),
       ListTile(
           onTap: projectGlobalViewmodel.isProjectOpen ? () => _onCloseProjectTap(projectGlobalViewmodel, context) : null,
           leading: Icon(Icons.close),
-          title: Text('Close Project'),
+          title: Text('navigator.closeproject_menuitem'.tr()),
           enabled: projectGlobalViewmodel.isProjectOpen),
       Divider(),
       ListTile(
           onTap: () => _onProjectSettingsTap(context),
           leading: Icon(Icons.settings),
-          title: Text('Project Settings'),
+          title: Text('navigator.projectsettings_menuitem'.tr()),
           enabled: projectGlobalViewmodel.isProjectOpen),
     ];
   }
@@ -62,31 +63,26 @@ class NavigationDrawer extends SrxNavigationDrawerWidget {
   }
 
   _onOpenProjectTap(ProjectGlobalViewmodel projectGlobalViewmodel, BuildContext context) async {
-    GetIt.I.get<SrxNavigationService>().pop();
-    await showDialog(context: context, builder: (context) => OpenProjectDialog());
+    if (await projectGlobalViewmodel.closeProject()) {
+      GetIt.I.get<SrxNavigationService>().pop();
+      await showDialog(context: context, builder: (context) => OpenProjectDialog());
+    }
   }
 
   _onCloseProjectTap(ProjectGlobalViewmodel projectGlobalViewmodel, BuildContext context) async {
-    if (projectGlobalViewmodel.currentProject?.lastUsed == null) {
-      if (!(await showDialog<bool>(
-              context: context, builder: (context) => SrxDialogs.srxConfirmDialog('Project has not been saved! Continue?', context)) ??
-          false)) {
-        GetIt.I.get<SrxNavigationService>().pop();
-        return;
-      }
+    if (await projectGlobalViewmodel.closeProject()) {
+      GetIt.I.get<SrxNavigationService>().pop();
     }
-
-    GetIt.I.get<SrxNavigationService>().pop();
-    projectGlobalViewmodel.closeProject();
   }
 
   _onsaveProjectTap(ProjectGlobalViewmodel projectGlobalViewmodel, BuildContext context) {
-    LocalStore().saveProject(projectGlobalViewmodel.currentProject!);
+    projectGlobalViewmodel.saveProject();
     GetIt.I.get<SrxNavigationService>().pop();
   }
 
-  _onNewProjectTap(ProjectGlobalViewmodel projectGlobalViewmodel, BuildContext context) {
-    projectGlobalViewmodel.closeProject();
-    _onProjectSettingsTap(context);
+  _onNewProjectTap(ProjectGlobalViewmodel projectGlobalViewmodel, BuildContext context) async {
+    if (await projectGlobalViewmodel.closeProject()) {
+      _onProjectSettingsTap(context);
+    }
   }
 }

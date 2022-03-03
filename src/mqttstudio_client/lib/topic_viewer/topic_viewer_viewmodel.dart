@@ -80,4 +80,4 @@ class TopicViewerViewmodel extends SrxChangeNotifier {
   }
 }
 
-enum TopicViewMode { Grouped, Sequential }
+enum TopicViewMode { Grouped, Tree, Sequential }

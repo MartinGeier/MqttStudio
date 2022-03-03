@@ -9,6 +9,7 @@ import 'package:mqttstudio/topic_viewer/widgets/message_detail_view.dart';
 import 'package:mqttstudio/topic_viewer/widgets/sequential_messages_viewer.dart';
 import 'package:mqttstudio/topic_viewer/widgets/topic_subscription_panel.dart';
 import 'package:mqttstudio/topic_viewer/widgets/topics_viewer_command_bar.dart';
+import 'package:mqttstudio/topic_viewer/widgets/tree_messages_viewer.dart';
 import 'package:provider/provider.dart';
 
 class TopicViewerPage extends StatelessWidget {
@@ -38,7 +39,9 @@ class TopicViewerPage extends StatelessWidget {
                                 projectGlobalViewmodel.isProjectOpen
                                     ? viewmodel.topicViewMode == TopicViewMode.Grouped
                                         ? GroupedMessagesViewer()
-                                        : SequentialMessagesViewer()
+                                        : viewmodel.topicViewMode == TopicViewMode.Tree
+                                            ? TreeMessagesViewer()
+                                            : SequentialMessagesViewer()
                                     : Container(),
                                 projectGlobalViewmodel.isProjectOpen
                                     ? viewmodel.selectedMessage != null

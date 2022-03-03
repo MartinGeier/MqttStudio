@@ -6,12 +6,11 @@ part of 'localstore_data.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
-LocalStoreData _$LocalStoreDataFromJson(Map<String, dynamic> json) {
-  return LocalStoreData()
-    ..projects = (json['projects'] as Map<String, dynamic>?)?.map(
-      (k, e) => MapEntry(k, Project.fromJson(e as Map<String, dynamic>)),
-    );
-}
+LocalStoreData _$LocalStoreDataFromJson(Map<String, dynamic> json) =>
+    LocalStoreData()
+      ..projects = (json['projects'] as Map<String, dynamic>?)?.map(
+        (k, e) => MapEntry(k, Project.fromJson(e as Map<String, dynamic>)),
+      );
 
 Map<String, dynamic> _$LocalStoreDataToJson(LocalStoreData instance) =>
     <String, dynamic>{

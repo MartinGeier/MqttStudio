@@ -94,7 +94,11 @@ class TopicsViewCommandBar extends StatelessWidget {
 
   ToggleButtons _buildViewModeSelectionButtons(TopicViewerViewmodel viewmodel, ProjectGlobalViewmodel projectViewmodel) {
     return ToggleButtons(
-        isSelected: [viewmodel.topicViewMode == TopicViewMode.Grouped, viewmodel.topicViewMode == TopicViewMode.Sequential],
+        isSelected: [
+          viewmodel.topicViewMode == TopicViewMode.Grouped,
+          viewmodel.topicViewMode == TopicViewMode.Tree,
+          viewmodel.topicViewMode == TopicViewMode.Sequential
+        ],
         renderBorder: false,
         onPressed: projectViewmodel.isProjectOpen
             ? (index) {
@@ -103,13 +107,17 @@ class TopicsViewCommandBar extends StatelessWidget {
                     viewmodel.topicViewMode = TopicViewMode.Grouped;
                     break;
                   case 1:
+                    viewmodel.topicViewMode = TopicViewMode.Tree;
+                    break;
+                  case 2:
                     viewmodel.topicViewMode = TopicViewMode.Sequential;
                     break;
                 }
               }
             : null,
         children: [
-          Tooltip(message: 'topicsviewer_commandbar.groupedviewer.tooltip'.tr(), child: Icon(Icons.timer)),
+          Tooltip(message: 'topicsviewer_commandbar.groupedviewer.tooltip'.tr(), child: Icon(Icons.view_agenda)),
+          Tooltip(message: 'topicsviewer_commandbar.treeviewer.tooltip'.tr(), child: Icon(Icons.account_tree)),
           Tooltip(message: 'topicsviewer_commandbar.sequentialviewer.tooltip'.tr(), child: Icon(Icons.format_list_bulleted))
         ]);
   }

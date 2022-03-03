@@ -14,6 +14,9 @@ class MqttSettings {
   @JsonKey(defaultValue: false)
   bool useSsl = false;
 
+  @JsonKey(defaultValue: false)
+  bool useWebSockets = false;
+
   MqttSettings(this.hostname, this.clientId, this.port, {this.username, this.password, this.useSsl = false});
 
   bool connectionSettingsChanged(MqttSettings otherProject) {
@@ -21,7 +24,8 @@ class MqttSettings {
         this.clientId != otherProject.clientId ||
         this.username != otherProject.username ||
         this.password != otherProject.password ||
-        this.useSsl != otherProject.useSsl;
+        this.useSsl != otherProject.useSsl ||
+        this.useWebSockets != otherProject.useWebSockets;
   }
 
   factory MqttSettings.fromJson(Map<String, dynamic> json) => _$MqttSettingsFromJson(json);

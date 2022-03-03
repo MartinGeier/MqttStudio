@@ -27,7 +27,8 @@ void main() async {
   await GetIt.instance.get<SrxSessionController>().restoreSession(); // TODO: eventually do during splash screen
 
   runApp(
-    EasyLocalization(supportedLocales: [Locale('en')], path: 'assets/i18n', fallbackLocale: Locale('en'), child: MyApp()),
+    EasyLocalization(
+        supportedLocales: [Locale('en')], path: 'assets/i18n', fallbackLocale: Locale('en'), assetLoader: SrxAssetLoader(), child: MyApp()),
   );
 }
 
@@ -48,7 +49,7 @@ void setupServiceLocator() {
 
   // global viewmodels
   GetIt.I.registerSingleton(MqttGlobalViewmodel());
-  GetIt.I.registerSingleton(ProjectGlobalViewmodel());
+  GetIt.I.registerSingleton(ProjectGlobalViewmodel(onClosingNotSaved));
 }
 
 class MyApp extends StatelessWidget {
@@ -69,4 +70,10 @@ class MyApp extends StatelessWidget {
               home: /*GetIt.instance.get<SSessionController>().isLoggedIn ? */ TopicViewerPage())) /*: LoginPage() */,
     );
   }
+}
+
+Future<bool?> onClosingNotSaved() async {
+  return await showDialog<bool>(
+      context: GetIt.instance.get<SrxNavigationService>().navigatorKey.currentContext!,
+      builder: (context) => SrxDialogs.srxYesNoDialog('navigator.confirmsaving_message'.tr(), context, showCancel: true));
 }

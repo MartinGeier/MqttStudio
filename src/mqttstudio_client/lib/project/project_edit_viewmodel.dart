@@ -12,6 +12,7 @@ class ProjectEditViewmodel extends SrxChangeNotifier {
   static String usernameField = 'username';
   static String passwordField = 'password';
   static String useSslField = 'useSsl';
+  static String useWebSocketField = 'useWebSocket';
 
   bool _isPasswordObscureText = true;
   Project? project;
@@ -40,6 +41,7 @@ class ProjectEditViewmodel extends SrxChangeNotifier {
       usernameField: FormControl<String>(validators: [Validators.maxLength(100)]),
       passwordField: FormControl<String>(validators: [Validators.maxLength(100)]),
       useSslField: FormControl<bool>(),
+      useWebSocketField: FormControl<bool>(),
     });
   }
 
@@ -52,6 +54,7 @@ class ProjectEditViewmodel extends SrxChangeNotifier {
       form.control(usernameField).value = project!.mqttSettings.username;
       form.control(passwordField).value = project!.mqttSettings.password;
       form.control(useSslField).value = project!.mqttSettings.useSsl;
+      form.control(useWebSocketField).value = project!.mqttSettings.useWebSockets;
     }
   }
 
@@ -63,6 +66,7 @@ class ProjectEditViewmodel extends SrxChangeNotifier {
         name: form.control(projectNameField).value,
       );
       project!.mqttSettings.useSsl = form.control(useSslField).value ?? false;
+      project!.mqttSettings.useWebSockets = form.control(useWebSocketField).value ?? false;
     } else {
       project!.name = form.control(projectNameField).value;
       project!.mqttSettings.hostname = form.control(mqttHostnameField).value;
@@ -71,6 +75,7 @@ class ProjectEditViewmodel extends SrxChangeNotifier {
       project!.mqttSettings.username = form.control(usernameField).value;
       project!.mqttSettings.password = form.control(passwordField).value;
       project!.mqttSettings.useSsl = form.control(useSslField).value;
+      project!.mqttSettings.useWebSockets = form.control(useWebSocketField).value;
     }
   }
 

@@ -3,12 +3,13 @@ import 'package:srx_flutter/srx_flutter.dart';
 import 'package:darq/darq.dart';
 
 class MessageBufferViewmodel extends SrxChangeNotifier {
-  final _refreshPeriod = 200;
+  final _refreshPeriod = 500;
   bool paused = false;
 
   List<ReceivedMqttMessage> _buffer = [];
   MessageGroupTimePeriod? _currentPeriod;
   List<MessageGroup> _groupedMessages = [];
+  MessageNode _messagesTree = MessageNode('', null);
   DateTime _lastRefresh = DateTime.now();
 
   // MessageBufferViewmodel() {
@@ -22,8 +23,9 @@ class MessageBufferViewmodel extends SrxChangeNotifier {
 
     _buffer.insert(0, msg);
     _addToLastMessageGroup(msg);
+    _updateMessagesTree(msg, _messagesTree, 0);
 
-    // limit rebuild at one in 200 milliseconds
+    // limit rebuild frequency
     if (DateTime.now().subtract(Duration(milliseconds: _refreshPeriod)).isAfter(_lastRefresh)) {
       _lastRefresh = DateTime.now();
       notifyListeners();
@@ -128,6 +130,25 @@ class MessageBufferViewmodel extends SrxChangeNotifier {
         return DateTime.fromMicrosecondsSinceEpoch((((groupEndTime.microsecondsSinceEpoch - 1) / 1000000 / 3600).floor()) * 1000000 * 3600);
     }
   }
+
+  void _updateMessagesTree(ReceivedMqttMessage msg, MessageNode rootNode, int level) {
+    var topicLevels = msg.topicName.split('/');
+
+    var targetNode = rootNode.children.trySingleWhereOrDefault((x) => x.topicLevelName == topicLevels[level]);
+    if (targetNode != null) {
+      if (topicLevels.length > level + 1) {
+        _updateMessagesTree(msg, targetNode, level + 1);
+      } else {
+        targetNode.messageReceived(msg);
+      }
+    } else {
+      var newNode = MessageNode(topicLevels[level], msg);
+      rootNode.children.add(newNode);
+      if (topicLevels.length > level + 1) {
+        _updateMessagesTree(msg, newNode, level + 1);
+      }
+    }
+  }
 }
 
 class MessageGroup {
@@ -138,3 +159,17 @@ class MessageGroup {
 }
 
 enum MessageGroupTimePeriod { second, tenSeconds, minute, hour }
+
+class MessageNode {
+  String topicLevelName;
+  ReceivedMqttMessage? message;
+  int messageCount = 1;
+  final List<MessageNode> children = [];
+
+  MessageNode(this.topicLevelName, this.message);
+
+  void messageReceived(msg) {
+    message = msg;
+    messageCount++;
+  }
+}
