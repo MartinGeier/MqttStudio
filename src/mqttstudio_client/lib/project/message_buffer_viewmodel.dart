@@ -34,6 +34,8 @@ class MessageBufferViewmodel extends SrxChangeNotifier {
 
   int get length => _buffer.length;
 
+  MessageNode get messagesTree => _messagesTree;
+
   void pause() {
     paused = true;
     notifyListeners();
@@ -86,6 +88,7 @@ class MessageBufferViewmodel extends SrxChangeNotifier {
   void clear() {
     _buffer.clear();
     _groupedMessages.clear();
+    _messagesTree.children.clear();
     notifyListeners();
   }
 

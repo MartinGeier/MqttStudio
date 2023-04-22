@@ -35,6 +35,7 @@ class TopicViewerPage extends StatelessWidget {
                           TopicsViewCommandBar(),
                           Expanded(
                             child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 projectGlobalViewmodel.isProjectOpen
                                     ? viewmodel.topicViewMode == TopicViewMode.Grouped

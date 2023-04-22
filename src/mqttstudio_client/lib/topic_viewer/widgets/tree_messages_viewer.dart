@@ -2,31 +2,62 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
+import 'package:mqttstudio/model/topic_color.dart';
 import 'package:mqttstudio/project/message_buffer_viewmodel.dart';
 import 'package:mqttstudio/project/project_global_viewmodel.dart';
 import 'package:mqttstudio/common/widgets/topic_chip.dart';
 import 'package:mqttstudio/topic_viewer/topic_viewer_viewmodel.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_simple_treeview/flutter_simple_treeview.dart';
 
 class TreeMessagesViewer extends StatelessWidget {
-  const TreeMessagesViewer({Key? key}) : super(key: key);
+  final _treeController = TreeController();
 
   @override
   Widget build(BuildContext context) {
     return Consumer<MessageBufferViewmodel>(builder: (context, msgBufferViewmodel, child) {
       return Consumer<TopicViewerViewmodel>(builder: (context, viewmodel, child) {
-        var messages = msgBufferViewmodel.getMessages();
+        var rootNode = msgBufferViewmodel.messagesTree;
+        var nodes = _buildNodes(rootNode.children, viewmodel);
         return Expanded(
             child: Padding(
           padding: const EdgeInsets.only(top: 8),
-          child: ListView.builder(
-              itemCount: messages.length,
-              itemBuilder: (context, index) {
-                return MessagesViewerRow(messages[index], msgBufferViewmodel, viewmodel);
-              }),
+          child: Scrollbar(
+            isAlwaysShown: true,
+            child: SingleChildScrollView(
+              child: TreeView(
+                nodes: nodes,
+                indent: 32,
+                treeController: _treeController,
+              ),
+            ),
+          ),
         ));
       });
     });
+  }
+
+  List<TreeNode> _buildNodes(List<MessageNode> messageNodes, TopicViewerViewmodel viewmodel) {
+    List<TreeNode> result = [];
+    for (var msgNode in messageNodes) {
+      var childNodes = (_buildNodes(msgNode.children, viewmodel));
+      var realTopic = msgNode.message!.topicName.endsWith(msgNode.topicLevelName);
+      var newNode = TreeNode(
+          content: TopicChip(
+            topic: msgNode.topicLevelName,
+            countLabel: realTopic ? msgNode.messageCount.toString() : null,
+            receivedTime: realTopic ? msgNode.message!.receivedOn : null,
+            topicColor:
+                realTopic ? GetIt.I.get<ProjectGlobalViewmodel>().getTopicColor(msgNode.message!.topicName) : TopicColor(Colors.grey),
+            selected: realTopic ? viewmodel.selectedMessage == msgNode.message : false,
+            onPressed: realTopic ? () => viewmodel.selectedMessage = msgNode.message : () {},
+            showGlowAnimation: DateTime.now().difference(msgNode.message!.receivedOn) < Duration(milliseconds: 300),
+          ),
+          children: childNodes);
+      result.add(newNode);
+    }
+
+    return result;
   }
 }
 

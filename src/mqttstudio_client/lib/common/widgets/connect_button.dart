@@ -60,7 +60,7 @@ class ConnectButton extends StatelessWidget {
         if (project == null) {
           return;
         }
-        projectGlobalViewmodel.openProject(project);
+        await projectGlobalViewmodel.openProject(project);
       }
 
       mqttGlobalViewmodel.connect(projectGlobalViewmodel.currentProject!.mqttSettings);

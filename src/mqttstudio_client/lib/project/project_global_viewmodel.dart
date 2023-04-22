@@ -32,7 +32,7 @@ class ProjectGlobalViewmodel extends SrxChangeNotifier {
 
   bool get isProjectOpen => _currentProject != null;
 
-  void openProject(Project? newProject) async {
+  Future openProject(Project? newProject) async {
     await closeProject(true);
 
     if (_mqttGlobalViewmodel.isConnected()) {
