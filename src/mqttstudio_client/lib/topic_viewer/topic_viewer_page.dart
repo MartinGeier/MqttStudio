@@ -4,13 +4,13 @@ import 'package:mqttstudio/common/widgets/main_appbar.dart';
 import 'package:mqttstudio/project/project_global_viewmodel.dart';
 import 'package:mqttstudio/topic_viewer/topic_viewer_viewmodel.dart';
 import 'package:mqttstudio/topic_viewer/widgets/grouped_messages_viewer.dart';
-import 'package:mqttstudio/common/widgets/navigation_drawer.dart';
 import 'package:mqttstudio/topic_viewer/widgets/message_detail_view.dart';
 import 'package:mqttstudio/topic_viewer/widgets/sequential_messages_viewer.dart';
 import 'package:mqttstudio/topic_viewer/widgets/topic_subscription_panel.dart';
 import 'package:mqttstudio/topic_viewer/widgets/topics_viewer_command_bar.dart';
 import 'package:mqttstudio/topic_viewer/widgets/tree_messages_viewer.dart';
 import 'package:provider/provider.dart';
+import 'package:mqttstudio/common/widgets/navigation_drawer.dart' as navDrawer;
 
 class TopicViewerPage extends StatelessWidget {
   const TopicViewerPage();
@@ -27,7 +27,7 @@ class TopicViewerPage extends StatelessWidget {
                   value: GetIt.I.get<ProjectGlobalViewmodel>().messageBufferViewmodel,
                   child: Scaffold(
                     appBar: MainAppBar(viewmodel: projectGlobalViewmodel),
-                    drawer: NavigationDrawer(),
+                    drawer: navDrawer.NavigationDrawer(),
                     body: Container(
                       child: Column(
                         children: [

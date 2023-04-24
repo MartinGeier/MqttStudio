@@ -28,7 +28,7 @@ class OpenProjectDialog extends StatelessWidget {
                   Expanded(
                       child: Scrollbar(
                     controller: _scrollController,
-                    isAlwaysShown: true,
+                    thumbVisibility: true,
                     child: ListView.builder(
                         controller: _scrollController,
                         itemCount: viewmodel.projects.length,
@@ -63,7 +63,7 @@ class OpenProjectDialog extends StatelessWidget {
 
     var project = viewmodel.projects[index];
     return ListTile(
-      title: Text(project.name, style: Theme.of(context).textTheme.subtitle1),
+      title: Text(project.name, style: Theme.of(context).textTheme.titleMedium),
       subtitle: Text(project.mqttSettings.hostname),
       leading: Image.asset('assets/images/logo.png', height: 32),
       minLeadingWidth: 0,

@@ -5,7 +5,7 @@ class LocalProjectRepository extends SrxLocalCrudRepository<Project, Project> {
   LocalProjectRepository() : super("projects", (json) => Project.fromJson(json), (json) => Project.fromJson(json));
 
   @override
-  Future getChangedSinceLastSync(DateTime? lastSyncDate) {
+  Future<List<Project>> getChangedSinceLastSync(DateTime? lastSyncDate) {
     throw UnimplementedError();
   }
 }

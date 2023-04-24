@@ -44,7 +44,7 @@ class ConnectButton extends StatelessWidget {
         ]),
       ),
       style: ElevatedButton.styleFrom(
-          primary:
+          backgroundColor:
               mqttGlobalViewmodel.isConnected() ? Theme.of(context).custom.connectedColor : Theme.of(context).custom.disconnectedColor),
     );
   }

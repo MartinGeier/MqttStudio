@@ -110,8 +110,8 @@ class AddTopicDialog extends StatelessWidget {
         ),
       ),
       formControlName: AddTopicViewmodel.topicNameField,
-      validationMessages: (control) => {'maxLength': 'fieldcontenttolong.error'.tr(), 'required': 'srx.common.fieldrequired'.tr()},
-      onSubmitted: () => _onOkPressed(context),
+      validationMessages: {'maxLength': (error) => 'fieldcontenttolong.error'.tr(), 'required': (error) => 'srx.common.fieldrequired'.tr()},
+      onSubmitted: (_) => _onOkPressed(context),
     );
   }
 
@@ -122,7 +122,7 @@ class AddTopicDialog extends StatelessWidget {
       items: items,
       decoration: InputDecoration(border: OutlineInputBorder(), labelText: 'addtopicdialog.qos.label'.tr(), isDense: true),
       formControlName: AddTopicViewmodel.qosField,
-      validationMessages: (control) => {'required': 'srx.common.fieldrequired'.tr()},
+      validationMessages: {'required': (error) => 'srx.common.fieldrequired'.tr()},
     );
   }
 
@@ -139,7 +139,7 @@ class AddTopicDialog extends StatelessWidget {
       items: items,
       decoration: InputDecoration(border: OutlineInputBorder(), labelText: 'addtopicdialog.color.label'.tr(), isDense: true),
       formControlName: AddTopicViewmodel.colorField,
-      validationMessages: (control) => {'required': 'srx.common.fieldrequired'.tr()},
+      validationMessages: {'required': (error) => 'srx.common.fieldrequired'.tr()},
     );
   }
 }

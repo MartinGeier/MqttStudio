@@ -60,7 +60,7 @@ class ProjectEditDialog extends StatelessWidget {
         padding: const EdgeInsets.only(bottom: 16),
         child: Text(
           'projectedit.mqttsetting.label'.tr(),
-          style: Theme.of(context).textTheme.subtitle2, //!.apply(fontWeightDelta: 1),
+          style: Theme.of(context).textTheme.titleSmall, //!.apply(fontWeightDelta: 1),
         ),
       ),
       SrxFormRow(
@@ -99,10 +99,10 @@ class ProjectEditDialog extends StatelessWidget {
       maxLines: 1,
       decoration: InputDecoration(border: OutlineInputBorder(), labelText: 'projectedit.projectname.label'.tr(), isDense: true),
       formControlName: ProjectEditViewmodel.projectNameField,
-      validationMessages: (control) => {
-        'minLength': 'common.fieldcontenttoshort.error'.tr(),
-        'maxLength': 'common.fieldcontenttolong.error'.tr(),
-        'required': 'srx.common.fieldrequired'.tr()
+      validationMessages: {
+        'minLength': (error) => 'common.fieldcontenttoshort.error'.tr(),
+        'maxLength': (error) => 'common.fieldcontenttolong.error'.tr(),
+        'required': (error) => 'srx.common.fieldrequired'.tr()
       },
     );
   }
@@ -138,10 +138,10 @@ class ProjectEditDialog extends StatelessWidget {
             },
           )),
       formControlName: ProjectEditViewmodel.mqttHostnameField,
-      validationMessages: (control) => {
-        'minLength': 'common.fieldcontenttoshort.error'.tr(),
-        'maxLength': 'common.fieldcontenttolong.error'.tr(),
-        'required': 'srx.common.fieldrequired'.tr()
+      validationMessages: {
+        'minLength': (error) => 'common.fieldcontenttoshort.error'.tr(),
+        'maxLength': (error) => 'common.fieldcontenttolong.error'.tr(),
+        'required': (error) => 'srx.common.fieldrequired'.tr()
       },
     );
   }
@@ -152,10 +152,10 @@ class ProjectEditDialog extends StatelessWidget {
       maxLines: 1,
       decoration: InputDecoration(border: OutlineInputBorder(), labelText: 'projectedit.clientid.label'.tr(), isDense: true),
       formControlName: ProjectEditViewmodel.clientIdField,
-      validationMessages: (control) => {
-        'minLength': 'fieldcontenttoshort.error'.tr(),
-        'maxLength': 'fieldcontenttolong.error'.tr(),
-        'required': 'srx.common.fieldrequired'.tr()
+      validationMessages: {
+        'minLength': (error) => 'fieldcontenttoshort.error'.tr(),
+        'maxLength': (error) => 'fieldcontenttolong.error'.tr(),
+        'required': (error) => 'srx.common.fieldrequired'.tr()
       },
     );
   }
@@ -166,9 +166,9 @@ class ProjectEditDialog extends StatelessWidget {
       maxLines: 1,
       decoration: InputDecoration(border: OutlineInputBorder(), labelText: 'projectedit.port.label'.tr(), isDense: true),
       formControlName: ProjectEditViewmodel.portField,
-      validationMessages: (control) => {
-        'min': 'projectedit.port.error'.tr(),
-        'max': 'projectedit.port.error'.tr(),
+      validationMessages: {
+        'min': (error) => 'projectedit.port.error'.tr(),
+        'max': (error) => 'projectedit.port.error'.tr(),
       },
     );
   }
@@ -179,8 +179,8 @@ class ProjectEditDialog extends StatelessWidget {
       maxLines: 1,
       decoration: InputDecoration(border: OutlineInputBorder(), labelText: 'projectedit.username.label'.tr(), isDense: true),
       formControlName: ProjectEditViewmodel.usernameField,
-      validationMessages: (control) => {
-        'maxLength': 'common.fieldcontenttolong.error'.tr(),
+      validationMessages: {
+        'maxLength': (error) => 'common.fieldcontenttolong.error'.tr(),
       },
     );
   }
@@ -197,8 +197,8 @@ class ProjectEditDialog extends StatelessWidget {
           suffixIcon: IconButton(
               icon: Icon(Icons.visibility_rounded), onPressed: () => viewmodel.isPasswordObscureText = !viewmodel.isPasswordObscureText)),
       formControlName: ProjectEditViewmodel.passwordField,
-      validationMessages: (control) => {
-        'maxLength': 'common.fieldcontenttolong.error'.tr(),
+      validationMessages: {
+        'maxLength': (error) => 'common.fieldcontenttolong.error'.tr(),
       },
     );
   }

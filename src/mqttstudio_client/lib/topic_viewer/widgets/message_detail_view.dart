@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:mqtt_client/mqtt_client.dart';
 import 'package:typed_data/typed_buffers.dart';
@@ -132,9 +131,9 @@ class MessageDetailView extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(mainAxisAlignment: MainAxisAlignment.start, children: [
         Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('messagedetailview.receivedon.label'.tr(), style: Theme.of(context).textTheme.subtitle1),
+          Text('messagedetailview.receivedon.label'.tr(), style: Theme.of(context).textTheme.titleMedium),
           SelectableText(DateFormat('HH:mm:ss').format(topic.receivedOn) + nf.format(topic.receivedOn.millisecond / 1000),
-              style: Theme.of(context).textTheme.headline4)
+              style: Theme.of(context).textTheme.headlineMedium)
         ]),
       ]),
     );
@@ -146,8 +145,8 @@ class MessageDetailView extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(mainAxisAlignment: MainAxisAlignment.start, children: [
         Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('messagedetailview.messagecount.label'.tr(), style: Theme.of(context).textTheme.subtitle1),
-          SelectableText(msgCount.toString(), style: Theme.of(context).textTheme.headline4)
+          Text('messagedetailview.messagecount.label'.tr(), style: Theme.of(context).textTheme.titleMedium),
+          SelectableText(msgCount.toString(), style: Theme.of(context).textTheme.headlineMedium)
         ]),
       ]),
     );
@@ -160,20 +159,20 @@ class MessageDetailView extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('messagedetailview.qos.label'.tr(), style: Theme.of(context).textTheme.subtitle1),
-            SelectableText(topic.qos.index.toString(), style: Theme.of(context).textTheme.headline4)
+            Text('messagedetailview.qos.label'.tr(), style: Theme.of(context).textTheme.titleMedium),
+            SelectableText(topic.qos.index.toString(), style: Theme.of(context).textTheme.headlineMedium)
           ]),
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('messagedetailview.retain.label'.tr(), style: Theme.of(context).textTheme.subtitle1),
-            SelectableText(topic.retain.toString(), style: Theme.of(context).textTheme.headline4)
+            Text('messagedetailview.retain.label'.tr(), style: Theme.of(context).textTheme.titleMedium),
+            SelectableText(topic.retain.toString(), style: Theme.of(context).textTheme.headlineMedium)
           ]),
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('messagedetailview.payloadsize.label'.tr(), style: Theme.of(context).textTheme.subtitle1),
-            SelectableText('${topic.payload.length.toString()} B', style: Theme.of(context).textTheme.headline4)
+            Text('messagedetailview.payloadsize.label'.tr(), style: Theme.of(context).textTheme.titleMedium),
+            SelectableText('${topic.payload.length.toString()} B', style: Theme.of(context).textTheme.headlineMedium)
           ]),
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('messagedetailview.id.label'.tr(), style: Theme.of(context).textTheme.subtitle1),
-            SelectableText(topic.id.toString(), style: Theme.of(context).textTheme.headline4)
+            Text('messagedetailview.id.label'.tr(), style: Theme.of(context).textTheme.titleMedium),
+            SelectableText(topic.id.toString(), style: Theme.of(context).textTheme.headlineMedium)
           ])
         ],
       ),
@@ -208,7 +207,7 @@ class MessageDetailView extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Text('messagedetailview.payload.label'.tr(), style: Theme.of(context).textTheme.subtitle1),
+                  Text('messagedetailview.payload.label'.tr(), style: Theme.of(context).textTheme.titleMedium),
                   SizedBox(width: 32),
                   Chip(
                     label: Text(describeEnum(payLoadType)),
@@ -241,8 +240,8 @@ class MessageDetailView extends StatelessWidget {
             controller: _scrollController,
             child: SelectableText(payload,
                 style: payload.length < 25
-                    ? Theme.of(context).textTheme.headline4
-                    : Theme.of(context).textTheme.bodyText1!.copyWith(height: 1.7))));
+                    ? Theme.of(context).textTheme.headlineMedium
+                    : Theme.of(context).textTheme.bodyLarge!.copyWith(height: 1.7))));
   }
 
   Widget _buildJsonViewer(String payload, BuildContext context) {

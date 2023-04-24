@@ -98,8 +98,8 @@ class PublishTopicDialog extends StatelessWidget {
         ),
       ),
       formControlName: PublishTopicViewmodel.topicNameField,
-      validationMessages: (control) => {'maxLength': 'fieldcontenttolong.error'.tr(), 'required': 'srx.common.fieldrequired'.tr()},
-      onSubmitted: () => _onOkPressed(context),
+      validationMessages: {'maxLength': (error) => 'fieldcontenttolong.error'.tr(), 'required': (error) => 'srx.common.fieldrequired'.tr()},
+      onSubmitted: (_) => _onOkPressed(context),
     );
   }
 
@@ -114,7 +114,7 @@ class PublishTopicDialog extends StatelessWidget {
     return ReactiveTextField(
       decoration: InputDecoration(border: OutlineInputBorder(), labelText: 'publishtopicdialog.payload.label'.tr(), isDense: true),
       formControlName: PublishTopicViewmodel.payloadField,
-      validationMessages: (control) => {'required': 'srx.common.fieldrequired'.tr()},
+      validationMessages: {'required': (error) => 'srx.common.fieldrequired'.tr()},
       maxLengthEnforcement: MaxLengthEnforcement.enforced,
       maxLength: 20000,
       maxLines: 10,

@@ -19,8 +19,8 @@ class GroupedMessagesViewer extends StatelessWidget {
             child: Padding(
           padding: const EdgeInsets.only(top: 8),
           child: Scrollbar(
-              isAlwaysShown: true,
-              showTrackOnHover: true,
+              thumbVisibility: true,
+              trackVisibility: true,
               child: ListView.builder(
                   itemCount: groupedMessages.length,
                   itemBuilder: (context, index) {
@@ -59,7 +59,7 @@ class GroupedMessagesViewerRow extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: Text(
                   DateFormat('HH:mm:ss').format(messageGroup.beginOfPeriod),
-                  style: Theme.of(context).textTheme.headline4,
+                  style: Theme.of(context).textTheme.headlineMedium,
                 ),
               ),
               Expanded(

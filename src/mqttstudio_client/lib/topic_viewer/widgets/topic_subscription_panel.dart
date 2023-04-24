@@ -26,7 +26,7 @@ class TopicSubscriptionPanel extends StatelessWidget {
                     Center(
                       child: Text(
                         'topicsubscriptionpanel.watermark'.tr(),
-                        style: Theme.of(context).textTheme.headline4!.copyWith(color: Theme.of(context).dividerColor),
+                        style: Theme.of(context).textTheme.headlineMedium!.copyWith(color: Theme.of(context).dividerColor),
                         textAlign: TextAlign.center,
                       ),
                     ),

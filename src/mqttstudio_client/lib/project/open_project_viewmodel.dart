@@ -1,7 +1,6 @@
 import 'package:mqttstudio/common/localstore.dart';
 import 'package:mqttstudio/model/project.dart';
 import 'package:srx_flutter/srx_flutter.dart';
-import '../common/localstore.dart';
 
 class OpenProjectViewmodel extends SrxChangeNotifier {
   List<Project> projects = [];

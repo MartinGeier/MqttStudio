@@ -69,7 +69,8 @@ class _TopicChipState extends State<TopicChip> with SingleTickerProviderStateMix
             ? widget.topicColor.color.lighten(0.3)
             : widget.topicColor.color;
     var textColor = bgColor.computeLuminance() > 0.5 ? Colors.black : Colors.white;
-    var labelWidget = AutoSizeText(widget.topic, minFontSize: 10, style: Theme.of(context).textTheme.subtitle2!.copyWith(color: textColor));
+    var labelWidget =
+        AutoSizeText(widget.topic, minFontSize: 10, style: Theme.of(context).textTheme.titleSmall!.copyWith(color: textColor));
     return ConstrainedBox(
       constraints: BoxConstraints(
           maxWidth: widget.unlimitedWidth
@@ -104,9 +105,10 @@ class _TopicChipState extends State<TopicChip> with SingleTickerProviderStateMix
                             ? Row(
                                 children: [
                                   SizedBox(width: 12),
-                                  Text('|', style: Theme.of(context).textTheme.subtitle2!.copyWith(color: textColor)),
+                                  Text('|', style: Theme.of(context).textTheme.titleSmall!.copyWith(color: textColor)),
                                   SizedBox(width: 12),
-                                  Text('# ' + widget.countLabel!, style: Theme.of(context).textTheme.subtitle2!.copyWith(color: textColor)),
+                                  Text('# ' + widget.countLabel!,
+                                      style: Theme.of(context).textTheme.titleSmall!.copyWith(color: textColor)),
                                 ],
                               )
                             : SizedBox(),
@@ -114,10 +116,10 @@ class _TopicChipState extends State<TopicChip> with SingleTickerProviderStateMix
                             ? Row(
                                 children: [
                                   SizedBox(width: 12),
-                                  Text('|', style: Theme.of(context).textTheme.subtitle2!.copyWith(color: textColor)),
+                                  Text('|', style: Theme.of(context).textTheme.titleSmall!.copyWith(color: textColor)),
                                   SizedBox(width: 12),
                                   Text(DateFormat('HH:mm:ss').format(widget.receivedTime!),
-                                      style: Theme.of(context).textTheme.subtitle2!.copyWith(color: textColor)),
+                                      style: Theme.of(context).textTheme.titleSmall!.copyWith(color: textColor)),
                                 ],
                               )
                             : SizedBox(),
