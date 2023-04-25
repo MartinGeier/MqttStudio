@@ -12,6 +12,7 @@ import 'package:flutter_simple_treeview/flutter_simple_treeview.dart';
 
 class TreeMessagesViewer extends StatelessWidget {
   final _treeController = TreeController();
+  final ScrollController _scrollController = ScrollController();
 
   @override
   Widget build(BuildContext context) {
@@ -23,8 +24,10 @@ class TreeMessagesViewer extends StatelessWidget {
             child: Padding(
           padding: const EdgeInsets.only(top: 8),
           child: Scrollbar(
+            controller: _scrollController,
             thumbVisibility: true,
             child: SingleChildScrollView(
+              controller: _scrollController,
               child: TreeView(
                 nodes: nodes,
                 indent: 32,

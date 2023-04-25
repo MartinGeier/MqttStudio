@@ -8,7 +8,8 @@ import 'package:mqttstudio/topic_viewer/topic_viewer_viewmodel.dart';
 import 'package:provider/provider.dart';
 
 class GroupedMessagesViewer extends StatelessWidget {
-  const GroupedMessagesViewer({Key? key}) : super(key: key);
+  GroupedMessagesViewer({Key? key}) : super(key: key);
+  final ScrollController _scrollController = ScrollController();
 
   @override
   Widget build(BuildContext context) {
@@ -19,9 +20,11 @@ class GroupedMessagesViewer extends StatelessWidget {
             child: Padding(
           padding: const EdgeInsets.only(top: 8),
           child: Scrollbar(
+              controller: _scrollController,
               thumbVisibility: true,
               trackVisibility: true,
               child: ListView.builder(
+                  controller: _scrollController,
                   itemCount: groupedMessages.length,
                   itemBuilder: (context, index) {
                     return GroupedMessagesViewerRow(groupedMessages[index], msgBufferViewmodel, viewmodel);

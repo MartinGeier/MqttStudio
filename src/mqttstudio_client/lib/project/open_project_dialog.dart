@@ -77,7 +77,7 @@ Future deleteProject(Project project, OpenProjectViewmodel viewmodel) async {
   await viewmodel.deleteProject(project);
 }
 
-void _onTap(Project project, BuildContext context) {
+Future _onTap(Project project, BuildContext context) async {
   context.read<ProjectGlobalViewmodel>().openProject(project);
-  GetIt.I.get<SrxNavigationService>().pop();
+  await GetIt.I.get<SrxNavigationService>().pop();
 }
