@@ -3,7 +3,7 @@ import 'package:mqttstudio/common/widgets/connect_button.dart';
 import 'package:mqttstudio/project/project_global_viewmodel.dart';
 import 'package:easy_localization/easy_localization.dart';
 
-class MainAppBar extends StatefulWidget with PreferredSizeWidget {
+class MainAppBar extends StatefulWidget implements PreferredSizeWidget {
   final ProjectGlobalViewmodel viewmodel;
 
   MainAppBar({required this.viewmodel, Key? key}) : super(key: key);
