@@ -13,8 +13,8 @@ class NavigationDrawer extends SrxNavigationDrawer {
       : super(
             showLogout: false,
             copyrightText: 'Copyright (c) by Redpin',
-            developedByText: 'www.redpin.eu',
-            developedByUrl: 'http://www.redpin.eu',
+            developedByText: 'www.mqttstudio.com',
+            developedByUrl: 'https://www.mqttstudio.com',
             logo: Image.asset(
               './assets/images/logo.png',
             ));

@@ -23,13 +23,13 @@ class MqttController {
   MqttController() {
     rootBundle
         .load('assets/cert/mosquitto.org.crt')
-        .then((value) => SecurityContext.defaultContext.setTrustedCertificatesBytes(value.buffer.asInt32List()));
+        .then((value) => SecurityContext.defaultContext.setTrustedCertificatesBytes(value.buffer.asUint8List()));
   }
 
   Future connect(MqttSettings mqttSettings) async {
     var hostname = mqttSettings.hostname;
     if (mqttSettings.useWebSockets) {
-      hostname = (mqttSettings.useSsl ? SecureWebSocketPrefix : WebSocketPrefix) + hostname;
+      hostname = (mqttSettings.useSsl ? SecureWebSocketPrefix : WebSocketPrefix) + hostname + "/mqtt";
     }
 
     _client = MqttServerClient(hostname, mqttSettings.clientId);
@@ -39,8 +39,9 @@ class MqttController {
     _client.onSubscribed = _onSubscribed;
     _client.onUnsubscribed = _onUnsubscribed;
     _client.connectionMessage = MqttConnectMessage().startClean().withClientIdentifier(mqttSettings.clientId);
-    _client.keepAlivePeriod = 60;
+    _client.keepAlivePeriod = 20;
     _client.logging(on: true);
+    _client.setProtocolV311();
     _client.secure = mqttSettings.useSsl
         ? mqttSettings.useWebSockets
             ? false
