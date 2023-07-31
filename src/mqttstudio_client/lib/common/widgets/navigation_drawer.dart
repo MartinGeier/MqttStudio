@@ -7,12 +7,13 @@ import 'package:mqttstudio/model/project.dart';
 import 'package:mqttstudio/project/project_global_viewmodel.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 import 'package:provider/provider.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 class NavigationDrawer extends SrxNavigationDrawer {
   NavigationDrawer()
       : super(
             showLogout: false,
-            copyrightText: 'Copyright (c) by Redpin',
+            copyrightText: 'copyright_text'.tr(),
             developedByText: 'www.mqttstudio.com',
             developedByUrl: 'https://www.mqttstudio.com',
             logo: Image.asset(
@@ -48,6 +49,25 @@ class NavigationDrawer extends SrxNavigationDrawer {
           leading: Icon(Icons.settings),
           title: Text('navigator.projectsettings_menuitem'.tr()),
           enabled: projectGlobalViewmodel.isProjectOpen),
+      Divider(),
+      FutureBuilder(
+          future: PackageInfo.fromPlatform(),
+          builder: (BuildContext context, AsyncSnapshot<PackageInfo> info) {
+            return AboutListTile(
+              icon: Icon(Icons.info),
+              applicationIcon: Image.asset(
+                './assets/images/logo.png',
+                height: 48,
+              ),
+              applicationName: "MQTT Studio",
+              applicationVersion: (info.data != null ? "v${info.data?.version}" : ""),
+              applicationLegalese: 'copyright_text'.tr(),
+              aboutBoxChildren: [
+                SizedBox(height: 16),
+                Text('aboutdialog.marketing_text'.tr(), style: Theme.of(context).textTheme.bodyMedium)
+              ],
+            );
+          })
     ];
   }
 
