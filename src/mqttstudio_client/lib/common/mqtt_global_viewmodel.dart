@@ -1,6 +1,6 @@
 import 'package:get_it/get_it.dart';
 import 'package:mqtt_client/mqtt_client.dart';
-import 'package:mqttstudio/common/mqtt_controller.dart';
+import 'package:mqttstudio/mqtt/mqtt_controller.dart';
 import 'package:mqttstudio/model/mqtt_payload_type.dart';
 import 'package:mqttstudio/model/mqtt_settings.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';

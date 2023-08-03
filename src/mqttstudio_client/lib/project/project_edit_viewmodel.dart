@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 import 'package:mqttstudio/model/mqtt_settings.dart';
 import 'package:mqttstudio/model/project.dart';
 import 'package:reactive_forms/reactive_forms.dart';
@@ -41,7 +42,7 @@ class ProjectEditViewmodel extends SrxChangeNotifier {
       usernameField: FormControl<String>(validators: [Validators.maxLength(100)]),
       passwordField: FormControl<String>(validators: [Validators.maxLength(100)]),
       useSslField: FormControl<bool>(),
-      useWebSocketField: FormControl<bool>(),
+      useWebSocketField: FormControl<bool>(value: kIsWeb, disabled: kIsWeb),
     });
   }
 

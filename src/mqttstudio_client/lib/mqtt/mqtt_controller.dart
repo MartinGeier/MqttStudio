@@ -1,19 +1,20 @@
 import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:mqtt_client/mqtt_client.dart';
-import 'package:mqtt_client/mqtt_server_client.dart';
+import 'mqttserver.dart' if (dart.library.html) 'mqttbrowser.dart' as mqttsetup;
 import 'package:mqttstudio/model/mqtt_payload_type.dart';
 import 'package:mqttstudio/model/mqtt_settings.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
 import 'package:mqttstudio/service/service_error.dart';
 import 'package:srx_flutter/srx_flutter.dart';
+import 'package:flutter/foundation.dart';
 import 'package:synchronized/synchronized.dart' as lock;
 
 class MqttController {
   static const String WebSocketPrefix = "ws://";
   static const String SecureWebSocketPrefix = "wss://";
 
-  MqttServerClient _client = MqttServerClient('', '');
+  MqttClient _client = mqttsetup.setup('', '');
   List<String> _activeSubscriptions = List.empty(growable: true);
   Function? onConnected;
   Function? onDisconnected;
@@ -21,9 +22,11 @@ class MqttController {
   var _lock = new lock.Lock();
 
   MqttController() {
-    rootBundle
-        .load('assets/cert/mosquitto.org.crt')
-        .then((value) => SecurityContext.defaultContext.setTrustedCertificatesBytes(value.buffer.asUint8List()));
+    if (!kIsWeb) {
+      rootBundle
+          .load('assets/cert/mosquitto.org.crt')
+          .then((value) => SecurityContext.defaultContext.setTrustedCertificatesBytes(value.buffer.asUint8List()));
+    }
   }
 
   Future connect(MqttSettings mqttSettings) async {
@@ -32,7 +35,8 @@ class MqttController {
       hostname = (mqttSettings.useSsl ? SecureWebSocketPrefix : WebSocketPrefix) + hostname + "/mqtt";
     }
 
-    _client = MqttServerClient(hostname, mqttSettings.clientId);
+    _client = mqttsetup.setup(hostname, mqttSettings.clientId);
+
     _client.port = mqttSettings.port;
     _client.onConnected = _onConnected;
     _client.onDisconnected = _onDisconnected;
@@ -42,13 +46,17 @@ class MqttController {
     _client.keepAlivePeriod = 20;
     _client.logging(on: true);
     _client.setProtocolV311();
-    _client.secure = mqttSettings.useSsl
-        ? mqttSettings.useWebSockets
-            ? false
-            : true
-        : false;
-    _client.useWebSocket = mqttSettings.useWebSockets;
     _client.websocketProtocols = MqttClientConstants.protocolsSingleDefault;
+
+    // setup for server client only
+    mqttsetup.setupSecure(
+        _client,
+        mqttSettings.useSsl
+            ? mqttSettings.useWebSockets
+                ? false
+                : true
+            : false);
+    mqttsetup.setupUserWebSockets(_client, mqttSettings.useWebSockets);
 
     try {
       await _client.connect(mqttSettings.username, mqttSettings.password);

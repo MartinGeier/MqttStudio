@@ -20,7 +20,7 @@ class CheckboxField extends StatelessWidget {
               child: Text(label),
               onTap: () {
                 var control = form.control(formControlName);
-                if (form.enabled) {
+                if (form.enabled && control.enabled) {
                   control.value = control.value != null ? !control.value : true;
                 }
               }),
