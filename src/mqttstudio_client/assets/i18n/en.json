@@ -10,6 +10,8 @@
     "projectedit.username.label": "Username",
     "projectedit.password.label": "Password",
     "projectedit.mqttsetting.label": "MQTT settings",
+    "projectedit.usessl": "Use SSL",
+    "projectedit.usewebsockets": "Use Websockets",
     "mqtt.connecting.error": "Error connecting to MQTT broker",
     "topicsubscriptionpanel.watermark": "Subscribed Topics",
     "addtopicdialog.title": "Add Topic",

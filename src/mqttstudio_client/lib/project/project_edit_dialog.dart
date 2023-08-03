@@ -85,11 +85,12 @@ class ProjectEditDialog extends StatelessWidget {
   }
 
   Widget _buildSslCheckbox(ProjectEditViewmodel viewmodel) {
-    return CheckboxField(formControlName: ProjectEditViewmodel.useSslField, form: viewmodel.form, label: 'Use SSL');
+    return CheckboxField(formControlName: ProjectEditViewmodel.useSslField, form: viewmodel.form, label: 'projectedit.usessl'.tr());
   }
 
   _buildWebSocketCheckbox(ProjectEditViewmodel viewmodel) {
-    return CheckboxField(formControlName: ProjectEditViewmodel.useWebSocketField, form: viewmodel.form, label: 'Use Websockets');
+    return CheckboxField(
+        formControlName: ProjectEditViewmodel.useWebSocketField, form: viewmodel.form, label: 'projectedit.usewebsockets'.tr());
   }
 
   ReactiveTextField<String> _buildProjectNameField(ProjectEditViewmodel viewmodel) {
