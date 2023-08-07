@@ -65,7 +65,7 @@ class OpenProjectDialog extends StatelessWidget {
     return ListTile(
       title: Text(project.name, style: Theme.of(context).textTheme.titleMedium),
       subtitle: Text(project.mqttSettings.hostname),
-      leading: Image.asset('assets/images/logo.png', height: 32),
+      leading: Image.asset('assets/icons/mqttstudio.png', height: 32),
       minLeadingWidth: 0,
       trailing: IconButton(icon: Icon(Icons.delete), onPressed: () => deleteProject(project, viewmodel)),
       onTap: () => _onTap(project, context),

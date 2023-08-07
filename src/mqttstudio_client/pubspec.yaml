@@ -70,7 +70,7 @@ flutter:
   # assets:
   assets:
     - assets/
-    # - assets/icons/
+    - assets/icons/
     - assets/images/
     - assets/fonts/
     - assets/i18n/

@@ -16,6 +16,7 @@ class NavigationDrawer extends SrxNavigationDrawer {
             copyrightText: 'copyright_text'.tr(),
             developedByText: 'www.mqttstudio.com',
             developedByUrl: 'https://www.mqttstudio.com',
+            logoUrl: "https://www.mqttstudio.com",
             logo: Image.asset(
               './assets/images/logo.png',
             ));
@@ -56,8 +57,8 @@ class NavigationDrawer extends SrxNavigationDrawer {
             return AboutListTile(
               icon: Icon(Icons.info),
               applicationIcon: Image.asset(
-                './assets/images/logo.png',
-                height: 48,
+                './assets/icons/mqttstudio.png',
+                height: 64,
               ),
               applicationName: "MQTT Studio",
               applicationVersion: (info.data != null ? "v${info.data?.version}" : ""),

@@ -15,6 +15,7 @@
     "mqtt.connecting.error": "Error connecting to MQTT broker",
     "topicsubscriptionpanel.watermark": "Subscribed Topics",
     "addtopicdialog.title": "Add Topic",
+    "addtopicdialog.invalidtopic": "Invalid topic",
     "addtopicdialog.topicname.label": "Topic Name",
     "addtopicdialog.qos.label": "Qos",
     "addtopicdialog.duplicatetopic.error": "Trying to add duplicate subscription!",

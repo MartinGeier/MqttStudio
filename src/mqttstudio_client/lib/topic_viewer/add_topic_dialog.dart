@@ -110,7 +110,11 @@ class AddTopicDialog extends StatelessWidget {
         ),
       ),
       formControlName: AddTopicViewmodel.topicNameField,
-      validationMessages: {'maxLength': (error) => 'fieldcontenttolong.error'.tr(), 'required': (error) => 'srx.common.fieldrequired'.tr()},
+      validationMessages: {
+        'maxLength': (error) => 'fieldcontenttolong.error'.tr(),
+        'required': (error) => 'srx.common.fieldrequired'.tr(),
+        'invalidTopicName': (error) => 'addtopicdialog.invalidtopic'.tr()
+      },
       onSubmitted: (_) => _onOkPressed(context),
     );
   }

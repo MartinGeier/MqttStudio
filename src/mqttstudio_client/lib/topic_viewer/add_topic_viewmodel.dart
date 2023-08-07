@@ -21,7 +21,7 @@ class AddTopicViewmodel extends SrxChangeNotifier {
 
   FormGroup buildFormGroup() {
     return FormGroup({
-      topicNameField: FormControl<String>(validators: [Validators.required, Validators.maxLength(200)]),
+      topicNameField: FormControl<String>(validators: [Validators.required, Validators.maxLength(200), TopicNameValidator().validate]),
       qosField: FormControl<MqttQos>(validators: [Validators.required], value: MqttQos.atLeastOnce),
       colorField: FormControl<Color>(validators: [Validators.required], value: TopicColor.random().color),
     });
@@ -35,7 +35,18 @@ class AddTopicViewmodel extends SrxChangeNotifier {
 
     TopicSubscription topicSub = TopicSubscription(form.control(topicNameField).value, form.control(qosField).value,
         color: TopicColor(form.control(colorField).value));
+
     GetIt.I.get<ProjectGlobalViewmodel>().addTopicSubscription(topicSub);
     return true;
+  }
+}
+
+/// Validator that validates the topic name is valid
+class TopicNameValidator extends Validator<dynamic> {
+  TopicNameValidator() : super();
+
+  @override
+  Map<String, dynamic>? validate(AbstractControl<dynamic> control) {
+    return control.isNotNull && ('#'.allMatches(control.value).length ?? 0) < 2 ? null : {'invalidTopicName': 'Invalid topic name'};
   }
 }
