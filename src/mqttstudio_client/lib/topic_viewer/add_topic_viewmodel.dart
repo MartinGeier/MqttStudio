@@ -47,6 +47,6 @@ class TopicNameValidator extends Validator<dynamic> {
 
   @override
   Map<String, dynamic>? validate(AbstractControl<dynamic> control) {
-    return control.isNotNull && ('#'.allMatches(control.value).length ?? 0) < 2 ? null : {'invalidTopicName': 'Invalid topic name'};
+    return control.isNotNull && ('#'.allMatches(control.value).length) < 2 ? null : {'invalidTopicName': 'Invalid topic name'};
   }
 }

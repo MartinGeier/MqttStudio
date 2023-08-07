@@ -11,6 +11,25 @@ import 'package:easy_localization/easy_localization.dart';
 class ProjectEditDialog extends StatelessWidget {
   const ProjectEditDialog({Key? key}) : super(key: key);
 
+  static const String MosquittoHostUrl = 'test.mosquitto.org';
+  static const String HiveMqHostUrl = 'broker.hivemq.com';
+  static const String EmqxHostUrl = 'broker.emqx.io';
+
+  static const int MosquittoPort = 1883;
+  static const int MosquittoSslPort = 8883;
+  static const int MosquittoWsPort = 8080;
+  static const int MosquittoWsSslPort = 8081;
+
+  static const int HiveMqPort = 1883;
+  static const int HiveMqSslPort = 8883;
+  static const int HiveMqWsPort = 8000;
+  static const int HiveMqWsSslPort = 8884;
+
+  static const int EmqxPort = 1883;
+  static const int EmqxSslPort = 8883;
+  static const int EmqxWsPort = 8083;
+  static const int EmqxWsSslPort = 8084;
+
   @override
   Widget build(BuildContext context) {
     var currentProject = context.read<ProjectGlobalViewmodel>().currentProject;
@@ -85,12 +104,19 @@ class ProjectEditDialog extends StatelessWidget {
   }
 
   Widget _buildSslCheckbox(ProjectEditViewmodel viewmodel) {
-    return CheckboxField(formControlName: ProjectEditViewmodel.useSslField, form: viewmodel.form, label: 'projectedit.usessl'.tr());
+    return CheckboxField(
+        formControlName: ProjectEditViewmodel.useSslField,
+        form: viewmodel.form,
+        label: 'projectedit.usessl'.tr(),
+        onChanged: () => _setPortNumber(viewmodel));
   }
 
   _buildWebSocketCheckbox(ProjectEditViewmodel viewmodel) {
     return CheckboxField(
-        formControlName: ProjectEditViewmodel.useWebSocketField, form: viewmodel.form, label: 'projectedit.usewebsockets'.tr());
+        formControlName: ProjectEditViewmodel.useWebSocketField,
+        form: viewmodel.form,
+        label: 'projectedit.usewebsockets'.tr(),
+        onChanged: () => _setPortNumber(viewmodel));
   }
 
   ReactiveTextField<String> _buildProjectNameField(ProjectEditViewmodel viewmodel) {
@@ -114,26 +140,27 @@ class ProjectEditDialog extends StatelessWidget {
       maxLines: 1,
       enableInteractiveSelection: true,
       enableSuggestions: true,
+      onChanged: (control) => _hostnameFieldChanged(viewmodel, control.value ?? ''),
       decoration: InputDecoration(
           border: OutlineInputBorder(),
           labelText: 'projectedit.mqqthostname.label'.tr(),
           isDense: true,
           suffixIcon: PopupMenuButton(
-            onSelected: (broker) => viewmodel.form.control(ProjectEditViewmodel.mqttHostnameField).value = broker,
+            onSelected: (String host) => _hostnameFieldChanged(viewmodel, host),
             icon: Icon(Icons.arrow_drop_down),
             itemBuilder: (context) {
               return [
                 PopupMenuItem(
-                  child: Text('test.mosquitto.org'),
-                  value: 'test.mosquitto.org',
+                  child: Text(MosquittoHostUrl),
+                  value: MosquittoHostUrl,
                 ),
                 PopupMenuItem(
-                  child: Text('broker.hivemq.com'),
-                  value: 'broker.hivemq.com',
+                  child: Text(HiveMqHostUrl),
+                  value: HiveMqHostUrl,
                 ),
                 PopupMenuItem(
-                  child: Text('broker.emqx.io'),
-                  value: 'broker.emqx.io',
+                  child: Text(EmqxHostUrl),
+                  value: EmqxHostUrl,
                 ),
               ];
             },
@@ -207,6 +234,58 @@ class ProjectEditDialog extends StatelessWidget {
   _onOkPressed(ProjectEditViewmodel viewmodel) async {
     if (viewmodel.saveModel(validateForm: true)) {
       GetIt.I.get<SrxNavigationService>().pop(viewmodel.project);
+    }
+  }
+
+  _hostnameFieldChanged(ProjectEditViewmodel viewmodel, String hostname) {
+    viewmodel.form.control(ProjectEditViewmodel.mqttHostnameField).value = hostname;
+    _setPortNumber(viewmodel);
+  }
+
+  void _setPortNumber(ProjectEditViewmodel viewmodel) {
+    bool ws = viewmodel.form.control(ProjectEditViewmodel.useWebSocketField).value;
+    bool ssl = viewmodel.form.control(ProjectEditViewmodel.useSslField).value;
+    int port = 0;
+    switch (viewmodel.form.control(ProjectEditViewmodel.mqttHostnameField).value) {
+      case MosquittoHostUrl:
+        if (ws && ssl) {
+          port = MosquittoWsSslPort;
+        } else if (ws) {
+          port = MosquittoWsPort;
+        } else if (ssl) {
+          port = MosquittoSslPort;
+        } else {
+          port = MosquittoPort;
+        }
+        break;
+
+      case HiveMqHostUrl:
+        if (ws && ssl) {
+          port = HiveMqWsSslPort;
+        } else if (ws) {
+          port = HiveMqWsPort;
+        } else if (ssl) {
+          port = HiveMqSslPort;
+        } else {
+          port = HiveMqPort;
+        }
+        break;
+
+      case EmqxHostUrl:
+        if (ws && ssl) {
+          port = EmqxWsSslPort;
+        } else if (ws) {
+          port = EmqxWsPort;
+        } else if (ssl) {
+          port = EmqxSslPort;
+        } else {
+          port = EmqxPort;
+        }
+        break;
+    }
+
+    if (port > 0) {
+      viewmodel.form.control(ProjectEditViewmodel.portField).value = port;
     }
   }
 }
