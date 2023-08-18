@@ -7,6 +7,8 @@ import 'package:mqttstudio/common/widgets/topic_chip.dart';
 import 'package:mqttstudio/topic_viewer/topic_viewer_viewmodel.dart';
 import 'package:provider/provider.dart';
 
+import '../../common/widgets/fast_topic_chip.dart';
+
 class GroupedMessagesViewer extends StatelessWidget {
   GroupedMessagesViewer({Key? key}) : super(key: key);
   final ScrollController _scrollController = ScrollController();
@@ -44,9 +46,9 @@ class GroupedMessagesViewerRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    var topics = List<TopicChip>.generate(messageGroup.messages.length, (index) {
+    var topics = List<FastTopicChip>.generate(messageGroup.messages.length, (index) {
       var topicName = messageGroup.messages[index].topicName;
-      return TopicChip(
+      return FastTopicChip(
           topic: topicName,
           topicColor: GetIt.I.get<ProjectGlobalViewmodel>().getTopicColor(topicName),
           selected: viewmodel.selectedMessage == messageGroup.messages[index],
@@ -68,7 +70,7 @@ class GroupedMessagesViewerRow extends StatelessWidget {
               Expanded(
                 child: Wrap(
                   runSpacing: 6,
-                  spacing: 6,
+                  spacing: 24,
                   children: topics,
                 ),
               ),

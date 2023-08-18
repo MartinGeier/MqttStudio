@@ -4,6 +4,8 @@ import 'package:darq/darq.dart';
 
 class MessageBufferViewmodel extends SrxChangeNotifier {
   final _refreshPeriod = 500;
+  final _maxDisplayMessages = 10000; // this is the maximum number of messages returned be the methods called by the view. We need to
+  // limit the number of messages for performance reasons
   bool paused = false;
 
   List<ReceivedMqttMessage> _buffer = [];
@@ -47,7 +49,7 @@ class MessageBufferViewmodel extends SrxChangeNotifier {
   }
 
   List<ReceivedMqttMessage> getMessages() {
-    return _buffer.take(500).toList();
+    return _buffer.take(_maxDisplayMessages).toList();
   }
 
   ReceivedMqttMessage? getLastMessage() {
@@ -67,11 +69,14 @@ class MessageBufferViewmodel extends SrxChangeNotifier {
     if (_buffer.isEmpty) {
       return _groupedMessages;
     }
-    DateTime groupEndTime = _calcGroupEndTime(_buffer.first.receivedOn, period);
+
+    var messages = getMessages();
+
+    DateTime groupEndTime = _calcGroupEndTime(messages.first.receivedOn, period);
     DateTime groupBeginTime = _calcGroupBeginTime(groupEndTime, period);
     MessageGroup msgGroup = MessageGroup(groupBeginTime);
     _groupedMessages.add(msgGroup);
-    for (var msg in _buffer) {
+    for (var msg in messages) {
       if (msg.receivedOn.isBefore(groupBeginTime)) {
         groupEndTime = _calcGroupEndTime(msg.receivedOn, period);
         groupBeginTime = _calcGroupBeginTime(groupEndTime, period);
@@ -105,6 +110,10 @@ class MessageBufferViewmodel extends SrxChangeNotifier {
       _groupedMessages.insert(0, msgGroup);
     } else {
       _groupedMessages.first.messages.insert(0, msg);
+    }
+
+    if (_groupedMessages.fold<int>(0, (previousValue, element) => previousValue + element.messages.length) > _maxDisplayMessages) {
+      _groupedMessages.removeLast();
     }
   }
 

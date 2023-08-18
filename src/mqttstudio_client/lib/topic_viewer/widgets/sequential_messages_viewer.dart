@@ -8,6 +8,8 @@ import 'package:mqttstudio/common/widgets/topic_chip.dart';
 import 'package:mqttstudio/topic_viewer/topic_viewer_viewmodel.dart';
 import 'package:provider/provider.dart';
 
+import '../../common/widgets/fast_topic_chip.dart';
+
 class SequentialMessagesViewer extends StatelessWidget {
   const SequentialMessagesViewer({Key? key}) : super(key: key);
 
@@ -40,7 +42,7 @@ class MessagesViewerRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final nf = NumberFormat('.000', context.locale.countryCode);
-    var topic = TopicChip(
+    var topic = FastTopicChip(
         topic: message.topicName,
         topicColor: GetIt.I.get<ProjectGlobalViewmodel>().getTopicColor(message.topicName),
         selected: viewmodel.selectedMessage == message,

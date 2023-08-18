@@ -57,7 +57,7 @@ class NavigationDrawer extends SrxNavigationDrawer {
             return AboutListTile(
               icon: Icon(Icons.info),
               applicationIcon: Image.asset(
-                './assets/icons/mqttstudio.png',
+                './assets/icons/mqttstudio128.png',
                 height: 64,
               ),
               applicationName: "MQTT Studio",

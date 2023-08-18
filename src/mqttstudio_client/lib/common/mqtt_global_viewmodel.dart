@@ -8,7 +8,9 @@ import 'package:srx_flutter/srx_flutter.dart';
 
 class MqttGlobalViewmodel extends SrxChangeNotifier {
   final _controller = GetIt.I.get<MqttController>();
+  final _refreshPeriod = 500;
   bool isBusy = false;
+  DateTime _lastRefresh = DateTime.now();
 
   void Function(String errorMessage)? onError;
   void Function()? onDisconnected;
@@ -85,6 +87,11 @@ class MqttGlobalViewmodel extends SrxChangeNotifier {
     if (onMessageReceived != null) {
       onMessageReceived!(msg);
     }
-    notifyListeners();
+
+    // limit rebuild frequency
+    if (DateTime.now().subtract(Duration(milliseconds: _refreshPeriod)).isAfter(_lastRefresh)) {
+      _lastRefresh = DateTime.now();
+      notifyListeners();
+    }
   }
 }
