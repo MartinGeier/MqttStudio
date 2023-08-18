@@ -32,7 +32,7 @@ class FastTopicChip extends StatelessWidget {
           height: 28,
           width: width,
           child: CustomPaint(
-            painter: RectanglePainter(topic, bgColor, textStyle, width),
+            painter: ChipPainter(topic, bgColor, textStyle, width),
           )),
     );
   }
@@ -47,20 +47,20 @@ class FastTopicChip extends StatelessWidget {
   }
 }
 
-class RectanglePainter extends CustomPainter {
+class ChipPainter extends CustomPainter {
   final String label;
   final Color backgroundColor;
   final TextStyle labelStyle;
   final double width;
 
-  const RectanglePainter(this.label, this.backgroundColor, this.labelStyle, this.width);
+  const ChipPainter(this.label, this.backgroundColor, this.labelStyle, this.width);
 
   @override
   void paint(Canvas canvas, Size size) {
-    final double borderRadius = 20.0; // Adjust the corner radius as needed
+    final double borderRadius = 20.0; //
     final Rect rect = Rect.fromPoints(Offset(0, 0), Offset(width + 20, size.height));
     final RRect roundedRect = RRect.fromRectAndRadius(rect, Radius.circular(borderRadius));
-    final Paint paint = Paint()..color = backgroundColor; // Set your desired color here
+    final Paint paint = Paint()..color = backgroundColor;
     canvas.drawRRect(roundedRect, paint);
 
     final TextPainter textPainter = TextPainter(
@@ -69,7 +69,7 @@ class RectanglePainter extends CustomPainter {
         style: labelStyle,
       ),
       textDirection: TextDirection.ltr,
-    )..layout(maxWidth: size.width); // Adjust maximum width as needed
+    )..layout(maxWidth: size.width);
 
     final double textX = 10; // Align to the left
     final double textY = (size.height - textPainter.height) / 2;
@@ -79,6 +79,6 @@ class RectanglePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) {
-    return false; // Since the rectangle never changes, no need to repaint
+    return false; // Since the chip never changes, no need to repaint
   }
 }
