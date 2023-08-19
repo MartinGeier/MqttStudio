@@ -10,8 +10,6 @@ import 'package:mqttstudio/topic_viewer/topic_viewer_viewmodel.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_simple_treeview/flutter_simple_treeview.dart';
 
-import '../../common/widgets/fast_topic_chip.dart';
-
 class TreeMessagesViewer extends StatelessWidget {
   final _treeController = TreeController();
   final ScrollController _scrollController = ScrollController();

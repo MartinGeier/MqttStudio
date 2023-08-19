@@ -4,14 +4,14 @@ import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
 import 'package:mqttstudio/project/message_buffer_viewmodel.dart';
 import 'package:mqttstudio/project/project_global_viewmodel.dart';
-import 'package:mqttstudio/common/widgets/topic_chip.dart';
 import 'package:mqttstudio/topic_viewer/topic_viewer_viewmodel.dart';
 import 'package:provider/provider.dart';
 
 import '../../common/widgets/fast_topic_chip.dart';
 
 class SequentialMessagesViewer extends StatelessWidget {
-  const SequentialMessagesViewer({Key? key}) : super(key: key);
+  SequentialMessagesViewer({Key? key}) : super(key: key);
+  final ScrollController _scrollController = ScrollController();
 
   @override
   Widget build(BuildContext context) {
@@ -20,13 +20,24 @@ class SequentialMessagesViewer extends StatelessWidget {
         var messages = msgBufferViewmodel.getMessages();
         return Expanded(
             child: Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: ListView.builder(
-              itemCount: messages.length,
-              itemBuilder: (context, index) {
-                return MessagesViewerRow(messages[index], msgBufferViewmodel, viewmodel);
-              }),
-        ));
+                padding: const EdgeInsets.only(top: 8),
+                child: NotificationListener<ScrollNotification>(
+                  onNotification: (notification) {
+                    msgBufferViewmodel.delayViewUpdate();
+                    return true;
+                  },
+                  child: Scrollbar(
+                    controller: _scrollController,
+                    thumbVisibility: true,
+                    trackVisibility: true,
+                    child: ListView(
+                        controller: _scrollController,
+                        children: List.generate(
+                          messages.length,
+                          (index) => MessagesViewerRow(messages[index], msgBufferViewmodel, viewmodel),
+                        )),
+                  ),
+                )));
       });
     });
   }

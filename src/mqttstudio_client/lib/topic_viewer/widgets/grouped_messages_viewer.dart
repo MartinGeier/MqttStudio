@@ -20,16 +20,21 @@ class GroupedMessagesViewer extends StatelessWidget {
         return Expanded(
             child: Padding(
           padding: const EdgeInsets.only(top: 8),
-          child: Scrollbar(
-              controller: _scrollController,
-              thumbVisibility: true,
-              trackVisibility: true,
-              child: ListView.builder(
+          child: NotificationListener<ScrollNotification>(
+            onNotification: (notification) {
+              msgBufferViewmodel.delayViewUpdate();
+              return true;
+            },
+            child: Scrollbar(
+                controller: _scrollController,
+                thumbVisibility: true,
+                trackVisibility: true,
+                child: ListView(
                   controller: _scrollController,
-                  itemCount: groupedMessages.length,
-                  itemBuilder: (context, index) {
-                    return GroupedMessagesViewerRow(groupedMessages[index], msgBufferViewmodel, viewmodel);
-                  })),
+                  children: List.generate(
+                      groupedMessages.length, (index) => GroupedMessagesViewerRow(groupedMessages[index], msgBufferViewmodel, viewmodel)),
+                )),
+          ),
         ));
       });
     });

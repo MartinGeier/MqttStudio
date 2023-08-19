@@ -4,7 +4,7 @@ import 'package:darq/darq.dart';
 
 class MessageBufferViewmodel extends SrxChangeNotifier {
   final _refreshPeriod = 500;
-  final _maxDisplayMessages = 10000; // this is the maximum number of messages returned be the methods called by the view. We need to
+  final _maxDisplayMessages = 2000; // this is the maximum number of messages returned be the methods called by the view. We need to
   // limit the number of messages for performance reasons
   bool paused = false;
 
@@ -37,6 +37,11 @@ class MessageBufferViewmodel extends SrxChangeNotifier {
   int get length => _buffer.length;
 
   MessageNode get messagesTree => _messagesTree;
+
+  // called be the view to delay any updating of the view. Used to prevent the view updating during scrolling
+  void delayViewUpdate() {
+    _lastRefresh = DateTime.now();
+  }
 
   void pause() {
     paused = true;
