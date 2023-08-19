@@ -57,6 +57,8 @@ class AddTopicDialog extends StatelessWidget {
           GetIt.I.get<SrxNavigationService>().pop();
         } else {
           vm.form.control(AddTopicViewmodel.topicNameField).reset();
+          vm.form.control(AddTopicViewmodel.topicNameField).focus();
+          vm.form.control(AddTopicViewmodel.colorField).value = TopicColor.random().color;
         }
       }
     } on SrxServiceException catch (exc) {

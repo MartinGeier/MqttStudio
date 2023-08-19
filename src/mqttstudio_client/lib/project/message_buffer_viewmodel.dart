@@ -61,6 +61,10 @@ class MessageBufferViewmodel extends SrxChangeNotifier {
     return _buffer.isEmpty ? null : _buffer.first;
   }
 
+  ReceivedMqttMessage? getLastMessageForTopic(String topic) {
+    return _buffer.isEmpty ? null : _buffer.firstWhereOrDefault((value) => value.topicName == topic);
+  }
+
   int getTopicMessageCount(String topicName) {
     return _buffer.count((x) => x.topicName == topicName);
   }

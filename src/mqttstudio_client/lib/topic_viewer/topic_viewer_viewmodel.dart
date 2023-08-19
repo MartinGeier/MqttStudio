@@ -73,9 +73,11 @@ class TopicViewerViewmodel extends SrxChangeNotifier {
   MessageGroupTimePeriod get groupTimePeriod => _groupTimePeriod;
 
   void _onMessageReceived() {
-    var lastMsg = _msgBufferViewmodel.getLastMessage();
-    if (autoSelect && lastMsg?.topicName == _selectedMessage?.topicName) {
-      selectedMessage = lastMsg;
+    if (autoSelect && _selectedMessage != null) {
+      var lastMsg = _msgBufferViewmodel.getLastMessageForTopic(_selectedMessage!.topicName);
+      if (lastMsg?.receivedOn != _selectedMessage!.receivedOn) {
+        selectedMessage = lastMsg;
+      }
     }
   }
 }
