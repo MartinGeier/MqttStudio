@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'package:darq/darq.dart';
 import 'package:get_it/get_it.dart';
+import 'package:mqtt_client/mqtt_client.dart';
 import 'package:mqttstudio/model/mqtt_payload_type.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
 import 'package:mqttstudio/project/project_global_viewmodel.dart';
@@ -38,6 +40,17 @@ class TopicViewerViewmodel extends SrxChangeNotifier {
 
   int getSelectedMessageCount() {
     return selectedMessage != null ? _msgBufferViewmodel.getTopicMessageCount(selectedMessage!.topicName) : 0;
+  }
+
+  List<Tuple2<DateTime, double>> getChartValues() {
+    var messages =
+        selectedMessage != null ? _msgBufferViewmodel.getTopicMessages(selectedMessage!.topicName) : List<ReceivedMqttMessage>.empty();
+    return messages
+        .where((x) => double.tryParse(MqttPublishPayload.bytesToStringAsString(x.payload)) != null)
+        .orderByDescending((x) => x.receivedOn)
+        .take(100)
+        .select((x, index) => Tuple2<DateTime, double>(x.receivedOn, double.parse(MqttPublishPayload.bytesToStringAsString(x.payload))))
+        .toList();
   }
 
   set selectedMessage(ReceivedMqttMessage? selectedMessage) {

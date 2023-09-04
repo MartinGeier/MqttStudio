@@ -13,6 +13,7 @@ import 'package:mqttstudio/topic_viewer/topic_viewer_viewmodel.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/services.dart';
 import 'package:mqttstudio/custom_theme.dart';
+import '../../common/widgets/topic_chart.dart';
 
 class MessageDetailView extends StatelessWidget {
   final _scrollController = ScrollController();
@@ -24,6 +25,7 @@ class MessageDetailView extends StatelessWidget {
     return Consumer<TopicViewerViewmodel>(builder: (context, viewmodel, child) {
       var topic = viewmodel.selectedMessage;
       final nf = NumberFormat('.000', context.locale.countryCode);
+      var chartValues = viewmodel.getChartValues();
       if (topic == null) {
         return Container();
       }
@@ -50,6 +52,8 @@ class MessageDetailView extends StatelessWidget {
             ),
             SizedBox(height: 16),
             _buildPayload(context, topic),
+            SizedBox(height: 32),
+            chartValues.length > 1 ? Container(height: 300, child: TopicChart(values: chartValues, topic: topic)) : SizedBox(),
           ]));
     });
   }
@@ -211,8 +215,6 @@ class MessageDetailView extends StatelessWidget {
                   SizedBox(width: 32),
                   Chip(
                     label: Text(describeEnum(payLoadType)),
-                    // onPressed: () {},
-                    // topicColor: TopicColor(Theme.of(context).colorScheme.primary),
                   ),
                 ],
               ),

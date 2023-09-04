@@ -69,6 +69,10 @@ class MessageBufferViewmodel extends SrxChangeNotifier {
     return _buffer.count((x) => x.topicName == topicName);
   }
 
+  List<ReceivedMqttMessage> getTopicMessages(String topicName) {
+    return _buffer.where((x) => x.topicName == topicName).toList();
+  }
+
   List<MessageGroup> getGroupMessages(MessageGroupTimePeriod period) {
     if (period == _currentPeriod && _groupedMessages.isNotEmpty) {
       return _groupedMessages;

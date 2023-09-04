@@ -59,7 +59,7 @@ class GroupedMessagesViewerRow extends StatelessWidget {
           onPressed: () => viewmodel.selectedMessage = messageGroup.messages[index]);
     });
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+      padding: const EdgeInsets.fromLTRB(8, 4, 32, 4),
       child: Column(
         children: [
           Row(
