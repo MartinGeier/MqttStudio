@@ -76,7 +76,7 @@ class _TopicChipState extends State<TopicChip> with SingleTickerProviderStateMix
           maxWidth: widget.unlimitedWidth
               ? double.infinity
               : widget.dense
-                  ? 400
+                  ? 1800
                   : 800),
       child: AnimatedBuilder(
         animation: _controller,

@@ -39,17 +39,26 @@ class _MainAppBarState extends State<MainAppBar> {
                     padding: const EdgeInsets.symmetric(horizontal: 36),
                     child: Text('topicviewerpage.menuitem.topicviewer'.tr()),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 48),
-                    child: Text('topicviewerpage.menuitem.simulator'.tr()),
+                  Visibility(
+                    visible: false,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 48),
+                      child: Text('topicviewerpage.menuitem.simulator'.tr()),
+                    ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 48),
-                    child: Text('topicviewerpage.menuitem.recorder'.tr()),
+                  Visibility(
+                    visible: false,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 48),
+                      child: Text('topicviewerpage.menuitem.recorder'.tr()),
+                    ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 48),
-                    child: Text('topicviewerpage.menuitem.documentation'.tr()),
+                  Visibility(
+                    visible: false,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 48),
+                      child: Text('topicviewerpage.menuitem.documentation'.tr()),
+                    ),
                   ),
                 ]),
           )

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
+import 'package:mqttstudio/common/browser_performance_warning.dart';
 import 'package:mqttstudio/common/widgets/main_appbar.dart';
 import 'package:mqttstudio/project/project_global_viewmodel.dart';
 import 'package:mqttstudio/topic_viewer/topic_viewer_viewmodel.dart';
@@ -11,9 +12,26 @@ import 'package:mqttstudio/topic_viewer/widgets/topics_viewer_command_bar.dart';
 import 'package:mqttstudio/topic_viewer/widgets/tree_messages_viewer.dart';
 import 'package:provider/provider.dart';
 import 'package:mqttstudio/common/widgets/navigation_drawer.dart' as navDrawer;
+import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-class TopicViewerPage extends StatelessWidget {
+class TopicViewerPage extends StatefulWidget {
   const TopicViewerPage();
+
+  @override
+  State<TopicViewerPage> createState() => _TopicViewerPageState();
+}
+
+class _TopicViewerPageState extends State<TopicViewerPage> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (kIsWeb) {
+        _showBrowserPerformanceWarning(context);
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -59,5 +77,13 @@ class TopicViewerPage extends StatelessWidget {
             });
           }),
         ));
+  }
+
+  void _showBrowserPerformanceWarning(BuildContext context) async {
+    var sp = await SharedPreferences.getInstance();
+    var browserPerformanceWarningDoNotShow = sp.getBool("BrowserPerformanceWarningDoNotShow");
+    if (!(browserPerformanceWarningDoNotShow ?? false)) {
+      showDialog(context: context, builder: (_) => BrowserPerformanceWarning());
+    }
   }
 }

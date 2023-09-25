@@ -65,7 +65,7 @@ class NavigationDrawer extends SrxNavigationDrawer {
               applicationLegalese: 'copyright_text'.tr(),
               aboutBoxChildren: [
                 SizedBox(height: 16),
-                Text('aboutdialog.marketing_text'.tr(), style: Theme.of(context).textTheme.bodyMedium)
+                SizedBox(width: 600, child: Text('aboutdialog.marketing_text'.tr(), style: Theme.of(context).textTheme.bodyMedium))
               ],
             );
           })

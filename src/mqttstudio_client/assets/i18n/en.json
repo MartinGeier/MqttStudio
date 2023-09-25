@@ -1,6 +1,7 @@
 {   
     "common.fieldcontenttolong.error": "Value too long",
     "common.fieldcontenttoshort.error": "Value too short",
+    "commmon.okButtonCaption": "OK",
     "projectedit.title": "Edit project",
     "projectedit.projectname.label": "Project name",
     "projectedit.mqqthostname.label": "MQTT Broker",
@@ -30,7 +31,7 @@
     "topicsviewer_commandbar.clear.tooltip": "Clear messages",
     "topicsviewer_commandbar.groupedviewer.tooltip": "Grouped view",
     "topicsviewer_commandbar.treeviewer.tooltip": "Tree view",
-     "topicsviewer_commandbar.sequentialviewer.tooltip": "Sequential view",
+    "topicsviewer_commandbar.sequentialviewer.tooltip": "Sequential view",
     "topicsviewer_commandbar.publishbutton.tooltip": "Publish a message",
     "topicsviewer_commandbar.publishbutton.label": "PUBLISH",
     "publishtopicdialog.title": "Publish topic",
@@ -69,5 +70,9 @@
     "navigator.projectsettings_menuitem": "Project Settings",
     "navigator.confirmsaving_message": "Project has not been saved! Save before closing?",
     "copyright_text": "Copyright (c) by Redpin",
-    "aboutdialog.marketing_text": "Unlock the full potential of MQTT development with MQTT Studio! \nSeamlessly manage, visualize, and optimize your IoT data flow. \nEmpower developers with a user-friendly interface to build robust \nand efficient MQTT applications."
+    "aboutdialog.marketing_text": "Unlock the full potential of MQTT development with MQTT Studio! Seamlessly manage, visualize, and optimize your IoT data flow. Empower developers with a user-friendly interface to build robust and efficient MQTT applications.",
+    "browserperformancewarning.title": "Performance hint",
+    "browserperformancewarning.hintmessage": "Performance of MQTT Studio in the browser is limited. If you need to receive and analyze a high number of messages, please download the desktop client.",
+    "browserperformancewarning.downloadDesktopClient": "DOWNLOAD DESKTOP CLIENT",
+    "browserperformancewarning.doNotShowAgain": "Do not show again"
 }

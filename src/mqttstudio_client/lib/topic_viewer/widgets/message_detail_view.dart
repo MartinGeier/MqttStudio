@@ -43,14 +43,14 @@ class MessageDetailView extends StatelessWidget {
             ]),
             SizedBox(height: 12),
             _buildTopicChip(topic, context),
-            SizedBox(height: 16),
+            SizedBox(height: 24),
             _buildInfoRow(context, topic),
-            SizedBox(height: 16),
+            SizedBox(height: 24),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [_buildReceivedOn(context, topic, nf), _buildMessageCount(context, viewmodel, nf), SizedBox(width: 92)],
+              children: [_buildReceivedOn(context, topic, nf), _buildMessageCount(context, viewmodel, nf), Spacer()],
             ),
-            SizedBox(height: 16),
+            SizedBox(height: 24),
             _buildPayload(context, topic),
             SizedBox(height: 32),
             chartValues.length > 1 ? Container(height: 300, child: TopicChart(values: chartValues, topic: topic)) : SizedBox(),
@@ -134,11 +134,14 @@ class MessageDetailView extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(mainAxisAlignment: MainAxisAlignment.start, children: [
-        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('messagedetailview.receivedon.label'.tr(), style: Theme.of(context).textTheme.titleMedium),
-          SelectableText(DateFormat('HH:mm:ss').format(topic.receivedOn) + nf.format(topic.receivedOn.millisecond / 1000),
-              style: Theme.of(context).textTheme.headlineMedium)
-        ]),
+        SizedBox(
+          width: 160,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('messagedetailview.receivedon.label'.tr(), style: Theme.of(context).textTheme.titleMedium),
+            SelectableText(DateFormat('HH:mm:ss').format(topic.receivedOn) + nf.format(topic.receivedOn.millisecond / 1000),
+                style: Theme.of(context).textTheme.headlineSmall)
+          ]),
+        ),
       ]),
     );
   }
@@ -148,10 +151,13 @@ class MessageDetailView extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(mainAxisAlignment: MainAxisAlignment.start, children: [
-        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('messagedetailview.messagecount.label'.tr(), style: Theme.of(context).textTheme.titleMedium),
-          SelectableText(msgCount.toString(), style: Theme.of(context).textTheme.headlineMedium)
-        ]),
+        SizedBox(
+          width: 80,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('messagedetailview.messagecount.label'.tr(), style: Theme.of(context).textTheme.titleMedium),
+            SelectableText(msgCount.toString(), style: Theme.of(context).textTheme.headlineSmall)
+          ]),
+        ),
       ]),
     );
   }
@@ -162,22 +168,34 @@ class MessageDetailView extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('messagedetailview.qos.label'.tr(), style: Theme.of(context).textTheme.titleMedium),
-            SelectableText(topic.qos.index.toString(), style: Theme.of(context).textTheme.headlineMedium)
-          ]),
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('messagedetailview.retain.label'.tr(), style: Theme.of(context).textTheme.titleMedium),
-            SelectableText(topic.retain.toString(), style: Theme.of(context).textTheme.headlineMedium)
-          ]),
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('messagedetailview.payloadsize.label'.tr(), style: Theme.of(context).textTheme.titleMedium),
-            SelectableText('${topic.payload.length.toString()} B', style: Theme.of(context).textTheme.headlineMedium)
-          ]),
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('messagedetailview.id.label'.tr(), style: Theme.of(context).textTheme.titleMedium),
-            SelectableText(topic.id.toString(), style: Theme.of(context).textTheme.headlineMedium)
-          ])
+          SizedBox(
+            width: 160,
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('messagedetailview.qos.label'.tr(), style: Theme.of(context).textTheme.titleMedium),
+              SelectableText(MqttQos.values[topic.qos.index].toString().tr(), style: Theme.of(context).textTheme.headlineSmall)
+            ]),
+          ),
+          SizedBox(
+            width: 80,
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('messagedetailview.retain.label'.tr(), style: Theme.of(context).textTheme.titleMedium),
+              SelectableText(topic.retain.toString(), style: Theme.of(context).textTheme.headlineSmall)
+            ]),
+          ),
+          SizedBox(
+            width: 100,
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('messagedetailview.payloadsize.label'.tr(), style: Theme.of(context).textTheme.titleMedium),
+              SelectableText('${topic.payload.length.toString()} B', style: Theme.of(context).textTheme.headlineSmall)
+            ]),
+          ),
+          SizedBox(
+            width: 48,
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('messagedetailview.id.label'.tr(), style: Theme.of(context).textTheme.titleMedium),
+              SelectableText(topic.id.toString(), style: Theme.of(context).textTheme.headlineSmall)
+            ]),
+          )
         ],
       ),
     );

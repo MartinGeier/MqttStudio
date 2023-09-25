@@ -41,7 +41,7 @@ class ProjectEditViewmodel extends SrxChangeNotifier {
       portField: FormControl<int>(validators: [Validators.min(1), Validators.max(65535)], value: 1883),
       usernameField: FormControl<String>(validators: [Validators.maxLength(100)]),
       passwordField: FormControl<String>(validators: [Validators.maxLength(100)]),
-      useSslField: FormControl<bool>(),
+      useSslField: FormControl<bool>(value: kIsWeb, disabled: kIsWeb),
       useWebSocketField: FormControl<bool>(value: kIsWeb, disabled: kIsWeb),
     });
   }
