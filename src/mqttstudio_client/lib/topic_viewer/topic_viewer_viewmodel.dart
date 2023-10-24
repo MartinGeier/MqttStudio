@@ -15,6 +15,7 @@ class TopicViewerViewmodel extends SrxChangeNotifier {
   bool _autoSelect = false;
   StreamSubscription? _closeProjectStreamSubscription;
   late MessageBufferViewmodel _msgBufferViewmodel;
+  String? _filter;
 
   bool get autoSelect => _autoSelect;
 
@@ -40,6 +41,12 @@ class TopicViewerViewmodel extends SrxChangeNotifier {
 
   int getSelectedMessageCount() {
     return selectedMessage != null ? _msgBufferViewmodel.getTopicMessageCount(selectedMessage!.topicName) : 0;
+  }
+
+  String? get filter => _filter;
+  set filter(String? value) {
+    _filter = value;
+    notifyListeners();
   }
 
   List<Tuple2<DateTime, double>> getChartValues() {

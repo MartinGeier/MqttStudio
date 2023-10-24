@@ -33,6 +33,7 @@
     "topicsviewer_commandbar.treeviewer.tooltip": "Tree view",
     "topicsviewer_commandbar.sequentialviewer.tooltip": "Sequential view",
     "topicsviewer_commandbar.publishbutton.tooltip": "Publish a message",
+    "topicsviewer_commandbar.filter.label": "topic filter",
     "topicsviewer_commandbar.publishbutton.label": "PUBLISH",
     "publishtopicdialog.title": "Publish topic",
     "publishtopicdialog.publish.button": "PUBLISH",

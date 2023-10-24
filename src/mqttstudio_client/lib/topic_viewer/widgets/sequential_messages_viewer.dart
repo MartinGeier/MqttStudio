@@ -17,7 +17,7 @@ class SequentialMessagesViewer extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<MessageBufferViewmodel>(builder: (context, msgBufferViewmodel, child) {
       return Consumer<TopicViewerViewmodel>(builder: (context, viewmodel, child) {
-        var messages = msgBufferViewmodel.getMessages();
+        var messages = msgBufferViewmodel.getMessages(viewmodel.filter);
         return Expanded(
             child: Padding(
                 padding: const EdgeInsets.only(top: 8),

@@ -18,7 +18,7 @@ class TreeMessagesViewer extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<MessageBufferViewmodel>(builder: (context, msgBufferViewmodel, child) {
       return Consumer<TopicViewerViewmodel>(builder: (context, viewmodel, child) {
-        var rootNode = msgBufferViewmodel.messagesTree;
+        var rootNode = msgBufferViewmodel.getMessagesTree(viewmodel.filter);
         var nodes = _buildNodes(rootNode.children, viewmodel);
         return Expanded(
             child: Padding(

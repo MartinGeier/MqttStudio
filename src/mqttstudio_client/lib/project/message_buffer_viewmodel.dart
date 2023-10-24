@@ -36,7 +36,14 @@ class MessageBufferViewmodel extends SrxChangeNotifier {
 
   int get length => _buffer.length;
 
-  MessageNode get messagesTree => _messagesTree;
+  MessageNode getMessagesTree(String? filter) {
+    if (filter == null || filter.trim().isEmpty) {
+      return _messagesTree;
+    }
+
+    // create a filtered copy of the messages tre
+    return _getFilteredMessagesTree(filter);
+  }
 
   // called be the view to delay any updating of the view. Used to prevent the view updating during scrolling
   void delayViewUpdate() {
@@ -53,8 +60,12 @@ class MessageBufferViewmodel extends SrxChangeNotifier {
     notifyListeners();
   }
 
-  List<ReceivedMqttMessage> getMessages() {
-    return _buffer.take(_maxDisplayMessages).toList();
+  List<ReceivedMqttMessage> getMessages(String? filter) {
+    if (filter == null) {
+      return _buffer.take(_maxDisplayMessages).toList();
+    } else {
+      return _buffer.where((x) => x.topicName.toLowerCase().contains(filter.toLowerCase())).take(_maxDisplayMessages).toList();
+    }
   }
 
   ReceivedMqttMessage? getLastMessage() {
@@ -73,17 +84,16 @@ class MessageBufferViewmodel extends SrxChangeNotifier {
     return _buffer.where((x) => x.topicName == topicName).toList();
   }
 
-  List<MessageGroup> getGroupMessages(MessageGroupTimePeriod period) {
-    if (period == _currentPeriod && _groupedMessages.isNotEmpty) {
-      return _groupedMessages;
-    }
-
+  List<MessageGroup> getGroupMessages(MessageGroupTimePeriod period, String? filter) {
     _groupedMessages = [];
     if (_buffer.isEmpty) {
       return _groupedMessages;
     }
 
-    var messages = getMessages();
+    var messages = getMessages(filter);
+    if (messages.isEmpty) {
+      return _groupedMessages;
+    }
 
     DateTime groupEndTime = _calcGroupEndTime(messages.first.receivedOn, period);
     DateTime groupBeginTime = _calcGroupBeginTime(groupEndTime, period);
@@ -171,8 +181,40 @@ class MessageBufferViewmodel extends SrxChangeNotifier {
       rootNode.children.add(newNode);
       if (topicLevels.length > level + 1) {
         _updateMessagesTree(msg, newNode, level + 1);
+      } else {
+        newNode.messageReceived(msg);
       }
     }
+  }
+
+  MessageNode _getFilteredMessagesTree(String filter) {
+    var filtererTree = _cloneMessagesTree();
+    _deleteNotMatchingFromMessagesTree(filter, filtererTree);
+    return filtererTree;
+  }
+
+  MessageNode _cloneMessagesTree([MessageNode? startNode]) {
+    if (startNode == null) {
+      startNode = _messagesTree;
+    }
+
+    var newNode = startNode.clone();
+    for (var childNode in startNode.children) {
+      newNode.children.add(_cloneMessagesTree(childNode));
+    }
+
+    return newNode;
+  }
+
+  bool _deleteNotMatchingFromMessagesTree(String filter, MessageNode messagesTree) {
+    var match = messagesTree.topicLevelName.toLowerCase().contains(filter.toLowerCase());
+    for (int i = messagesTree.children.length - 1; i >= 0; i--) {
+      if (!match && _deleteNotMatchingFromMessagesTree(filter, messagesTree.children[i])) {
+        messagesTree.children.removeAt(i);
+      }
+    }
+
+    return messagesTree.children.isEmpty && (!match || messagesTree.messageCount == 0);
   }
 }
 
@@ -188,7 +230,7 @@ enum MessageGroupTimePeriod { second, tenSeconds, minute, hour }
 class MessageNode {
   String topicLevelName;
   ReceivedMqttMessage? message;
-  int messageCount = 1;
+  int messageCount = 0;
   final List<MessageNode> children = [];
 
   MessageNode(this.topicLevelName, this.message);
@@ -196,5 +238,11 @@ class MessageNode {
   void messageReceived(msg) {
     message = msg;
     messageCount++;
+  }
+
+  MessageNode clone() {
+    var newNode = MessageNode(topicLevelName, message);
+    newNode.messageCount = messageCount;
+    return newNode;
   }
 }

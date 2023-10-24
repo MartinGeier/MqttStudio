@@ -16,7 +16,7 @@ class GroupedMessagesViewer extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<MessageBufferViewmodel>(builder: (context, msgBufferViewmodel, child) {
       return Consumer<TopicViewerViewmodel>(builder: (context, viewmodel, child) {
-        var groupedMessages = msgBufferViewmodel.getGroupMessages(viewmodel.groupTimePeriod);
+        var groupedMessages = msgBufferViewmodel.getGroupMessages(viewmodel.groupTimePeriod, viewmodel.filter);
         return Expanded(
             child: Padding(
           padding: const EdgeInsets.only(top: 8),

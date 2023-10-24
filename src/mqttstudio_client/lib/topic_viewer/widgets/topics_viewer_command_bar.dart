@@ -8,8 +8,15 @@ import 'package:easy_localization/easy_localization.dart';
 
 import '../publish_topic_dialog.dart';
 
-class TopicsViewCommandBar extends StatelessWidget {
+class TopicsViewCommandBar extends StatefulWidget {
   const TopicsViewCommandBar({Key? key}) : super(key: key);
+
+  @override
+  State<TopicsViewCommandBar> createState() => _TopicsViewCommandBarState();
+}
+
+class _TopicsViewCommandBarState extends State<TopicsViewCommandBar> {
+  var _filterController = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
@@ -33,6 +40,7 @@ class TopicsViewCommandBar extends StatelessWidget {
                             _buildViewModeSelectionButtons(viewmodel, projectViewmodel),
                             SizedBox(height: 40, child: VerticalDivider()),
                             _buildGroupingPeriodDropDown(viewmodel, projectViewmodel),
+                            _buildFilter(viewmodel, projectViewmodel),
                           ],
                         ),
                         _buildPublishButton(projectViewmodel, mqttGlobalViewmodel, context),
@@ -72,23 +80,58 @@ class TopicsViewCommandBar extends StatelessWidget {
   Visibility _buildGroupingPeriodDropDown(TopicViewerViewmodel viewmodel, ProjectGlobalViewmodel projectViewmodel) {
     return Visibility(
       visible: viewmodel.topicViewMode == TopicViewMode.Grouped,
-      child: ButtonBar(
+      child: Row(
         children: [
-          Tooltip(
-            message: "Choose grouping time period",
-            child: DropdownButton<MessageGroupTimePeriod>(
-                isDense: true,
-                onChanged: projectViewmodel.isProjectOpen ? (value) => viewmodel.groupTimePeriod = value! : null,
-                value: viewmodel.groupTimePeriod,
-                items: [
-                  DropdownMenuItem(value: MessageGroupTimePeriod.second, child: Text('1s')),
-                  DropdownMenuItem(value: MessageGroupTimePeriod.tenSeconds, child: Text('10s')),
-                  DropdownMenuItem(value: MessageGroupTimePeriod.minute, child: Text('1m')),
-                  DropdownMenuItem(value: MessageGroupTimePeriod.hour, child: Text('1h'))
-                ]),
-          )
+          ButtonBar(
+            children: [
+              Tooltip(
+                message: "Choose grouping time period",
+                child: DropdownButton<MessageGroupTimePeriod>(
+                    isDense: true,
+                    onChanged: projectViewmodel.isProjectOpen ? (value) => viewmodel.groupTimePeriod = value! : null,
+                    value: viewmodel.groupTimePeriod,
+                    items: [
+                      DropdownMenuItem(value: MessageGroupTimePeriod.second, child: Text('1s')),
+                      DropdownMenuItem(value: MessageGroupTimePeriod.tenSeconds, child: Text('10s')),
+                      DropdownMenuItem(value: MessageGroupTimePeriod.minute, child: Text('1m')),
+                      DropdownMenuItem(value: MessageGroupTimePeriod.hour, child: Text('1h'))
+                    ]),
+              )
+            ],
+          ),
+          SizedBox(height: 40, child: VerticalDivider()),
         ],
       ),
+    );
+  }
+
+  Widget _buildFilter(TopicViewerViewmodel viewmodel, ProjectGlobalViewmodel projectViewmodel) {
+    return Row(
+      children: [
+        Icon(Icons.filter_alt),
+        SizedBox(width: 6),
+        SizedBox(
+            width: 150,
+            height: 40,
+            child: TextField(
+              controller: _filterController,
+              decoration: InputDecoration(
+                  border: OutlineInputBorder(),
+                  labelText: 'topicsviewer_commandbar.filter.label'.tr(),
+                  isDense: true,
+                  suffixIcon: IconButton(
+                    onPressed: () {
+                      _filterController.clear();
+                      if (viewmodel.filter != null) {
+                        viewmodel.filter = null;
+                      }
+                    },
+                    icon: Icon(Icons.clear),
+                  )),
+              enabled: projectViewmodel.isProjectOpen,
+              onChanged: (value) => viewmodel.filter = value,
+            )),
+      ],
     );
   }
 
