@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:mqttstudio/common/mqtt_global_viewmodel.dart';
 import 'package:mqttstudio/project/project_global_viewmodel.dart';
@@ -17,6 +19,13 @@ class TopicsViewCommandBar extends StatefulWidget {
 
 class _TopicsViewCommandBarState extends State<TopicsViewCommandBar> {
   var _filterController = TextEditingController();
+  Timer? _debounce;
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -129,10 +138,19 @@ class _TopicsViewCommandBarState extends State<TopicsViewCommandBar> {
                     icon: Icon(Icons.clear),
                   )),
               enabled: projectViewmodel.isProjectOpen,
-              onChanged: (value) => viewmodel.filter = value,
+              onChanged: (value) => onFilterChanged(viewmodel, value),
             )),
       ],
     );
+  }
+
+  void onFilterChanged(TopicViewerViewmodel viewmodel, String value) {
+    if (_debounce?.isActive ?? false) {
+      _debounce?.cancel();
+    }
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      viewmodel.filter = value;
+    });
   }
 
   ToggleButtons _buildViewModeSelectionButtons(TopicViewerViewmodel viewmodel, ProjectGlobalViewmodel projectViewmodel) {

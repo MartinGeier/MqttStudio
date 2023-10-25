@@ -42,7 +42,7 @@ class MessageBufferViewmodel extends SrxChangeNotifier {
     }
 
     // create a filtered copy of the messages tre
-    return _getFilteredMessagesTree(filter);
+    return _getFilteredMessagesTree(filter)!;
   }
 
   // called be the view to delay any updating of the view. Used to prevent the view updating during scrolling
@@ -187,34 +187,23 @@ class MessageBufferViewmodel extends SrxChangeNotifier {
     }
   }
 
-  MessageNode _getFilteredMessagesTree(String filter) {
-    var filtererTree = _cloneMessagesTree();
-    _deleteNotMatchingFromMessagesTree(filter, filtererTree);
-    return filtererTree;
-  }
-
-  MessageNode _cloneMessagesTree([MessageNode? startNode]) {
-    if (startNode == null) {
-      startNode = _messagesTree;
+  MessageNode? _getFilteredMessagesTree(String filter, [MessageNode? node, String topicPath = ""]) {
+    bool rootNode = node == null;
+    if (node == null) {
+      node = _messagesTree;
     }
 
-    var newNode = startNode.clone();
-    for (var childNode in startNode.children) {
-      newNode.children.add(_cloneMessagesTree(childNode));
-    }
-
-    return newNode;
-  }
-
-  bool _deleteNotMatchingFromMessagesTree(String filter, MessageNode messagesTree) {
-    var match = messagesTree.topicLevelName.toLowerCase().contains(filter.toLowerCase());
-    for (int i = messagesTree.children.length - 1; i >= 0; i--) {
-      if (!match && _deleteNotMatchingFromMessagesTree(filter, messagesTree.children[i])) {
-        messagesTree.children.removeAt(i);
+    var newNode = node.clone();
+    for (var childNode in node.children) {
+      var clonedChild = _getFilteredMessagesTree(filter, childNode, topicPath + childNode.topicLevelName);
+      if (clonedChild != null) {
+        newNode.children.add(clonedChild);
       }
     }
 
-    return messagesTree.children.isEmpty && (!match || messagesTree.messageCount == 0);
+    return ((topicPath + newNode.topicLevelName).toLowerCase().contains(filter.toLowerCase()) || newNode.children.isNotEmpty || rootNode)
+        ? newNode
+        : null;
   }
 }
 
