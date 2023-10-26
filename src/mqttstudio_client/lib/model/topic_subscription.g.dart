@@ -19,7 +19,7 @@ TopicSubscription _$TopicSubscriptionFromJson(Map<String, dynamic> json) =>
 Map<String, dynamic> _$TopicSubscriptionToJson(TopicSubscription instance) =>
     <String, dynamic>{
       'topic': instance.topic,
-      'qos': _$MqttQosEnumMap[instance.qos],
+      'qos': _$MqttQosEnumMap[instance.qos]!,
       'color': instance.color.toJson(),
       'paused': instance.paused,
     };

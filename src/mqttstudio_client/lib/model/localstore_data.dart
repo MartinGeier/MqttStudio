@@ -7,6 +7,8 @@ part 'localstore_data.g.dart';
 @JsonSerializable(explicitToJson: true)
 class LocalStoreData {
   Map<String, Project>? projects;
+  bool? browserPerformanceWarningDoNotShow = false;
+  bool? coachingCompleted = false;
 
   LocalStoreData() {
     projects = Map<String, Project>();

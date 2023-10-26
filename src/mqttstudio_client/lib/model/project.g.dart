@@ -15,13 +15,18 @@ Project _$ProjectFromJson(Map<String, dynamic> json) => Project(
       ..lastModifiedOn = dateTimeFromUtcJson(json['lastModifiedOn'] as String?)
       ..createdBy = json['createdBy'] as String?
       ..lastModifiedBy = json['lastModifiedBy'] as String?
-      ..topicSubscriptions =
-          (json['topicSubscriptions'] as List<dynamic>).map((e) => TopicSubscription.fromJson(e as Map<String, dynamic>)).toList()
+      ..topicSubscriptions = (json['topicSubscriptions'] as List<dynamic>)
+          .map((e) => TopicSubscription.fromJson(e as Map<String, dynamic>))
+          .toList()
       ..topicColors = (json['topicColors'] as Map<String, dynamic>).map(
         (k, e) => MapEntry(k, TopicColor.fromJson(e as Map<String, dynamic>)),
       )
-      ..recentTopics = (json['recentTopics'] as List<dynamic>).map((e) => e as String).toList()
-      ..lastUsed = json['lastUsed'] == null ? null : DateTime.parse(json['lastUsed'] as String);
+      ..recentTopics = (json['recentTopics'] as List<dynamic>)
+          .map((e) => e as String)
+          .toList()
+      ..lastUsed = json['lastUsed'] == null
+          ? null
+          : DateTime.parse(json['lastUsed'] as String);
 
 Map<String, dynamic> _$ProjectToJson(Project instance) {
   final val = <String, dynamic>{
@@ -34,14 +39,16 @@ Map<String, dynamic> _$ProjectToJson(Project instance) {
     }
   }
 
-  writeNotNull('createdOn', instance.createdOn?.toIso8601String());
-  writeNotNull('lastModifiedOn', instance.lastModifiedOn?.toIso8601String());
+  writeNotNull('createdOn', dateTimeToUtcJson(instance.createdOn));
+  writeNotNull('lastModifiedOn', dateTimeToUtcJson(instance.lastModifiedOn));
   writeNotNull('createdBy', instance.createdBy);
   writeNotNull('lastModifiedBy', instance.lastModifiedBy);
   val['name'] = instance.name;
   val['mqttSettings'] = instance.mqttSettings.toJson();
-  val['topicSubscriptions'] = instance.topicSubscriptions.map((e) => e.toJson()).toList();
-  val['topicColors'] = instance.topicColors.map((k, e) => MapEntry(k, e.toJson()));
+  val['topicSubscriptions'] =
+      instance.topicSubscriptions.map((e) => e.toJson()).toList();
+  val['topicColors'] =
+      instance.topicColors.map((k, e) => MapEntry(k, e.toJson()));
   val['recentTopics'] = instance.recentTopics;
   val['lastUsed'] = instance.lastUsed?.toIso8601String();
   return val;

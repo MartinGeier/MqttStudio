@@ -1,6 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:mqttstudio/common/localstore.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class BrowserPerformanceWarning extends StatefulWidget {
@@ -56,8 +56,7 @@ class _BrowserPerformanceWarningState extends State<BrowserPerformanceWarning> {
           child: Text("commmon.okButtonCaption".tr()),
           onPressed: () async {
             if (_doNotShowAgain) {
-              var sp = await SharedPreferences.getInstance();
-              await sp.setBool("BrowserPerformanceWarningDoNotShow", true);
+              await LocalStore().saveBrowserPerformanceWarningDoNotShow(true);
             }
             Navigator.of(context).pop(); // Close the dialog
           },

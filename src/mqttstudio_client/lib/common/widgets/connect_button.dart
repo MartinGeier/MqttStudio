@@ -40,7 +40,7 @@ class ConnectButton extends StatelessWidget {
           SizedBox(
             width: 4,
           ),
-          mqttGlobalViewmodel.isConnected() ? Text('CONNECTED') : Text('DISCONNECTED')
+          mqttGlobalViewmodel.isConnected() ? Text("connectbutton.connected.label".tr()) : Text('connectbutton.disconnected.label'.tr())
         ]),
       ),
       style: ElevatedButton.styleFrom(

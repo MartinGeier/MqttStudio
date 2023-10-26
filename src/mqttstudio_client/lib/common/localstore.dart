@@ -29,6 +29,30 @@ class LocalStore {
     return data.projects?.values.toList() ?? List.empty();
   }
 
+  Future<bool> getBrowserPerformanceWarningDoNotShow() async {
+    await _readLocalStore();
+    return data.browserPerformanceWarningDoNotShow ?? false;
+  }
+
+  Future saveBrowserPerformanceWarningDoNotShow(bool value) async {
+    await _readLocalStore();
+    data.browserPerformanceWarningDoNotShow = value;
+
+    await _saveLocalStore();
+  }
+
+  Future<bool> getCoachingCompleted() async {
+    await _readLocalStore();
+    return data.coachingCompleted ?? false;
+  }
+
+  Future saveCoachingCompleted(bool value) async {
+    await _readLocalStore();
+    data.coachingCompleted = value;
+
+    await _saveLocalStore();
+  }
+
   FutureOr<LocalStoreData> _readLocalStore() async {
     var sp = await SharedPreferences.getInstance();
     var json = sp.getString(localStoreKey);
