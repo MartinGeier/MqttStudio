@@ -1,0 +1,15 @@
+MQTT Studio - End User License Agreement
+
+MQTT Studio is copyrighted and licensed (not sold). By purchasing the program, you are accepting and agreeing to the terms of this license agreement. This license agreement represents the entire agreement concerning the program, between you and Redpin., (referred to as "licensor"), and it supersedes any prior proposal, representation, or understanding between the parties.
+
+1. License Grant. Licensor hereby grants to you, and you accept, a nonexclusive license to use the program in machine -readable, object code form only, for use only as authorized in this License Agreement. The Programs may be used only on computers owned, leased or otherwise controlled by you. The full edition of the program shall only manage the number of user accounts specified in the purchase agreement. You agree that you may not reverse assemble, reverse compile, or otherwise translate the Program.
+
+2. Translator edition License Grant. The translator edition of the program may be freely distributed to and used by all parties involved in the translation of your software applications.
+
+3. Licensor`s Rights. You acknowledge and agree that the Program is propri etary to Licensor and protected under copyright law. You further acknowledge and agree that all rights, titles, and interest in and to the Program, including associated intellectual property rights, are and shall remain with Licensor. The License Agreement does not convey to you an interest in or to the Program, but only a limited right of use revocable in accordance with the terms of this License Agreement.
+
+4. No Warranty; Limitation of Liability. You acknowledge that the program is provided on an "as is" basis without warranty of any kind. Licensor makes no representations or warranties regarding the use or performance of the program. Licensor expressly disclaims the warranties of merchantability and fitness for a particular purpose. Licensor shall have no liability to customer or any third party for any loss or damage caused, directly or indirectly, by the program, including, but not limited to, any interruption of services, loss of business, loss of data or special, consequential or incidental damages.
+
+5. Severability. Should any term of this License Agreement be declared void or unenforceable by any court of competent jurisdiction, such declaration will have no effect on the remaining terms hereof.
+
+6. No Waiver. The failure of either party to enforce any rights granted hereunder or to take action against the other party in the event of any breach hereunder shall not be deemed a waiver by that party as to subsequent enforcement of rights or subsequent actions in the event of future breaches.

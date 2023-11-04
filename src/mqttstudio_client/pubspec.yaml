@@ -56,6 +56,7 @@ dev_dependencies:
     sdk: flutter
   json_serializable: ^6.0.1
   build_runner: ^2.0.2
+  msix: ^3.16.4
   
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -103,3 +104,14 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/custom-fonts/#from-packages
+
+# MSIX installer settings
+msix_config:
+  display_name: MQTT-Studio
+  publisher: CN=DCEFA036-199D-4E8F-80D9-C2B3CF2E517D
+  publisher_display_name: Redpin
+  identity_name: 23130Redpin.MQTT-Studio
+  msix_version: 1.0.0.0
+  logo_path: C:\Redpin\Development\Projects\MqttStudio\src\mqttstudio_client\assets\images\logo.png
+  capabilities: internetClient
+  store: true
