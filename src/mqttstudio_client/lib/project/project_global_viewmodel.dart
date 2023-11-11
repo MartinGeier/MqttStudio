@@ -9,16 +9,15 @@ import 'package:mqttstudio/model/received_mqtt_message.dart';
 import 'package:mqttstudio/model/topic_color.dart';
 import 'package:mqttstudio/model/topic_subscription.dart';
 import 'package:mqttstudio/service/service_error.dart';
-import 'package:mqttstudio/project/message_buffer_viewmodel.dart';
-import 'package:mqttstudio/common/mqtt_global_viewmodel.dart';
+import 'package:mqttstudio/mqtt/mqtt_global_viewmodel.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 
+// Global viewmodel for all project related operations.
 class ProjectGlobalViewmodel extends SrxChangeNotifier {
   Project? _currentProject;
-  MessageBufferViewmodel messageBufferViewmodel = MessageBufferViewmodel();
   late MqttGlobalViewmodel _mqttGlobalViewmodel;
   var closeProjectStreamController = StreamController.broadcast();
-  bool _paused = false;
+  bool paused = false;
   int? lastSavedProjectHash;
   Future Function() _onClosingNotSaved;
 
@@ -73,7 +72,6 @@ class ProjectGlobalViewmodel extends SrxChangeNotifier {
     }
 
     _mqttGlobalViewmodel.disconnect();
-    messageBufferViewmodel.clear();
     closeProjectStreamController.add(null);
     _currentProject = null;
     lastSavedProjectHash = null;
@@ -100,7 +98,7 @@ class ProjectGlobalViewmodel extends SrxChangeNotifier {
     _currentProject!.topicColors[subscription.topic] = subscription.color;
     _addRecentTopic(subscription.topic);
 
-    if (_mqttGlobalViewmodel.isConnected() && !_paused) {
+    if (_mqttGlobalViewmodel.isConnected() && !paused) {
       _mqttGlobalViewmodel.subscribeToTopic(subscription.topic, subscription.qos);
     }
 
@@ -123,14 +121,14 @@ class ProjectGlobalViewmodel extends SrxChangeNotifier {
     sub.paused = !sub.paused;
     if (sub.paused) {
       _mqttGlobalViewmodel.unSubscribeFromTopic(topic);
-    } else if (!_paused) {
+    } else if (!paused) {
       _mqttGlobalViewmodel.subscribeToTopic(topic, sub.qos);
     }
     notifyListeners();
   }
 
   void pauseAllTopics() {
-    _paused = true;
+    paused = true;
     for (var sub in _currentProject!.topicSubscriptions) {
       _mqttGlobalViewmodel.unSubscribeFromTopic(sub.topic);
     }
@@ -138,7 +136,7 @@ class ProjectGlobalViewmodel extends SrxChangeNotifier {
   }
 
   void playAllTopics() {
-    _paused = false;
+    paused = false;
     for (var sub in _currentProject!.topicSubscriptions) {
       if (!sub.paused) {
         _mqttGlobalViewmodel.subscribeToTopic(sub.topic, sub.qos);
@@ -148,7 +146,7 @@ class ProjectGlobalViewmodel extends SrxChangeNotifier {
   }
 
   void clearMessages() {
-    messageBufferViewmodel.clear();
+    _mqttGlobalViewmodel.messageBuffer.clear();
   }
 
   void publishTopic(String topic, dynamic payload, MqttPayloadType payloadType, bool retain, [MqttQos qos = MqttQos.atMostOnce]) {
@@ -176,7 +174,6 @@ class ProjectGlobalViewmodel extends SrxChangeNotifier {
     } else {
       _currentProject!.topicColors[msg.topicName] = TopicColor(Colors.black);
     }
-    messageBufferViewmodel.storeMessage(msg);
   }
 
   TopicColor getTopicColor(String topicName) {

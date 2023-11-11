@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mqttstudio/project/project_edit_dialog.dart';
 import 'package:mqttstudio/model/project.dart';
-import 'package:mqttstudio/common/mqtt_global_viewmodel.dart';
+import 'package:mqttstudio/mqtt/mqtt_global_viewmodel.dart';
 import 'package:mqttstudio/project/project_global_viewmodel.dart';
 import 'package:provider/provider.dart';
 import 'package:srx_flutter/srx_flutter.dart';

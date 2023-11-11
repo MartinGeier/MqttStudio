@@ -1,9 +1,10 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
+import 'package:mqttstudio/mqtt/mqtt_global_viewmodel.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
 import 'package:mqttstudio/model/topic_color.dart';
-import 'package:mqttstudio/project/message_buffer_viewmodel.dart';
+import 'package:mqttstudio/mqtt/mqtt_message_buffer.dart';
 import 'package:mqttstudio/project/project_global_viewmodel.dart';
 import 'package:mqttstudio/common/widgets/topic_chip.dart';
 import 'package:mqttstudio/topic_viewer/topic_viewer_viewmodel.dart';
@@ -16,9 +17,9 @@ class TreeMessagesViewer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<MessageBufferViewmodel>(builder: (context, msgBufferViewmodel, child) {
+    return Consumer<MqttGlobalViewmodel>(builder: (context, mqttGlobalViewmodel, child) {
       return Consumer<TopicViewerViewmodel>(builder: (context, viewmodel, child) {
-        var rootNode = msgBufferViewmodel.getMessagesTree(viewmodel.filter);
+        var rootNode = mqttGlobalViewmodel.messageBuffer.getMessagesTree(viewmodel.filter);
         var nodes = _buildNodes(rootNode.children, viewmodel);
         return Expanded(
             child: Padding(
@@ -65,10 +66,9 @@ class TreeMessagesViewer extends StatelessWidget {
 
 class MessagesViewerRow extends StatelessWidget {
   final ReceivedMqttMessage message;
-  final MessageBufferViewmodel msgBufferViewmodel;
   final TopicViewerViewmodel viewmodel;
 
-  const MessagesViewerRow(this.message, this.msgBufferViewmodel, this.viewmodel, {Key? key}) : super(key: key);
+  const MessagesViewerRow(this.message, this.viewmodel, {Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {

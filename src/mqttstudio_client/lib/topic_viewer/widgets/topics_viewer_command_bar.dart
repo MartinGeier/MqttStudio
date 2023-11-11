@@ -1,9 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:mqttstudio/common/mqtt_global_viewmodel.dart';
+import 'package:mqttstudio/mqtt/mqtt_global_viewmodel.dart';
 import 'package:mqttstudio/project/project_global_viewmodel.dart';
-import 'package:mqttstudio/project/message_buffer_viewmodel.dart';
+import 'package:mqttstudio/mqtt/mqtt_message_buffer.dart';
 import 'package:mqttstudio/topic_viewer/topic_viewer_viewmodel.dart';
 import 'package:provider/provider.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -30,40 +30,38 @@ class _TopicsViewCommandBarState extends State<TopicsViewCommandBar> {
   @override
   Widget build(BuildContext context) {
     var projectViewmodel = context.read<ProjectGlobalViewmodel>();
-    return Consumer<MessageBufferViewmodel>(builder: (context, msgBufferViewmodel, child) {
-      return Consumer<TopicViewerViewmodel>(
-        builder: (context, viewmodel, child) {
-          return Consumer<MqttGlobalViewmodel>(
-            builder: (context, mqttGlobalViewmodel, child) {
-              return Container(
-                child: Column(
-                  children: [
-                    Divider(height: 4),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            _buildPlayPauseButtons(projectViewmodel, msgBufferViewmodel, viewmodel),
-                            SizedBox(height: 40, child: VerticalDivider()),
-                            _buildViewModeSelectionButtons(viewmodel, projectViewmodel),
-                            SizedBox(height: 40, child: VerticalDivider()),
-                            _buildGroupingPeriodDropDown(viewmodel, projectViewmodel),
-                            _buildFilter(viewmodel, projectViewmodel),
-                          ],
-                        ),
-                        _buildPublishButton(projectViewmodel, mqttGlobalViewmodel, context),
-                      ],
-                    ),
-                    Divider(height: 4),
-                  ],
-                ),
-              );
-            },
-          );
-        },
-      );
-    });
+    return Consumer<TopicViewerViewmodel>(
+      builder: (context, viewmodel, child) {
+        return Consumer<MqttGlobalViewmodel>(
+          builder: (context, mqttGlobalViewmodel, child) {
+            return Container(
+              child: Column(
+                children: [
+                  Divider(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          _buildPlayPauseButtons(projectViewmodel, viewmodel),
+                          SizedBox(height: 40, child: VerticalDivider()),
+                          _buildViewModeSelectionButtons(viewmodel, projectViewmodel),
+                          SizedBox(height: 40, child: VerticalDivider()),
+                          _buildGroupingPeriodDropDown(viewmodel, projectViewmodel),
+                          _buildFilter(viewmodel, projectViewmodel),
+                        ],
+                      ),
+                      _buildPublishButton(projectViewmodel, mqttGlobalViewmodel, context),
+                    ],
+                  ),
+                  Divider(height: 4),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   Padding _buildPublishButton(ProjectGlobalViewmodel projectViewmodel, MqttGlobalViewmodel mqttGlobalViewmodel, BuildContext context) {
@@ -183,17 +181,16 @@ class _TopicsViewCommandBarState extends State<TopicsViewCommandBar> {
         ]);
   }
 
-  ButtonBar _buildPlayPauseButtons(
-      ProjectGlobalViewmodel projectViewmodel, MessageBufferViewmodel messageBufferViewmodel, TopicViewerViewmodel topicViewerViewmodel) {
+  ButtonBar _buildPlayPauseButtons(ProjectGlobalViewmodel projectViewmodel, TopicViewerViewmodel topicViewerViewmodel) {
     return ButtonBar(
       children: [
         IconButton(
-            onPressed: projectViewmodel.isProjectOpen && messageBufferViewmodel.paused ? () => messageBufferViewmodel.play() : null,
+            onPressed: projectViewmodel.isProjectOpen && projectViewmodel.paused ? () => projectViewmodel.playAllTopics() : null,
             icon: Icon(Icons.play_arrow),
             color: Colors.green,
             tooltip: 'topicsviewer_commandbar.play.tooltip'.tr()),
         IconButton(
-            onPressed: projectViewmodel.isProjectOpen && !messageBufferViewmodel.paused ? () => messageBufferViewmodel.pause() : null,
+            onPressed: projectViewmodel.isProjectOpen && !projectViewmodel.paused ? () => projectViewmodel.pauseAllTopics() : null,
             icon: Icon(Icons.pause),
             color: Colors.blue,
             tooltip: 'topicsviewer_commandbar.pause.tooltip'.tr()),

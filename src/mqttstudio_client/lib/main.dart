@@ -9,7 +9,7 @@ import 'model/project.dart';
 import 'topic_viewer/topic_viewer_page.dart';
 import 'common/login_page.dart';
 import 'repository/local/local_project_repository.dart';
-import 'common/mqtt_global_viewmodel.dart';
+import 'mqtt/mqtt_global_viewmodel.dart';
 import 'project/project_global_viewmodel.dart';
 
 //final String baseUrlRelease = 'to be defined';

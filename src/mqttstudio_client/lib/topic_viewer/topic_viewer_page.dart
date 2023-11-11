@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/common/browser_performance_warning.dart';
 import 'package:mqttstudio/common/localstore.dart';
 import 'package:mqttstudio/common/widgets/main_appbar.dart';
@@ -38,45 +37,42 @@ class _TopicViewerPageState extends State<TopicViewerPage> {
     return DefaultTabController(
         length: 4,
         child: ChangeNotifierProvider(
-          create: (context) => TopicViewerViewmodel(),
-          child: Consumer<TopicViewerViewmodel>(builder: (context, viewmodel, child) {
-            return Consumer<ProjectGlobalViewmodel>(builder: (context, projectGlobalViewmodel, child) {
-              return ChangeNotifierProvider.value(
-                  value: GetIt.I.get<ProjectGlobalViewmodel>().messageBufferViewmodel,
-                  child: Scaffold(
-                    appBar: MainAppBar(viewmodel: projectGlobalViewmodel),
-                    drawer: navDrawer.NavigationDrawer(),
-                    body: Container(
-                      child: Column(
-                        children: [
-                          TopicSubscriptionPanel(),
-                          TopicsViewCommandBar(),
-                          Expanded(
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                projectGlobalViewmodel.isProjectOpen
-                                    ? viewmodel.topicViewMode == TopicViewMode.Grouped
-                                        ? GroupedMessagesViewer()
-                                        : viewmodel.topicViewMode == TopicViewMode.Tree
-                                            ? TreeMessagesViewer()
-                                            : SequentialMessagesViewer()
-                                    : Container(),
-                                projectGlobalViewmodel.isProjectOpen
-                                    ? viewmodel.selectedMessage != null
-                                        ? MessageDetailView()
-                                        : Container()
-                                    : Container(),
-                              ],
-                            ),
-                          )
-                        ],
-                      ),
+            create: (context) => TopicViewerViewmodel(),
+            child: Consumer<TopicViewerViewmodel>(builder: (context, viewmodel, child) {
+              return Consumer<ProjectGlobalViewmodel>(builder: (context, projectGlobalViewmodel, child) {
+                return Scaffold(
+                  appBar: MainAppBar(viewmodel: projectGlobalViewmodel),
+                  drawer: navDrawer.NavigationDrawer(),
+                  body: Container(
+                    child: Column(
+                      children: [
+                        TopicSubscriptionPanel(),
+                        TopicsViewCommandBar(),
+                        Expanded(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              projectGlobalViewmodel.isProjectOpen
+                                  ? viewmodel.topicViewMode == TopicViewMode.Grouped
+                                      ? GroupedMessagesViewer()
+                                      : viewmodel.topicViewMode == TopicViewMode.Tree
+                                          ? TreeMessagesViewer()
+                                          : SequentialMessagesViewer()
+                                  : Container(),
+                              projectGlobalViewmodel.isProjectOpen
+                                  ? viewmodel.selectedMessage != null
+                                      ? MessageDetailView()
+                                      : Container()
+                                  : Container(),
+                            ],
+                          ),
+                        )
+                      ],
                     ),
-                  ));
-            });
-          }),
-        ));
+                  ),
+                );
+              });
+            })));
   }
 
   void _showBrowserPerformanceWarning(BuildContext context) async {

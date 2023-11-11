@@ -1,8 +1,8 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
+import 'package:mqttstudio/mqtt/mqtt_global_viewmodel.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
-import 'package:mqttstudio/project/message_buffer_viewmodel.dart';
 import 'package:mqttstudio/project/project_global_viewmodel.dart';
 import 'package:mqttstudio/topic_viewer/topic_viewer_viewmodel.dart';
 import 'package:provider/provider.dart';
@@ -15,15 +15,15 @@ class SequentialMessagesViewer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<MessageBufferViewmodel>(builder: (context, msgBufferViewmodel, child) {
+    return Consumer<MqttGlobalViewmodel>(builder: (context, mqttGlobalViewmodel, child) {
       return Consumer<TopicViewerViewmodel>(builder: (context, viewmodel, child) {
-        var messages = msgBufferViewmodel.getMessages(viewmodel.filter);
+        var messages = mqttGlobalViewmodel.messageBuffer.getMessages(viewmodel.filter);
         return Expanded(
             child: Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: NotificationListener<ScrollNotification>(
                   onNotification: (notification) {
-                    msgBufferViewmodel.delayViewUpdate();
+                    mqttGlobalViewmodel.delayViewUpdate();
                     return true;
                   },
                   child: Scrollbar(
@@ -34,7 +34,7 @@ class SequentialMessagesViewer extends StatelessWidget {
                         controller: _scrollController,
                         children: List.generate(
                           messages.length,
-                          (index) => MessagesViewerRow(messages[index], msgBufferViewmodel, viewmodel),
+                          (index) => MessagesViewerRow(messages[index], viewmodel),
                         )),
                   ),
                 )));
@@ -45,10 +45,9 @@ class SequentialMessagesViewer extends StatelessWidget {
 
 class MessagesViewerRow extends StatelessWidget {
   final ReceivedMqttMessage message;
-  final MessageBufferViewmodel msgBufferViewmodel;
   final TopicViewerViewmodel viewmodel;
 
-  const MessagesViewerRow(this.message, this.msgBufferViewmodel, this.viewmodel, {Key? key}) : super(key: key);
+  const MessagesViewerRow(this.message, this.viewmodel, {Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {

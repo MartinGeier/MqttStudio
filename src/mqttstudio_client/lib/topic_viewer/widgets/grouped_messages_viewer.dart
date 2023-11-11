@@ -1,7 +1,8 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
-import 'package:mqttstudio/project/message_buffer_viewmodel.dart';
+import 'package:mqttstudio/mqtt/mqtt_global_viewmodel.dart';
+import 'package:mqttstudio/mqtt/mqtt_message_buffer.dart';
 import 'package:mqttstudio/project/project_global_viewmodel.dart';
 import 'package:mqttstudio/topic_viewer/topic_viewer_viewmodel.dart';
 import 'package:provider/provider.dart';
@@ -14,15 +15,15 @@ class GroupedMessagesViewer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<MessageBufferViewmodel>(builder: (context, msgBufferViewmodel, child) {
+    return Consumer<MqttGlobalViewmodel>(builder: (context, mqttGlobalViewmodel, child) {
       return Consumer<TopicViewerViewmodel>(builder: (context, viewmodel, child) {
-        var groupedMessages = msgBufferViewmodel.getGroupMessages(viewmodel.groupTimePeriod, viewmodel.filter);
+        var groupedMessages = mqttGlobalViewmodel.messageBuffer.getGroupMessages(viewmodel.groupTimePeriod, viewmodel.filter);
         return Expanded(
             child: Padding(
           padding: const EdgeInsets.only(top: 8),
           child: NotificationListener<ScrollNotification>(
             onNotification: (notification) {
-              msgBufferViewmodel.delayViewUpdate();
+              mqttGlobalViewmodel.delayViewUpdate();
               return true;
             },
             child: Scrollbar(
@@ -31,8 +32,7 @@ class GroupedMessagesViewer extends StatelessWidget {
                 trackVisibility: true,
                 child: ListView(
                   controller: _scrollController,
-                  children: List.generate(
-                      groupedMessages.length, (index) => GroupedMessagesViewerRow(groupedMessages[index], msgBufferViewmodel, viewmodel)),
+                  children: List.generate(groupedMessages.length, (index) => GroupedMessagesViewerRow(groupedMessages[index], viewmodel)),
                 )),
           ),
         ));
@@ -43,10 +43,9 @@ class GroupedMessagesViewer extends StatelessWidget {
 
 class GroupedMessagesViewerRow extends StatelessWidget {
   final MessageGroup messageGroup;
-  final MessageBufferViewmodel msgBufferViewmodel;
   final TopicViewerViewmodel viewmodel;
 
-  const GroupedMessagesViewerRow(this.messageGroup, this.msgBufferViewmodel, this.viewmodel, {Key? key}) : super(key: key);
+  const GroupedMessagesViewerRow(this.messageGroup, this.viewmodel, {Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {

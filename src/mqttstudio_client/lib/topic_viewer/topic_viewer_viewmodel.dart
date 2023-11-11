@@ -2,10 +2,11 @@ import 'dart:async';
 import 'package:darq/darq.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqtt_client/mqtt_client.dart';
+import 'package:mqttstudio/mqtt/mqtt_global_viewmodel.dart';
 import 'package:mqttstudio/model/mqtt_payload_type.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
 import 'package:mqttstudio/project/project_global_viewmodel.dart';
-import 'package:mqttstudio/project/message_buffer_viewmodel.dart';
+import 'package:mqttstudio/mqtt/mqtt_message_buffer.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 
 class TopicViewerViewmodel extends SrxChangeNotifier {
@@ -14,7 +15,7 @@ class TopicViewerViewmodel extends SrxChangeNotifier {
   ReceivedMqttMessage? _selectedMessage;
   bool _autoSelect = false;
   StreamSubscription? _closeProjectStreamSubscription;
-  late MessageBufferViewmodel _msgBufferViewmodel;
+  late MqttGlobalViewmodel _mqttGlobalViewmodel;
   String? _filter;
 
   bool get autoSelect => _autoSelect;
@@ -25,8 +26,8 @@ class TopicViewerViewmodel extends SrxChangeNotifier {
   }
 
   TopicViewerViewmodel() {
-    _msgBufferViewmodel = GetIt.I.get<ProjectGlobalViewmodel>().messageBufferViewmodel;
-    _msgBufferViewmodel.addListener(_onMessageReceived);
+    _mqttGlobalViewmodel = GetIt.I.get<MqttGlobalViewmodel>();
+    _mqttGlobalViewmodel.addListener(_onMessageReceived);
     _closeProjectStreamSubscription =
         GetIt.I.get<ProjectGlobalViewmodel>().closeProjectStreamController.stream.listen((_) => selectedMessage = null);
   }
@@ -40,7 +41,7 @@ class TopicViewerViewmodel extends SrxChangeNotifier {
   ReceivedMqttMessage? get selectedMessage => _selectedMessage;
 
   int getSelectedMessageCount() {
-    return selectedMessage != null ? _msgBufferViewmodel.getTopicMessageCount(selectedMessage!.topicName) : 0;
+    return selectedMessage != null ? _mqttGlobalViewmodel.messageBuffer.getTopicMessageCount(selectedMessage!.topicName) : 0;
   }
 
   String? get filter => _filter;
@@ -50,8 +51,9 @@ class TopicViewerViewmodel extends SrxChangeNotifier {
   }
 
   List<Tuple2<DateTime, double>> getChartValues() {
-    var messages =
-        selectedMessage != null ? _msgBufferViewmodel.getTopicMessages(selectedMessage!.topicName) : List<ReceivedMqttMessage>.empty();
+    var messages = selectedMessage != null
+        ? _mqttGlobalViewmodel.messageBuffer.getTopicMessages(selectedMessage!.topicName)
+        : List<ReceivedMqttMessage>.empty();
     return messages
         .where((x) => double.tryParse(MqttPublishPayload.bytesToStringAsString(x.payload)) != null)
         .orderByDescending((x) => x.receivedOn)
@@ -94,7 +96,7 @@ class TopicViewerViewmodel extends SrxChangeNotifier {
 
   void _onMessageReceived() {
     if (autoSelect && _selectedMessage != null) {
-      var lastMsg = _msgBufferViewmodel.getLastMessageForTopic(_selectedMessage!.topicName);
+      var lastMsg = _mqttGlobalViewmodel.messageBuffer.getLastMessageForTopic(_selectedMessage!.topicName);
       if (lastMsg?.receivedOn != _selectedMessage!.receivedOn) {
         selectedMessage = lastMsg;
       }

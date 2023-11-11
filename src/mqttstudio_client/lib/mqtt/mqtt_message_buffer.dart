@@ -1,37 +1,20 @@
 import 'package:mqttstudio/model/received_mqtt_message.dart';
-import 'package:srx_flutter/srx_flutter.dart';
 import 'package:darq/darq.dart';
 
-class MessageBufferViewmodel extends SrxChangeNotifier {
-  final _refreshPeriod = 1000;
+// Stores all received messages as sequential list and as hiarerchy. Offers methods to get and filter messages.
+class MQTTMessageBuffer {
   final _maxDisplayMessages = 2000; // this is the maximum number of messages returned be the methods called by the view. We need to
   // limit the number of messages for performance reasons
-  bool paused = false;
 
   List<ReceivedMqttMessage> _buffer = [];
   MessageGroupTimePeriod? _currentPeriod;
   List<MessageGroup> _groupedMessages = [];
   MessageNode _messagesTree = MessageNode('', null);
-  DateTime _lastRefresh = DateTime.now();
-
-  // MessageBufferViewmodel() {
-  //   Timer.periodic(Duration(milliseconds: _refreshPeriod), _notifyListeners);
-  // }
 
   void storeMessage(ReceivedMqttMessage msg) {
-    if (paused) {
-      return;
-    }
-
     _buffer.insert(0, msg);
     _addToLastMessageGroup(msg);
     _updateMessagesTree(msg, _messagesTree, 0);
-
-    // limit rebuild frequency
-    if (DateTime.now().subtract(Duration(milliseconds: _refreshPeriod)).isAfter(_lastRefresh)) {
-      _lastRefresh = DateTime.now();
-      notifyListeners();
-    }
   }
 
   int get length => _buffer.length;
@@ -43,21 +26,6 @@ class MessageBufferViewmodel extends SrxChangeNotifier {
 
     // create a filtered copy of the messages tre
     return _getFilteredMessagesTree(filter)!;
-  }
-
-  // called be the view to delay any updating of the view. Used to prevent the view updating during scrolling
-  void delayViewUpdate() {
-    _lastRefresh = DateTime.now();
-  }
-
-  void pause() {
-    paused = true;
-    notifyListeners();
-  }
-
-  void play() {
-    paused = false;
-    notifyListeners();
   }
 
   List<ReceivedMqttMessage> getMessages(String? filter) {
@@ -117,7 +85,6 @@ class MessageBufferViewmodel extends SrxChangeNotifier {
     _buffer.clear();
     _groupedMessages.clear();
     _messagesTree.children.clear();
-    notifyListeners();
   }
 
   void _addToLastMessageGroup(ReceivedMqttMessage msg) {
