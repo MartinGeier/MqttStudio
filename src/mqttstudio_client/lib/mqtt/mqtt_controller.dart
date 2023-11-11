@@ -10,6 +10,8 @@ import 'package:srx_flutter/srx_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:synchronized/synchronized.dart' as lock;
 
+// Keeps the connection to the MQTT broker and offers basic operations such as publishing a topic and subscribing to a topic.
+// Publishes the onMessageReceived event for further processing of incoming messages.
 class MqttController {
   static const String WebSocketPrefix = "ws://";
   static const String SecureWebSocketPrefix = "wss://";
