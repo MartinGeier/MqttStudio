@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:mqttstudio/mqtt/mqtt_global_viewmodel.dart';
 import 'package:mqttstudio/project/project_global_viewmodel.dart';
 import 'package:mqttstudio/mqtt/mqtt_message_buffer.dart';
-import 'package:mqttstudio/topic_viewer/topic_viewer_viewmodel.dart';
+import 'package:mqttstudio/topic_viewer/topic_detailviewer_viewmodel.dart';
 import 'package:provider/provider.dart';
 import 'package:easy_localization/easy_localization.dart';
 
@@ -30,7 +30,7 @@ class _TopicsViewCommandBarState extends State<TopicsViewCommandBar> {
   @override
   Widget build(BuildContext context) {
     var projectViewmodel = context.read<ProjectGlobalViewmodel>();
-    return Consumer<TopicViewerViewmodel>(
+    return Consumer<TopicDetailViewerViewmodel>(
       builder: (context, viewmodel, child) {
         return Consumer<MqttGlobalViewmodel>(
           builder: (context, mqttGlobalViewmodel, child) {
@@ -84,7 +84,7 @@ class _TopicsViewCommandBarState extends State<TopicsViewCommandBar> {
     );
   }
 
-  Visibility _buildGroupingPeriodDropDown(TopicViewerViewmodel viewmodel, ProjectGlobalViewmodel projectViewmodel) {
+  Visibility _buildGroupingPeriodDropDown(TopicDetailViewerViewmodel viewmodel, ProjectGlobalViewmodel projectViewmodel) {
     return Visibility(
       visible: viewmodel.topicViewMode == TopicViewMode.Grouped,
       child: Row(
@@ -112,17 +112,18 @@ class _TopicsViewCommandBarState extends State<TopicsViewCommandBar> {
     );
   }
 
-  Widget _buildFilter(TopicViewerViewmodel viewmodel, ProjectGlobalViewmodel projectViewmodel) {
+  Widget _buildFilter(TopicDetailViewerViewmodel viewmodel, ProjectGlobalViewmodel projectViewmodel) {
     return Row(
       children: [
         Icon(Icons.filter_alt),
         SizedBox(width: 6),
         SizedBox(
-            width: 150,
+            width: 300,
             height: 40,
             child: TextField(
               controller: _filterController,
               decoration: InputDecoration(
+                  contentPadding: EdgeInsets.only(left: 12),
                   border: OutlineInputBorder(),
                   labelText: 'topicsviewer_commandbar.filter.label'.tr(),
                   isDense: true,
@@ -142,7 +143,7 @@ class _TopicsViewCommandBarState extends State<TopicsViewCommandBar> {
     );
   }
 
-  void onFilterChanged(TopicViewerViewmodel viewmodel, String value) {
+  void onFilterChanged(TopicDetailViewerViewmodel viewmodel, String value) {
     if (_debounce?.isActive ?? false) {
       _debounce?.cancel();
     }
@@ -151,7 +152,7 @@ class _TopicsViewCommandBarState extends State<TopicsViewCommandBar> {
     });
   }
 
-  ToggleButtons _buildViewModeSelectionButtons(TopicViewerViewmodel viewmodel, ProjectGlobalViewmodel projectViewmodel) {
+  ToggleButtons _buildViewModeSelectionButtons(TopicDetailViewerViewmodel viewmodel, ProjectGlobalViewmodel projectViewmodel) {
     return ToggleButtons(
         isSelected: [
           viewmodel.topicViewMode == TopicViewMode.Grouped,
@@ -181,7 +182,7 @@ class _TopicsViewCommandBarState extends State<TopicsViewCommandBar> {
         ]);
   }
 
-  ButtonBar _buildPlayPauseButtons(ProjectGlobalViewmodel projectViewmodel, TopicViewerViewmodel topicViewerViewmodel) {
+  ButtonBar _buildPlayPauseButtons(ProjectGlobalViewmodel projectViewmodel, TopicDetailViewerViewmodel topicViewerViewmodel) {
     return ButtonBar(
       children: [
         IconButton(

@@ -5,7 +5,9 @@ class CustomTheme {
     colorScheme: ColorScheme.fromSwatch(
         accentColor: Color(0xffB71C1C), primarySwatch: _primaryPalette, errorColor: Color(0xfff62a00), brightness: Brightness.light),
     //toggleableActiveColor: _primaryPalette,
-    inputDecorationTheme: InputDecorationTheme(errorStyle: TextStyle(height: 0.6)),
+    inputDecorationTheme: InputDecorationTheme(
+      errorStyle: TextStyle(height: 0.6),
+    ),
     //popupMenuTheme: PopupMenuThemeData(textStyle: TextStyle(fontSize: 12)),
     elevatedButtonTheme: ElevatedButtonThemeData(style: ButtonStyle(minimumSize: MaterialStateProperty.all(Size(150, 48)))),
     outlinedButtonTheme: OutlinedButtonThemeData(style: ButtonStyle(minimumSize: MaterialStateProperty.all(Size(150, 48)))),

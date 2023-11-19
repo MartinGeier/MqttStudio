@@ -4,7 +4,7 @@ import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/mqtt/mqtt_global_viewmodel.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
 import 'package:mqttstudio/project/project_global_viewmodel.dart';
-import 'package:mqttstudio/topic_viewer/topic_viewer_viewmodel.dart';
+import 'package:mqttstudio/topic_viewer/topic_detailviewer_viewmodel.dart';
 import 'package:provider/provider.dart';
 
 import '../../common/widgets/fast_topic_chip.dart';
@@ -16,7 +16,7 @@ class SequentialMessagesViewer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Consumer<MqttGlobalViewmodel>(builder: (context, mqttGlobalViewmodel, child) {
-      return Consumer<TopicViewerViewmodel>(builder: (context, viewmodel, child) {
+      return Consumer<TopicDetailViewerViewmodel>(builder: (context, viewmodel, child) {
         var messages = mqttGlobalViewmodel.messageBuffer.getMessages(viewmodel.filter);
         return Expanded(
             child: Padding(
@@ -45,7 +45,7 @@ class SequentialMessagesViewer extends StatelessWidget {
 
 class MessagesViewerRow extends StatelessWidget {
   final ReceivedMqttMessage message;
-  final TopicViewerViewmodel viewmodel;
+  final TopicDetailViewerViewmodel viewmodel;
 
   const MessagesViewerRow(this.message, this.viewmodel, {Key? key}) : super(key: key);
 

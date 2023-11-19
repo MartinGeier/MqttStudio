@@ -2,14 +2,14 @@ import 'dart:async';
 import 'package:darq/darq.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqtt_client/mqtt_client.dart';
-import 'package:mqttstudio/mqtt/mqtt_global_viewmodel.dart';
 import 'package:mqttstudio/model/mqtt_payload_type.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
-import 'package:mqttstudio/project/project_global_viewmodel.dart';
+import 'package:mqttstudio/mqtt/mqtt_global_viewmodel.dart';
 import 'package:mqttstudio/mqtt/mqtt_message_buffer.dart';
+import 'package:mqttstudio/project/project_global_viewmodel.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 
-class TopicViewerViewmodel extends SrxChangeNotifier {
+class TopicDetailViewerViewmodel extends SrxChangeNotifier {
   TopicViewMode _topicViewMode = TopicViewMode.Grouped;
   MessageGroupTimePeriod _groupTimePeriod = MessageGroupTimePeriod.tenSeconds;
   ReceivedMqttMessage? _selectedMessage;
@@ -25,7 +25,7 @@ class TopicViewerViewmodel extends SrxChangeNotifier {
     notifyListeners();
   }
 
-  TopicViewerViewmodel() {
+  TopicDetailViewerViewmodel() {
     _mqttGlobalViewmodel = GetIt.I.get<MqttGlobalViewmodel>();
     _mqttGlobalViewmodel.addListener(_onMessageReceived);
     _closeProjectStreamSubscription =

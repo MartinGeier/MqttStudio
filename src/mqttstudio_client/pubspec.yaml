@@ -24,7 +24,9 @@ dependencies:
   flutter:
     sdk: flutter
   srx_flutter:
-    path: C:/Sarix/dev/projects/Frameworks/srxFlutter
+    git:
+      url: https://github.com/sarixgmbh/SrxFlutter.git
+      ref: '1.0.1'
   json_annotation: ^4.8.1
   provider: ^6.0.5
   get_it: ^7.6.0
@@ -57,7 +59,8 @@ dev_dependencies:
   json_serializable: ^6.0.1
   build_runner: ^2.0.2
   msix: ^3.16.4
-  
+  test: any
+
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 

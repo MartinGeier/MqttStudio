@@ -8,8 +8,8 @@ import 'package:mqttstudio/model/project.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
 import 'package:mqttstudio/model/topic_color.dart';
 import 'package:mqttstudio/model/topic_subscription.dart';
-import 'package:mqttstudio/service/service_error.dart';
 import 'package:mqttstudio/mqtt/mqtt_global_viewmodel.dart';
+import 'package:mqttstudio/service/service_error.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 
 // Global viewmodel for all project related operations.

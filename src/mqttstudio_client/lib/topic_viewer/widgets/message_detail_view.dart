@@ -9,7 +9,7 @@ import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/common/widgets/topic_chip.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
 import 'package:mqttstudio/project/project_global_viewmodel.dart';
-import 'package:mqttstudio/topic_viewer/topic_viewer_viewmodel.dart';
+import 'package:mqttstudio/topic_viewer/topic_detailviewer_viewmodel.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/services.dart';
 import 'package:mqttstudio/custom_theme.dart';
@@ -22,7 +22,7 @@ class MessageDetailView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<TopicViewerViewmodel>(builder: (context, viewmodel, child) {
+    return Consumer<TopicDetailViewerViewmodel>(builder: (context, viewmodel, child) {
       var topic = viewmodel.selectedMessage;
       final nf = NumberFormat('.000', context.locale.countryCode);
       var chartValues = viewmodel.getChartValues();
@@ -58,7 +58,7 @@ class MessageDetailView extends StatelessWidget {
     });
   }
 
-  Widget _buildAutoSelectButton(TopicViewerViewmodel viewmodel) {
+  Widget _buildAutoSelectButton(TopicDetailViewerViewmodel viewmodel) {
     return ToggleButtons(
         renderBorder: false,
         isSelected: [viewmodel.autoSelect],
@@ -80,7 +80,7 @@ class MessageDetailView extends StatelessWidget {
         ]);
   }
 
-  Widget _buildClearRetainedButton(TopicViewerViewmodel viewmodel) {
+  Widget _buildClearRetainedButton(TopicDetailViewerViewmodel viewmodel) {
     return Tooltip(
       message: "messagedetailview.clearretainedbutton.tooltip".tr(),
       child: TextButton(
@@ -96,7 +96,7 @@ class MessageDetailView extends StatelessWidget {
     );
   }
 
-  Widget _buildRepublishButton(TopicViewerViewmodel viewmodel) {
+  Widget _buildRepublishButton(TopicDetailViewerViewmodel viewmodel) {
     return Tooltip(
       message: "messagedetailview.republishbutton.tooltip".tr(),
       child: TextButton(
@@ -146,7 +146,7 @@ class MessageDetailView extends StatelessWidget {
     );
   }
 
-  Padding _buildMessageCount(BuildContext context, TopicViewerViewmodel viewmodel, NumberFormat nf) {
+  Padding _buildMessageCount(BuildContext context, TopicDetailViewerViewmodel viewmodel, NumberFormat nf) {
     var msgCount = viewmodel.getSelectedMessageCount();
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),

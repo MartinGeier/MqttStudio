@@ -6,7 +6,7 @@ import 'package:mqttstudio/custom_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 import 'model/project.dart';
-import 'topic_viewer/topic_viewer_page.dart';
+import 'topic_viewer/topic_detailviewer_page.dart';
 import 'common/login_page.dart';
 import 'repository/local/local_project_repository.dart';
 import 'mqtt/mqtt_global_viewmodel.dart';
@@ -44,7 +44,7 @@ void setupServiceLocator() {
   // common
   GetIt.I.registerSingleton(SrxSessionController(true, '', ''));
   //GetIt.I.registerSingleton(SrxHttpService(baseUrlRelease, baseUrlDebug, versionPath, GetIt.I.get<SessionController>()));
-  GetIt.I.registerSingleton(SrxNavigationService(LoginPage(), TopicViewerPage()));
+  GetIt.I.registerSingleton(SrxNavigationService(LoginPage(), TopicDetailViewerPage()));
   GetIt.I.registerSingleton(MqttController());
 
   // global viewmodels
@@ -67,7 +67,7 @@ class MyApp extends StatelessWidget {
               supportedLocales: context.supportedLocales,
               locale: context.locale,
               navigatorKey: GetIt.instance.get<SrxNavigationService>().navigatorKey,
-              home: /*GetIt.instance.get<SSessionController>().isLoggedIn ? */ TopicViewerPage())) /*: LoginPage() */,
+              home: /*GetIt.instance.get<SSessionController>().isLoggedIn ? */ TopicDetailViewerPage())) /*: LoginPage() */,
     );
   }
 }

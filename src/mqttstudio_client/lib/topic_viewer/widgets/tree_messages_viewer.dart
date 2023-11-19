@@ -7,7 +7,7 @@ import 'package:mqttstudio/model/topic_color.dart';
 import 'package:mqttstudio/mqtt/mqtt_message_buffer.dart';
 import 'package:mqttstudio/project/project_global_viewmodel.dart';
 import 'package:mqttstudio/common/widgets/topic_chip.dart';
-import 'package:mqttstudio/topic_viewer/topic_viewer_viewmodel.dart';
+import 'package:mqttstudio/topic_viewer/topic_detailviewer_viewmodel.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_simple_treeview/flutter_simple_treeview.dart';
 
@@ -18,7 +18,7 @@ class TreeMessagesViewer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Consumer<MqttGlobalViewmodel>(builder: (context, mqttGlobalViewmodel, child) {
-      return Consumer<TopicViewerViewmodel>(builder: (context, viewmodel, child) {
+      return Consumer<TopicDetailViewerViewmodel>(builder: (context, viewmodel, child) {
         var rootNode = mqttGlobalViewmodel.messageBuffer.getMessagesTree(viewmodel.filter);
         var nodes = _buildNodes(rootNode.children, viewmodel);
         return Expanded(
@@ -41,7 +41,7 @@ class TreeMessagesViewer extends StatelessWidget {
     });
   }
 
-  List<TreeNode> _buildNodes(List<MessageNode> messageNodes, TopicViewerViewmodel viewmodel) {
+  List<TreeNode> _buildNodes(List<MessageNode> messageNodes, TopicDetailViewerViewmodel viewmodel) {
     List<TreeNode> result = [];
     for (var msgNode in messageNodes) {
       var childNodes = (_buildNodes(msgNode.children, viewmodel));
@@ -66,7 +66,7 @@ class TreeMessagesViewer extends StatelessWidget {
 
 class MessagesViewerRow extends StatelessWidget {
   final ReceivedMqttMessage message;
-  final TopicViewerViewmodel viewmodel;
+  final TopicDetailViewerViewmodel viewmodel;
 
   const MessagesViewerRow(this.message, this.viewmodel, {Key? key}) : super(key: key);
 

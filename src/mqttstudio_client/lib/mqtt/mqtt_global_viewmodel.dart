@@ -4,10 +4,11 @@ import 'package:mqttstudio/mqtt/mqtt_controller.dart';
 import 'package:mqttstudio/model/mqtt_payload_type.dart';
 import 'package:mqttstudio/model/mqtt_settings.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
-import 'package:srx_flutter/srx_flutter.dart';
 import 'package:mqttstudio/mqtt/mqtt_message_buffer.dart';
+import 'package:srx_flutter/srx_flutter.dart';
 
 // Global viewmodel for MQTT operations. Receives messages from MQTTController and notifies listeners.
+// Stores all received messages using MessageBuffer
 class MqttGlobalViewmodel extends SrxChangeNotifier {
   final _controller = GetIt.I.get<MqttController>();
   final _refreshPeriod = 500;

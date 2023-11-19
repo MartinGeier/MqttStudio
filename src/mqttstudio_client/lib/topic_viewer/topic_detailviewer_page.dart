@@ -3,7 +3,7 @@ import 'package:mqttstudio/common/browser_performance_warning.dart';
 import 'package:mqttstudio/common/localstore.dart';
 import 'package:mqttstudio/common/widgets/main_appbar.dart';
 import 'package:mqttstudio/project/project_global_viewmodel.dart';
-import 'package:mqttstudio/topic_viewer/topic_viewer_viewmodel.dart';
+import 'package:mqttstudio/topic_viewer/topic_detailviewer_viewmodel.dart';
 import 'package:mqttstudio/topic_viewer/widgets/grouped_messages_viewer.dart';
 import 'package:mqttstudio/topic_viewer/widgets/message_detail_view.dart';
 import 'package:mqttstudio/topic_viewer/widgets/sequential_messages_viewer.dart';
@@ -14,14 +14,14 @@ import 'package:provider/provider.dart';
 import 'package:mqttstudio/common/widgets/navigation_drawer.dart' as navDrawer;
 import 'package:flutter/foundation.dart';
 
-class TopicViewerPage extends StatefulWidget {
-  const TopicViewerPage();
+class TopicDetailViewerPage extends StatefulWidget {
+  const TopicDetailViewerPage();
 
   @override
-  State<TopicViewerPage> createState() => _TopicViewerPageState();
+  State<TopicDetailViewerPage> createState() => _TopicDetailViewerPageState();
 }
 
-class _TopicViewerPageState extends State<TopicViewerPage> {
+class _TopicDetailViewerPageState extends State<TopicDetailViewerPage> {
   @override
   void initState() {
     super.initState();
@@ -37,8 +37,8 @@ class _TopicViewerPageState extends State<TopicViewerPage> {
     return DefaultTabController(
         length: 4,
         child: ChangeNotifierProvider(
-            create: (context) => TopicViewerViewmodel(),
-            child: Consumer<TopicViewerViewmodel>(builder: (context, viewmodel, child) {
+            create: (context) => TopicDetailViewerViewmodel(),
+            child: Consumer<TopicDetailViewerViewmodel>(builder: (context, viewmodel, child) {
               return Consumer<ProjectGlobalViewmodel>(builder: (context, projectGlobalViewmodel, child) {
                 return Scaffold(
                   appBar: MainAppBar(viewmodel: projectGlobalViewmodel),
