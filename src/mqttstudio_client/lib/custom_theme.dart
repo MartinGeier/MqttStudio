@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 class CustomTheme {
   static ThemeData lightTheme = ThemeData(
+    useMaterial3: false,
     colorScheme: ColorScheme.fromSwatch(
         accentColor: Color(0xffB71C1C), primarySwatch: _primaryPalette, errorColor: Color(0xfff62a00), brightness: Brightness.light),
     //toggleableActiveColor: _primaryPalette,

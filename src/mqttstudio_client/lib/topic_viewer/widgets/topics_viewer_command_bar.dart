@@ -125,7 +125,7 @@ class _TopicsViewCommandBarState extends State<TopicsViewCommandBar> {
               decoration: InputDecoration(
                   contentPadding: EdgeInsets.only(left: 12),
                   border: OutlineInputBorder(),
-                  labelText: 'topicsviewer_commandbar.filter.label'.tr(),
+                  labelText: 'topic filter',
                   isDense: true,
                   suffixIcon: IconButton(
                     onPressed: () {
