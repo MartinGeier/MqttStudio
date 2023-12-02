@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/common/widgets/checkbox_field.dart';
 import 'package:mqttstudio/project/project_global_viewmodel.dart';
+import 'package:mqttstudio/service/piwik_tracking_service.dart';
 import 'package:provider/provider.dart';
 import 'package:reactive_forms/reactive_forms.dart';
 import 'package:srx_flutter/srx_flutter.dart';
@@ -52,6 +53,7 @@ class PublishTopicDialog extends StatelessWidget {
 
   _onOkPressed(BuildContext context) async {
     var vm = context.read<PublishTopicViewmodel>();
+    PiwikTrackingService().trackAction('Message published');
     if (await vm.publishTopic()) {
       GetIt.I.get<SrxNavigationService>().pop();
     }

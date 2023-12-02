@@ -73,6 +73,7 @@
     "navigator.closeproject_menuitem": "Close Project",
     "navigator.projectsettings_menuitem": "Project Settings",
     "navigator.confirmsaving_message": "Project has not been saved! Save before closing?",
+    "navigator.about_menuitem": "About MQTT Studio",
     "copyright_text": "Copyright (c) by Redpin",
     "aboutdialog.marketing_text": "Unlock the full potential of MQTT development with MQTT Studio! Seamlessly manage, visualize, and optimize your IoT data flow. Empower developers with a user-friendly interface to build robust and efficient MQTT applications.",
     "browserperformancewarning.title": "Performance hint",

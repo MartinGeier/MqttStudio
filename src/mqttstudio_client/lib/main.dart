@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/mqtt/mqtt_controller.dart';
 import 'package:mqttstudio/custom_theme.dart';
+import 'package:mqttstudio/service/piwik_tracking_service.dart';
 import 'package:provider/provider.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 import 'model/project.dart';
@@ -25,6 +26,8 @@ void main() async {
 
   setupServiceLocator();
   await GetIt.instance.get<SrxSessionController>().restoreSession(); // TODO: eventually do during splash screen
+
+  PiwikTrackingService().trackAction('App started');
 
   runApp(
     EasyLocalization(

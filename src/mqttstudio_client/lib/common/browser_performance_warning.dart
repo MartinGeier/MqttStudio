@@ -72,7 +72,7 @@ class _BrowserPerformanceWarningState extends State<BrowserPerformanceWarning> {
   }
 
   _openDownloadPage() async {
-    final Uri url = Uri.parse('https://www.mqttstudio.com/downloads');
+    final Uri url = Uri.parse('https://www.microsoft.com/store/apps/9N3BV5PG4JTG');
     await launchUrl(url);
   }
 }

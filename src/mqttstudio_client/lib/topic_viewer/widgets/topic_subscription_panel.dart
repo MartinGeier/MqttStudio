@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mqttstudio/service/piwik_tracking_service.dart';
 import 'package:mqttstudio/topic_viewer/add_topic_dialog.dart';
 import 'package:mqttstudio/project/project_global_viewmodel.dart';
 import 'package:mqttstudio/common/widgets/topic_chip.dart';
@@ -76,6 +77,7 @@ class TopicSubscriptionPanel extends StatelessWidget {
   _addTopicPressed(ProjectGlobalViewmodel viewmodel, BuildContext context) async {
     if (viewmodel.isProjectOpen) {
       var topicSubscription = await showDialog(context: context, builder: (context) => AddTopicDialog());
+      PiwikTrackingService().trackAction('Topic subscribed');
       if (topicSubscription != null) {
         viewmodel.addTopicSubscription(topicSubscription);
       }

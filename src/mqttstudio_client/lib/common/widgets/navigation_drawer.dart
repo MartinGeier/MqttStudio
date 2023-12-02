@@ -8,6 +8,7 @@ import 'package:mqttstudio/project/project_global_viewmodel.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher_platform_interface/url_launcher_platform_interface.dart';
 
 class NavigationDrawer extends SrxNavigationDrawer {
   NavigationDrawer()
@@ -20,6 +21,9 @@ class NavigationDrawer extends SrxNavigationDrawer {
             logo: Image.asset(
               './assets/images/logo.png',
             ));
+
+  final ValueNotifier<bool> _isWebSiteHovering = ValueNotifier(false);
+  final ValueNotifier<bool> _isEmailHovering = ValueNotifier(false);
 
   @override
   List<Widget> buildItems(BuildContext context) {
@@ -65,11 +69,66 @@ class NavigationDrawer extends SrxNavigationDrawer {
               applicationLegalese: 'copyright_text'.tr(),
               aboutBoxChildren: [
                 SizedBox(height: 16),
-                SizedBox(width: 600, child: Text('aboutdialog.marketing_text'.tr(), style: Theme.of(context).textTheme.bodyMedium))
+                SizedBox(width: 600, child: Text('aboutdialog.marketing_text'.tr(), style: Theme.of(context).textTheme.bodyMedium)),
+                SizedBox(height: 16),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.web, size: 20),
+                    SizedBox(width: 6),
+                    _buildWebSiteLink(),
+                    SizedBox(width: 24),
+                    Icon(Icons.email, size: 20),
+                    SizedBox(width: 6),
+                    _buildEmailLink(),
+                  ],
+                )
               ],
             );
           })
     ];
+  }
+
+  MouseRegion _buildWebSiteLink() {
+    return MouseRegion(
+      onEnter: (event) => _isWebSiteHovering.value = true,
+      onExit: (event) => _isWebSiteHovering.value = false,
+      child: ValueListenableBuilder(
+        valueListenable: _isWebSiteHovering,
+        builder: (context, isHovering, _) {
+          return GestureDetector(
+            onTap: _openWebSite,
+            child: Text(
+              'www.mqttstudio.com',
+              style: isHovering as bool
+                  ? Theme.of(context).textTheme.bodyMedium!.copyWith(decoration: TextDecoration.underline)
+                  : Theme.of(context).textTheme.bodyMedium,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  MouseRegion _buildEmailLink() {
+    return MouseRegion(
+      onEnter: (event) => _isEmailHovering.value = true,
+      onExit: (event) => _isEmailHovering.value = false,
+      child: ValueListenableBuilder(
+        valueListenable: _isEmailHovering,
+        builder: (context, isHovering, _) {
+          return GestureDetector(
+            onTap: _openEmail,
+            child: Text(
+              'info@redpin.eu',
+              style: isHovering as bool
+                  ? Theme.of(context).textTheme.bodyMedium!.copyWith(decoration: TextDecoration.underline)
+                  : Theme.of(context).textTheme.bodyMedium,
+            ),
+          );
+        },
+      ),
+    );
   }
 
   void _onProjectSettingsTap(BuildContext context) async {
@@ -105,5 +164,13 @@ class NavigationDrawer extends SrxNavigationDrawer {
     if (await projectGlobalViewmodel.closeProject()) {
       _onProjectSettingsTap(context);
     }
+  }
+
+  void _openWebSite() {
+    UrlLauncherPlatform.instance.launchUrl('https://www.mqttstudio.com', LaunchOptions());
+  }
+
+  void _openEmail() {
+    UrlLauncherPlatform.instance.launchUrl('mailto://info@redpin.eu', LaunchOptions());
   }
 }

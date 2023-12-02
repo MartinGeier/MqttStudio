@@ -34,7 +34,6 @@ dependencies:
   dio: ^4.0.4
   darq: ^1.1.1
   intl: ^0.18.0
-  url_launcher: ^6.1.12
   jwt_decoder: ^2.0.1
   reactive_forms: ^14.1.0
   sembast: ^3.4.9
@@ -47,7 +46,8 @@ dependencies:
   flutter_simple_treeview: ^3.0.2
   path_provider: ^2.0.15
   community_charts_flutter: ^1.0.1
-  
+  url_launcher_platform_interface: ^2.2.0
+
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.2
