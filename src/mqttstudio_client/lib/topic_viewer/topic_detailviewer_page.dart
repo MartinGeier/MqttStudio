@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mqttstudio/common/browser_performance_warning.dart';
 import 'package:mqttstudio/common/localstore.dart';
+import 'package:mqttstudio/common/newsletter_signup.dart';
 import 'package:mqttstudio/common/widgets/main_appbar.dart';
 import 'package:mqttstudio/project/project_global_viewmodel.dart';
 import 'package:mqttstudio/topic_viewer/topic_detailviewer_viewmodel.dart';
@@ -28,6 +29,8 @@ class _TopicDetailViewerPageState extends State<TopicDetailViewerPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (kIsWeb) {
         _showBrowserPerformanceWarning(context);
+      } else {
+        _showNewsletterSignup(context);
       }
     });
   }
@@ -79,6 +82,13 @@ class _TopicDetailViewerPageState extends State<TopicDetailViewerPage> {
     var browserPerformanceWarningDoNotShow = await LocalStore().getBrowserPerformanceWarningDoNotShow();
     if (!(browserPerformanceWarningDoNotShow)) {
       showDialog(context: context, builder: (_) => BrowserPerformanceWarning());
+    }
+  }
+
+  void _showNewsletterSignup(BuildContext context) async {
+    var newsletterSignupDoNotShow = await LocalStore().getNewsletterSignupDoNotShow();
+    if (!(newsletterSignupDoNotShow)) {
+      showDialog(context: context, builder: (_) => NewsletterSignup());
     }
   }
 }

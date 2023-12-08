@@ -41,6 +41,18 @@ class LocalStore {
     await _saveLocalStore();
   }
 
+  Future<bool> getNewsletterSignupDoNotShow() async {
+    await _readLocalStore();
+    return data.newsletterSignpDoNotShow ?? false;
+  }
+
+  Future saveNewsletterSignupDoNotShow(bool value) async {
+    await _readLocalStore();
+    data.newsletterSignpDoNotShow = value;
+
+    await _saveLocalStore();
+  }
+
   Future<bool> getCoachingCompleted() async {
     await _readLocalStore();
     return data.coachingCompleted ?? false;

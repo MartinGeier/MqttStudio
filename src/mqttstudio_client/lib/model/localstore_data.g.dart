@@ -13,6 +13,7 @@ LocalStoreData _$LocalStoreDataFromJson(Map<String, dynamic> json) =>
       )
       ..browserPerformanceWarningDoNotShow =
           json['browserPerformanceWarningDoNotShow'] as bool?
+      ..newsletterSignpDoNotShow = json['newsletterSignpDoNotShow'] as bool?
       ..coachingCompleted = json['coachingCompleted'] as bool?;
 
 Map<String, dynamic> _$LocalStoreDataToJson(LocalStoreData instance) =>
@@ -20,5 +21,6 @@ Map<String, dynamic> _$LocalStoreDataToJson(LocalStoreData instance) =>
       'projects': instance.projects?.map((k, e) => MapEntry(k, e.toJson())),
       'browserPerformanceWarningDoNotShow':
           instance.browserPerformanceWarningDoNotShow,
+      'newsletterSignpDoNotShow': instance.newsletterSignpDoNotShow,
       'coachingCompleted': instance.coachingCompleted,
     };

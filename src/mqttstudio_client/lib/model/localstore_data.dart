@@ -8,6 +8,7 @@ part 'localstore_data.g.dart';
 class LocalStoreData {
   Map<String, Project>? projects;
   bool? browserPerformanceWarningDoNotShow = false;
+  bool? newsletterSignpDoNotShow = false;
   bool? coachingCompleted = false;
 
   LocalStoreData() {

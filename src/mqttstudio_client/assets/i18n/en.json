@@ -79,5 +79,18 @@
     "browserperformancewarning.title": "Performance hint",
     "browserperformancewarning.hintmessage": "Performance of MQTT Studio in the browser is limited. If you need to receive and analyze a high number of messages, please download the desktop client.",
     "browserperformancewarning.downloadDesktopClient": "DOWNLOAD DESKTOP CLIENT",
-    "browserperformancewarning.doNotShowAgain": "Do not show again"
+    "browserperformancewarning.doNotShowAgain": "Do not show again",
+    "newsletter_signup.title": "Newsletter sign up",
+    "newsletter_signup.hintmessage": "To receive news about MQTT Studio, please sign up for our newsletter. We will only send you information about updates and new features.",
+    "newsletter_signup.signup_button": "SIGN UP",
+    "newsletter_signup.doNotShowAgain": "DO NOT SHOW AGAIN",
+    "newsletter_signup.later_button": "LATER",
+    "newsletter_signup.email.label": "Email*",
+    "newsletter_signup.emailsharing.label": "We will never give your email address to any 3rd party.",
+    "newsletter_signup.firstname.label": "Firstname",
+    "newsletter_signup.lastname.label": "Lastname",
+    "newsletter_signup.companyname.label": "Company",
+    "newsletter_signup.privacyaccepted.label": "I have read and accept the privacy policy",
+    "newsletter_signup.privacyhint.label1": "I acknowledge and agree that my personal data will be treated in accordance with the European Union privacy regulations, including the General Data Protection Regulation (GDPR) as indicated in the ",
+    "newsletter_signup.privacyhint.label2": "privacy policy."
 }
