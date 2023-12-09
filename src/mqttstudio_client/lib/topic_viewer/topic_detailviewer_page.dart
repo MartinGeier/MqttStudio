@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mqttstudio/common/browser_performance_warning.dart';
 import 'package:mqttstudio/common/localstore.dart';
-import 'package:mqttstudio/common/newsletter_signup.dart';
+import 'package:mqttstudio/common/newsletter_signup_dialog.dart';
 import 'package:mqttstudio/common/widgets/main_appbar.dart';
 import 'package:mqttstudio/project/project_global_viewmodel.dart';
 import 'package:mqttstudio/topic_viewer/topic_detailviewer_viewmodel.dart';
@@ -88,7 +88,7 @@ class _TopicDetailViewerPageState extends State<TopicDetailViewerPage> {
   void _showNewsletterSignup(BuildContext context) async {
     var newsletterSignupDoNotShow = await LocalStore().getNewsletterSignupDoNotShow();
     if (!(newsletterSignupDoNotShow)) {
-      showDialog(context: context, builder: (_) => NewsletterSignup());
+      showDialog(context: context, builder: (_) => NewsletterSignupDialog());
     }
   }
 }

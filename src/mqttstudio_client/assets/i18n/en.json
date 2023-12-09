@@ -92,5 +92,6 @@
     "newsletter_signup.companyname.label": "Company",
     "newsletter_signup.privacyaccepted.label": "I have read and accept the privacy policy",
     "newsletter_signup.privacyhint.label1": "I acknowledge and agree that my personal data will be treated in accordance with the European Union privacy regulations, including the General Data Protection Regulation (GDPR) as indicated in the ",
-    "newsletter_signup.privacyhint.label2": "privacy policy."
+    "newsletter_signup.privacyhint.label2": "privacy policy.",
+    "newsletter_signup.privacyaccepted_notfilled": "Please accept the privacy policy"
 }

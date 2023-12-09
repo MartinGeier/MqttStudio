@@ -1,4 +1,5 @@
 import 'package:mqttstudio/model/newsletter_signup.dart';
+import 'package:mqttstudio/service/newsletter_signup_service.dart';
 import 'package:reactive_forms/reactive_forms.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 
@@ -28,14 +29,14 @@ class NewsletterSignupViewmodel extends SrxChangeNotifier {
 
   void toNewsletterSignup() {
     newsletterSignup = NewsletterSignup();
-    newsletterSignup.firstname = form.control(firstnameField).value ?? false;
-    newsletterSignup.lastname = form.control(lastnameField).value ?? false;
-    newsletterSignup.companyName = form.control(companyNameField).value ?? false;
-    newsletterSignup.emailAddress = form.control(emailAddressField).value ?? false;
+    newsletterSignup.firstname = form.control(firstnameField).value ?? '';
+    newsletterSignup.lastname = form.control(lastnameField).value ?? '';
+    newsletterSignup.companyName = form.control(companyNameField).value ?? '';
+    newsletterSignup.emailAddress = form.control(emailAddressField).value ?? '';
     newsletterSignup.privacyAccepted = form.control(privacyAcceptedField).value ?? false;
   }
 
-  bool saveModel({bool validateForm = true}) {
+  Future<bool> saveModel({bool validateForm = true}) async {
     if (validateForm) {
       form.markAllAsTouched();
       if (!form.valid) {
@@ -44,6 +45,7 @@ class NewsletterSignupViewmodel extends SrxChangeNotifier {
     }
 
     toNewsletterSignup();
+    await NewsletterSignupService().signup(newsletterSignup);
     return true;
   }
 }

@@ -1,12 +1,11 @@
 import 'package:json_annotation/json_annotation.dart';
-import 'package:srx_flutter/srx_flutter.dart';
 import 'dart:convert';
 
 // use 'flutter pub run build_runner build' to run the code generator
 part 'newsletter_signup.g.dart';
 
 @JsonSerializable(explicitToJson: true)
-class NewsletterSignup extends SrxBaseModel {
+class NewsletterSignup {
   String? firstname;
   String? lastname;
   String? companyName;
@@ -21,6 +20,5 @@ class NewsletterSignup extends SrxBaseModel {
 
   factory NewsletterSignup.fromJson(Map<String, dynamic> json) => _$NewsletterSignupFromJson(json);
 
-  @override
   Map<String, dynamic> toJson() => _$NewsletterSignupToJson(this);
 }

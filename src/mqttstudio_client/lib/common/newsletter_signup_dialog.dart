@@ -7,15 +7,15 @@ import 'package:reactive_forms/reactive_forms.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-class NewsletterSignup extends StatefulWidget {
-  const NewsletterSignup({Key? key}) : super(key: key);
+class NewsletterSignupDialog extends StatefulWidget {
+  const NewsletterSignupDialog({Key? key}) : super(key: key);
 
   @override
-  State<NewsletterSignup> createState() => _NewsletterSignupState();
+  State<NewsletterSignupDialog> createState() => _NewsletterSignupDialogState();
 }
 
-class _NewsletterSignupState extends State<NewsletterSignup> {
-  bool _doNotShowAgain = false;
+class _NewsletterSignupDialogState extends State<NewsletterSignupDialog> {
+  bool? _privacyAccepted;
 
   @override
   Widget build(BuildContext context) {
@@ -33,32 +33,38 @@ class _NewsletterSignupState extends State<NewsletterSignup> {
       title: Text("newsletter_signup.title".tr()),
       content: _buildContent(viewmodel),
       actions: [
-        _buildActions(context),
+        _buildActions(viewmodel),
       ],
     );
   }
 
   Container _buildContent(NewsletterSignupViewmodel viewmodel) {
     return Container(
-      height: 480,
+      height: 420,
       width: 500,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text("newsletter_signup.hintmessage".tr()),
-          SizedBox(height: 16),
-          Text('newsletter_signup.emailsharing.label'.tr(),
-              style: Theme.of(context).textTheme.titleSmall!.copyWith(fontWeight: FontWeight.bold)),
-          SizedBox(height: 16),
+          SizedBox(height: 32),
           ReactiveForm(formGroup: viewmodel.form, child: _buildForm(viewmodel, context)),
         ],
       ),
     );
   }
 
-  _buildForm(NewsletterSignupViewmodel viewmodel, BuildContext context) {
+  Widget _buildForm(NewsletterSignupViewmodel viewmodel, BuildContext context) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      SrxFormRow(children: [Expanded(child: _buildEmailField(viewmodel))]),
+      SrxFormRow(children: [
+        SrxFormExpandedPadded.start(child: _buildEmailField(viewmodel)),
+        SrxFormExpandedPadded.end(
+          child: SizedBox(
+            width: 200,
+            child: Text('newsletter_signup.emailsharing.label'.tr(),
+                style: Theme.of(context).textTheme.titleSmall!.copyWith(fontWeight: FontWeight.bold)),
+          ),
+        )
+      ]),
       SrxFormRow(children: [
         SrxFormExpandedPadded.start(child: _buildFirstnameField(viewmodel)),
         SrxFormExpandedPadded.end(child: _buildLstnameField(viewmodel))
@@ -90,8 +96,8 @@ class _NewsletterSignupState extends State<NewsletterSignup> {
       textInputAction: TextInputAction.next,
       maxLines: 1,
       decoration: InputDecoration(border: OutlineInputBorder(), labelText: 'newsletter_signup.email.label'.tr(), isDense: true),
-      formControlName: NewsletterSignupViewmodel.firstnameField,
-      validationMessages: {'required': (error) => 'srx.common.fieldrequired'.tr()},
+      formControlName: NewsletterSignupViewmodel.emailAddressField,
+      validationMessages: {'required': (error) => 'srx.common.fieldrequired'.tr(), 'email': (error) => 'srx.common.emailnotvalid'.tr()},
     );
   }
 
@@ -126,21 +132,31 @@ class _NewsletterSignupState extends State<NewsletterSignup> {
   }
 
   Widget _buildPrivacyCheckbox(NewsletterSignupViewmodel viewmodel) {
-    return SrxReactiveCheckboxField(
-      formControlName: NewsletterSignupViewmodel.privacyAcceptedField,
-      label: 'newsletter_signup.privacyaccepted.label'.tr(),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SrxReactiveCheckboxField(
+          formControlName: NewsletterSignupViewmodel.privacyAcceptedField,
+          label: 'newsletter_signup.privacyaccepted.label'.tr(),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(left: 6),
+          child: Visibility(
+              visible: !(_privacyAccepted ?? true),
+              child: Text('newsletter_signup.privacyaccepted_notfilled'.tr(),
+                  style: Theme.of(context).textTheme.bodySmall!.copyWith(color: Theme.of(context).colorScheme.error))),
+        ),
+      ],
     );
   }
 
-  Row _buildActions(BuildContext context) {
+  Widget _buildActions(NewsletterSignupViewmodel viewmodel) {
     return Row(
       children: [
         TextButton(
           child: Text("newsletter_signup.doNotShowAgain".tr()),
           onPressed: () async {
-            if (_doNotShowAgain) {
-              await LocalStore().saveBrowserPerformanceWarningDoNotShow(true);
-            }
+            await LocalStore().saveNewsletterSignupDoNotShow(true);
             Navigator.of(context).pop(); // Close the dialog
           },
         ),
@@ -148,9 +164,7 @@ class _NewsletterSignupState extends State<NewsletterSignup> {
         OutlinedButton(
           child: Text("newsletter_signup.later_button".tr()),
           onPressed: () async {
-            if (_doNotShowAgain) {
-              await LocalStore().saveBrowserPerformanceWarningDoNotShow(true);
-            }
+            await LocalStore().saveNewsletterSignupDoNotShow(false);
             Navigator.of(context).pop(); // Close the dialog
           },
         ),
@@ -158,19 +172,20 @@ class _NewsletterSignupState extends State<NewsletterSignup> {
         ElevatedButton(
           child: Text("newsletter_signup.signup_button".tr()),
           onPressed: () async {
-            if (_doNotShowAgain) {
-              await LocalStore().saveBrowserPerformanceWarningDoNotShow(true);
+            if (!(((viewmodel.form.controls[NewsletterSignupViewmodel.privacyAcceptedField]?.value) as bool?) ?? false)) {
+              setState(() {
+                _privacyAccepted = false;
+              });
+              return;
             }
-            Navigator.of(context).pop(); // Close the dialog
+
+            if (await viewmodel.saveModel(validateForm: true)) {
+              await LocalStore().saveNewsletterSignupDoNotShow(true);
+              Navigator.of(context).pop(); // Close the dialog
+            }
           },
         ),
       ],
     );
-  }
-
-  _onClick() {
-    setState(() {
-      _doNotShowAgain = !_doNotShowAgain;
-    });
   }
 }
