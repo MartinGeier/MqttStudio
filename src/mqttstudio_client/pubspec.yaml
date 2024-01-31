@@ -15,7 +15,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # In iOS, build-name is used as CFBundleShortVersionString while build-number used as CFBundleVersion.
 # Read more about iOS versioning at
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
-version: 1.0.0+1
+version: 1.0.1+2
 
 environment:
   sdk: ">=2.12.0 <3.0.0"
@@ -113,7 +113,7 @@ msix_config:
   publisher: CN=DCEFA036-199D-4E8F-80D9-C2B3CF2E517D
   publisher_display_name: Redpin
   identity_name: 23130Redpin.MQTT-Studio
-  msix_version: 1.0.0.0
+  msix_version: 1.0.1.0
   logo_path: C:\Redpin\Development\Projects\MqttStudio\src\mqttstudio_client\assets\images\logo.png
   capabilities: internetClient
   store: true
