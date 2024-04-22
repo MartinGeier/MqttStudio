@@ -21,7 +21,7 @@ class AddTopicViewmodel extends SrxChangeNotifier {
 
   FormGroup buildFormGroup() {
     return FormGroup({
-      topicNameField: FormControl<String>(validators: [Validators.required, Validators.maxLength(200), TopicNameValidator().validate]),
+      topicNameField: FormControl<String>(validators: [Validators.required, Validators.maxLength(200), TopicNameValidator()]),
       qosField: FormControl<MqttQos>(validators: [Validators.required], value: MqttQos.atLeastOnce),
       colorField: FormControl<Color>(validators: [Validators.required], value: TopicColor.random().color),
     });
