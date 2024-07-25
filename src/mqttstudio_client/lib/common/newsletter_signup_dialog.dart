@@ -56,8 +56,8 @@ class _NewsletterSignupDialogState extends State<NewsletterSignupDialog> {
   Widget _buildForm(NewsletterSignupViewmodel viewmodel, BuildContext context) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       SrxFormRow(children: [
-        SrxFormExpandedPadded.start(child: _buildEmailField(viewmodel)),
-        SrxFormExpandedPadded.end(
+        SrxFormExpandedPadded.end(child: _buildEmailField(viewmodel)),
+        SrxFormExpandedPadded.start(
           child: SizedBox(
             width: 200,
             child: Text('newsletter_signup.emailsharing.label'.tr(),
@@ -66,8 +66,8 @@ class _NewsletterSignupDialogState extends State<NewsletterSignupDialog> {
         )
       ]),
       SrxFormRow(children: [
-        SrxFormExpandedPadded.start(child: _buildFirstnameField(viewmodel)),
-        SrxFormExpandedPadded.end(child: _buildLstnameField(viewmodel))
+        SrxFormExpandedPadded.end(child: _buildFirstnameField(viewmodel)),
+        SrxFormExpandedPadded.start(child: _buildLastnameField(viewmodel))
       ]),
       SrxFormRow(children: [Expanded(child: _buildCompanyField(viewmodel))]),
       Text.rich(TextSpan(children: [
@@ -111,7 +111,7 @@ class _NewsletterSignupDialogState extends State<NewsletterSignupDialog> {
     );
   }
 
-  ReactiveTextField<String> _buildLstnameField(NewsletterSignupViewmodel viewmodel) {
+  ReactiveTextField<String> _buildLastnameField(NewsletterSignupViewmodel viewmodel) {
     return ReactiveTextField(
       autofocus: true,
       textInputAction: TextInputAction.next,
