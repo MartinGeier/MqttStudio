@@ -24,22 +24,26 @@ class AddTopicDialog extends StatelessWidget {
             child: Column(
               children: [
                 _buildForm(context),
-                Padding(
-                  padding: const EdgeInsets.only(top: 24),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      OutlinedButton(
+                SrxFormRow(
+                  alignment: CrossAxisAlignment.center,
+                  children: [
+                    SrxFormExpandedPadded(flex: 1, child: Spacer()),
+                    SrxFormExpandedPadded(
+                      flex: 5,
+                      child: OutlinedButton(
                           onPressed: () {
                             GetIt.I.get<SrxNavigationService>().pop(null);
                           },
                           child: Text('srx.common.cancel'.tr())),
-                      SrxFormFieldSpacer(),
-                      ElevatedButton(onPressed: () => _onOkPressed(context), child: Text('addtopicdialog.subscribe.button'.tr())),
-                      SrxFormFieldSpacer(),
-                      ElevatedButton(onPressed: () => _onOkPressed(context, true), child: Text('addtopicdialog.subscribenew.button'.tr()))
-                    ],
-                  ),
+                    ),
+                    SrxFormExpandedPadded(
+                        flex: 5,
+                        child: ElevatedButton(onPressed: () => _onOkPressed(context), child: Text('addtopicdialog.subscribe.button'.tr()))),
+                    SrxFormExpandedPadded.start(
+                        flex: 5,
+                        child: ElevatedButton(
+                            onPressed: () => _onOkPressed(context, true), child: Text('addtopicdialog.subscribenew.button'.tr())))
+                  ],
                 )
               ],
             ),
@@ -78,9 +82,8 @@ class AddTopicDialog extends StatelessWidget {
         children: [
           SrxFormRow(children: [Expanded(child: _buildTopicNameField(context))]),
           SrxFormRow(children: [
-            Flexible(flex: 3, child: _buildQosField(context)),
-            SrxFormFieldSpacer(),
-            Flexible(flex: 1, child: _buildColorField(context))
+            SrxFormExpandedPadded.end(flex: 5, child: _buildQosField(context)),
+            SrxFormExpandedPadded.start(flex: 2, child: _buildColorField(context))
           ]),
         ],
       ),

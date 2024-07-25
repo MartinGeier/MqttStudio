@@ -232,7 +232,7 @@ class MessageDetailView extends StatelessWidget {
                   Text('messagedetailview.payload.label'.tr(), style: Theme.of(context).textTheme.titleMedium),
                   SizedBox(width: 32),
                   Chip(
-                    label: Text(describeEnum(payLoadType)),
+                    label: Text(payLoadType.name),
                   ),
                 ],
               ),

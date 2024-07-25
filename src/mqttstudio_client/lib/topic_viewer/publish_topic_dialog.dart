@@ -25,23 +25,25 @@ class PublishTopicDialog extends StatelessWidget {
             child: Column(
               children: [
                 _buildForm(context),
-                Padding(
-                  padding: const EdgeInsets.only(top: 24),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      OutlinedButton(
+                SrxFormRow(
+                  alignment: CrossAxisAlignment.center,
+                  children: [
+                    SrxFormExpandedPadded.end(
+                      child: OutlinedButton(
                           onPressed: () => _publishFile(context), child: Text('publishtopicdialog.publishfilebutton.label'.tr())),
-                      Spacer(),
-                      OutlinedButton(
+                    ),
+                    Spacer(),
+                    SrxFormExpandedPadded(
+                      child: OutlinedButton(
                           onPressed: () {
                             GetIt.I.get<SrxNavigationService>().pop(null);
                           },
                           child: Text('srx.common.cancel'.tr())),
-                      SrxFormFieldSpacer(),
-                      ElevatedButton(onPressed: () => _onOkPressed(context), child: Text('publishtopicdialog.publish.button'.tr())),
-                    ],
-                  ),
+                    ),
+                    SrxFormExpandedPadded.start(
+                        child:
+                            ElevatedButton(onPressed: () => _onOkPressed(context), child: Text('publishtopicdialog.publish.button'.tr()))),
+                  ],
                 )
               ],
             ),
@@ -65,9 +67,8 @@ class PublishTopicDialog extends StatelessWidget {
       child: Column(
         children: [
           SrxFormRow(children: [
-            Flexible(flex: 4, child: _buildTopicNameField(context)),
-            SrxFormFieldSpacer(),
-            Flexible(flex: 1, child: _buildRetainField(context)),
+            SrxFormExpandedPadded.end(flex: 4, child: _buildTopicNameField(context)),
+            SrxFormExpandedPadded.start(flex: 1, child: _buildRetainField(context)),
           ]),
           SrxFormRow(multipleLineHeight: 3, children: [Flexible(flex: 1, child: _buildPayloadField(context))]),
         ],

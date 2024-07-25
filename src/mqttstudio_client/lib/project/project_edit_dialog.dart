@@ -51,20 +51,20 @@ class ProjectEditDialog extends StatelessWidget {
         child: Column(
           children: [
             ReactiveForm(formGroup: viewmodel.form, child: _buildForm(viewmodel, context)),
-            Padding(
-              padding: const EdgeInsets.only(top: 24),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  OutlinedButton(
+            SrxFormRow(
+              alignment: CrossAxisAlignment.center,
+              children: [
+                Spacer(),
+                SrxFormExpandedPadded.end(
+                  child: OutlinedButton(
                       onPressed: () {
                         GetIt.I.get<SrxNavigationService>().pop(null);
                       },
                       child: Text('srx.common.cancel'.tr())),
-                  SrxFormFieldSpacer(),
-                  ElevatedButton(onPressed: () => _onOkPressed(viewmodel), child: Text('srx.common.ok'.tr()))
-                ],
-              ),
+                ),
+                SrxFormExpandedPadded.start(
+                    child: ElevatedButton(onPressed: () => _onOkPressed(viewmodel), child: Text('srx.common.ok'.tr())))
+              ],
             )
           ],
         ),
@@ -84,21 +84,22 @@ class ProjectEditDialog extends StatelessWidget {
       ),
       SrxFormRow(
         children: [
-          Flexible(flex: 3, child: _buildMqttHostnameField(viewmodel, context)),
-          SrxFormFieldSpacer(),
-          Flexible(flex: 1, child: _buildPortField(viewmodel)),
+          SrxFormExpandedPadded.end(child: _buildMqttHostnameField(viewmodel, context), flex: 3),
+          SrxFormExpandedPadded.start(flex: 1, child: _buildPortField(viewmodel)),
         ],
       ),
       SrxFormRow(children: [Expanded(child: _buildClientIdField(viewmodel))]),
       SrxFormRow(
         children: [
-          Flexible(flex: 2, child: _buildUsernameField(viewmodel)),
-          SrxFormFieldSpacer(),
-          Flexible(flex: 2, child: _buildPasswordField(viewmodel)),
+          SrxFormExpandedPadded.end(flex: 2, child: _buildUsernameField(viewmodel)),
+          SrxFormExpandedPadded.start(flex: 2, child: _buildPasswordField(viewmodel)),
         ],
       ),
       SrxFormRow(
-        children: [_buildSslCheckbox(viewmodel), SrxFormFieldSpacer(), _buildWebSocketCheckbox(viewmodel)],
+        children: [
+          SrxFormExpandedPadded.end(child: _buildSslCheckbox(viewmodel)),
+          SrxFormExpandedPadded.start(child: _buildWebSocketCheckbox(viewmodel))
+        ],
       )
     ]);
   }

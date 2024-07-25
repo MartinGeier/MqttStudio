@@ -10,9 +10,9 @@ class CustomTheme {
         errorStyle: TextStyle(height: 0.6),
       ),
       //popupMenuTheme: PopupMenuThemeData(textStyle: TextStyle(fontSize: 12)),
-      elevatedButtonTheme: ElevatedButtonThemeData(style: ButtonStyle(minimumSize: MaterialStateProperty.all(Size(150, 48)))),
-      outlinedButtonTheme: OutlinedButtonThemeData(style: ButtonStyle(minimumSize: MaterialStateProperty.all(Size(150, 48)))),
-      textButtonTheme: TextButtonThemeData(style: ButtonStyle(minimumSize: MaterialStateProperty.all(Size(150, 48)))),
+      elevatedButtonTheme: ElevatedButtonThemeData(style: ButtonStyle(minimumSize: WidgetStateProperty.all(Size(150, 48)))),
+      outlinedButtonTheme: OutlinedButtonThemeData(style: ButtonStyle(minimumSize: WidgetStateProperty.all(Size(150, 48)))),
+      textButtonTheme: TextButtonThemeData(style: ButtonStyle(minimumSize: WidgetStateProperty.all(Size(150, 48)))),
       textTheme:
           ThemeData.light().textTheme.copyWith(titleSmall: TextStyle(fontWeight: FontWeight.w600), titleMedium: TextStyle(fontSize: 16)));
 
