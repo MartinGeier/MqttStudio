@@ -88,7 +88,7 @@ class MqttGlobalViewmodel extends SrxChangeNotifier {
     }
   }
 
-  // called be the view to delay any updating of the view. Used to prevent the view updating during scrolling
+  // called by the view to delay any updating of the view. Used to prevent the view updating during scrolling
   void delayViewUpdate() {
     _lastRefresh = DateTime.now();
   }

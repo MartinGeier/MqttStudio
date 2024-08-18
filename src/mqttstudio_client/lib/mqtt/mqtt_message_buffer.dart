@@ -1,9 +1,9 @@
 import 'package:mqttstudio/model/received_mqtt_message.dart';
 import 'package:darq/darq.dart';
 
-// Stores all received messages as sequential list and as hiarerchy. Offers methods to get and filter messages.
+// Stores all received messages as sequential list and as hierarchy. Offers methods to get and filter messages.
 class MQTTMessageBuffer {
-  final _maxDisplayMessages = 2000; // this is the maximum number of messages returned be the methods called by the view. We need to
+  final _maxDisplayMessages = 2000; // this is the maximum number of messages returned by the methods called by the view. We need to
   // limit the number of messages for performance reasons
 
   List<ReceivedMqttMessage> _buffer = [];
