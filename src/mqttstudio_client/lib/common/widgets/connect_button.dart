@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:mqttstudio/mqtt/mqtt_connection_viewmodel.dart';
 import 'package:mqttstudio/project/project_edit_dialog.dart';
 import 'package:mqttstudio/model/project.dart';
-import 'package:mqttstudio/mqtt/mqtt_global_viewmodel.dart';
 import 'package:mqttstudio/project/project_global_viewmodel.dart';
 import 'package:provider/provider.dart';
 import 'package:srx_flutter/srx_flutter.dart';
@@ -14,20 +14,20 @@ class ConnectButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<MqttGlobalViewmodel>(builder: (context, viewmodel, child) {
-      viewmodel.onError = (message) => _onMqttConnectionError(message, context);
+    return Consumer<MqttConnectionViewmodel>(builder: (context, mqttConnectionViewmodel, child) {
+      mqttConnectionViewmodel.onError = (message) => _onMqttConnectionError(message, context);
       return _buildConnectButton(context);
     });
   }
 
   ElevatedButton _buildConnectButton(BuildContext context) {
-    var mqttGlobalViewmodel = context.read<MqttGlobalViewmodel>();
+    var mqttConnectionViewmodel = context.read<MqttConnectionViewmodel>();
     return ElevatedButton(
       onPressed: () => _onConnectionTap(context),
       child: SizedBox(
         width: 150,
         child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          mqttGlobalViewmodel.isBusy
+          mqttConnectionViewmodel.isBusy
               ? Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: SizedBox(
@@ -36,23 +36,23 @@ class ConnectButton extends StatelessWidget {
                     child: SrxLoadingIndicatorWidget(color: Colors.white),
                   ),
                 )
-              : Icon(mqttGlobalViewmodel.isConnected() ? Icons.power : Icons.power_off),
+              : Icon(mqttConnectionViewmodel.isConnected() ? Icons.power : Icons.power_off),
           SizedBox(
             width: 4,
           ),
-          mqttGlobalViewmodel.isConnected() ? Text('CONNECTED') : Text('DISCONNECTED')
+          mqttConnectionViewmodel.isConnected() ? Text('CONNECTED') : Text('DISCONNECTED')
         ]),
       ),
       style: ElevatedButton.styleFrom(
           backgroundColor:
-              mqttGlobalViewmodel.isConnected() ? Theme.of(context).custom.connectedColor : Theme.of(context).custom.disconnectedColor),
+              mqttConnectionViewmodel.isConnected() ? Theme.of(context).custom.connectedColor : Theme.of(context).custom.disconnectedColor),
     );
   }
 
   _onConnectionTap(BuildContext context) async {
-    var mqttGlobalViewmodel = context.read<MqttGlobalViewmodel>();
-    if (mqttGlobalViewmodel.isConnected()) {
-      mqttGlobalViewmodel.disconnect();
+    var mqttConnectionViewmodel = context.read<MqttConnectionViewmodel>();
+    if (mqttConnectionViewmodel.isConnected()) {
+      mqttConnectionViewmodel.disconnect();
     } else {
       var projectGlobalViewmodel = context.read<ProjectGlobalViewmodel>();
       if (!projectGlobalViewmodel.isProjectOpen) {
@@ -63,7 +63,7 @@ class ConnectButton extends StatelessWidget {
         await projectGlobalViewmodel.openProject(project);
       }
 
-      mqttGlobalViewmodel.connect(projectGlobalViewmodel.currentProject!.mqttSettings);
+      mqttConnectionViewmodel.connect(projectGlobalViewmodel.currentProject!.mqttSettings);
     }
   }
 

@@ -27,7 +27,7 @@ class NavigationDrawer extends SrxNavigationDrawer {
 
   @override
   List<Widget> buildItems(BuildContext context) {
-    var projectGlobalViewmodel = GetIt.I.get<ProjectGlobalViewmodel>();
+    var projectGlobalViewmodel = context.read<ProjectGlobalViewmodel>();
     return [
       Divider(),
       ListTile(

@@ -1,7 +1,8 @@
+import 'package:event/event.dart';
 import 'package:mqtt_client/mqtt_client.dart';
 import 'package:typed_data/typed_buffers.dart';
 
-class ReceivedMqttMessage {
+class ReceivedMqttMessage extends EventArgs {
   int? id;
   String topicName;
   Uint8Buffer payload;

@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/model/mqtt_payload_type.dart';
+import 'package:mqttstudio/project/project_service.dart';
 import 'package:reactive_forms/reactive_forms.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 import 'package:typed_data/typed_buffers.dart';
@@ -31,7 +32,7 @@ class PublishTopicViewmodel extends SrxChangeNotifier {
       return false;
     }
 
-    GetIt.I.get<ProjectGlobalViewmodel>().publishTopic(form.control(topicNameField).value, form.control(payloadField).value ?? '',
+    GetIt.I.get<ProjectService>().publishTopic(form.control(topicNameField).value, form.control(payloadField).value ?? '',
         MqttPayloadType.string, form.control(retainField).value ?? false);
 
     return true;

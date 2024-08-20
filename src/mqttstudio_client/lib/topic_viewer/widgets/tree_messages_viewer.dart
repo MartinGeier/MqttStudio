@@ -1,7 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:get_it/get_it.dart';
-import 'package:mqttstudio/mqtt/mqtt_global_viewmodel.dart';
+import 'package:mqttstudio/mqtt/viewer_mqtt_service.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
 import 'package:mqttstudio/model/topic_color.dart';
 import 'package:mqttstudio/mqtt/mqtt_message_buffer.dart';
@@ -17,10 +16,10 @@ class TreeMessagesViewer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<MqttGlobalViewmodel>(builder: (context, mqttGlobalViewmodel, child) {
+    return Consumer<ViewerMqttService>(builder: (context, mqttGlobalViewmodel, child) {
       return Consumer<TopicDetailViewerViewmodel>(builder: (context, viewmodel, child) {
         var rootNode = mqttGlobalViewmodel.messageBuffer.getMessagesTree(viewmodel.filter);
-        var nodes = _buildNodes(rootNode.children, viewmodel);
+        var nodes = _buildNodes(rootNode.children, viewmodel, context);
         return Expanded(
             child: Padding(
           padding: const EdgeInsets.only(top: 8),
@@ -41,10 +40,10 @@ class TreeMessagesViewer extends StatelessWidget {
     });
   }
 
-  List<TreeNode> _buildNodes(List<MessageNode> messageNodes, TopicDetailViewerViewmodel viewmodel) {
+  List<TreeNode> _buildNodes(List<MessageNode> messageNodes, TopicDetailViewerViewmodel viewmodel, BuildContext context) {
     List<TreeNode> result = [];
     for (var msgNode in messageNodes) {
-      var childNodes = (_buildNodes(msgNode.children, viewmodel));
+      var childNodes = (_buildNodes(msgNode.children, viewmodel, context));
       var realTopic = msgNode.message!.topicName.endsWith(msgNode.topicLevelName);
       var newNode = TreeNode(
           content: TopicChip(
@@ -52,7 +51,7 @@ class TreeMessagesViewer extends StatelessWidget {
             countLabel: realTopic ? msgNode.messageCount.toString() : null,
             receivedTime: realTopic ? msgNode.message!.receivedOn : null,
             topicColor:
-                realTopic ? GetIt.I.get<ProjectGlobalViewmodel>().getTopicColor(msgNode.message!.topicName) : TopicColor(Colors.grey),
+                realTopic ? context.read<ProjectGlobalViewmodel>().getTopicColor(msgNode.message!.topicName) : TopicColor(Colors.grey),
             selected: realTopic ? viewmodel.selectedMessage == msgNode.message : false,
             onPressed: realTopic ? () => viewmodel.selectedMessage = msgNode.message : () {},
           ),
@@ -75,7 +74,7 @@ class MessagesViewerRow extends StatelessWidget {
     final nf = NumberFormat('.000', context.locale.countryCode);
     var topic = TopicChip(
         topic: message.topicName,
-        topicColor: GetIt.I.get<ProjectGlobalViewmodel>().getTopicColor(message.topicName),
+        topicColor: context.read<ProjectGlobalViewmodel>().getTopicColor(message.topicName),
         selected: viewmodel.selectedMessage == message,
         onPressed: () => viewmodel.selectedMessage = message,
         dense: false);

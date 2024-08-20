@@ -1,7 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:mqttstudio/mqtt/mqtt_global_viewmodel.dart';
+import 'package:mqttstudio/mqtt/mqtt_connection_viewmodel.dart';
+import 'package:mqttstudio/mqtt/viewer_mqtt_service.dart';
 import 'package:mqttstudio/project/project_global_viewmodel.dart';
 import 'package:mqttstudio/mqtt/mqtt_message_buffer.dart';
 import 'package:mqttstudio/topic_viewer/topic_detailviewer_viewmodel.dart';
@@ -30,47 +31,50 @@ class _TopicsViewCommandBarState extends State<TopicsViewCommandBar> {
   @override
   Widget build(BuildContext context) {
     var projectViewmodel = context.read<ProjectGlobalViewmodel>();
-    return Consumer<TopicDetailViewerViewmodel>(
-      builder: (context, viewmodel, child) {
-        return Consumer<MqttGlobalViewmodel>(
-          builder: (context, mqttGlobalViewmodel, child) {
-            return Container(
-              child: Column(
-                children: [
-                  Divider(height: 4),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          _buildPlayPauseButtons(projectViewmodel, viewmodel),
-                          SizedBox(height: 40, child: VerticalDivider()),
-                          _buildViewModeSelectionButtons(viewmodel, projectViewmodel),
-                          SizedBox(height: 40, child: VerticalDivider()),
-                          _buildGroupingPeriodDropDown(viewmodel, projectViewmodel),
-                          _buildFilter(viewmodel, projectViewmodel),
-                        ],
-                      ),
-                      _buildPublishButton(projectViewmodel, mqttGlobalViewmodel, context),
-                    ],
-                  ),
-                  Divider(height: 4),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
+    return Consumer<TopicDetailViewerViewmodel>(builder: (context, viewmodel, child) {
+      return Consumer<ViewerMqttService>(
+        builder: (context, mqttGlobalViewmodel, child) {
+          return Consumer<MqttConnectionViewmodel>(
+            builder: (context, mqttConnectionViewmodel, child) {
+              return Container(
+                child: Column(
+                  children: [
+                    Divider(height: 4),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            _buildPlayPauseButtons(projectViewmodel, viewmodel),
+                            SizedBox(height: 40, child: VerticalDivider()),
+                            _buildViewModeSelectionButtons(viewmodel, projectViewmodel),
+                            SizedBox(height: 40, child: VerticalDivider()),
+                            _buildGroupingPeriodDropDown(viewmodel, projectViewmodel),
+                            _buildFilter(viewmodel, projectViewmodel),
+                          ],
+                        ),
+                        _buildPublishButton(projectViewmodel, mqttGlobalViewmodel, mqttConnectionViewmodel, context),
+                      ],
+                    ),
+                    Divider(height: 4),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+      );
+    });
   }
 
-  Padding _buildPublishButton(ProjectGlobalViewmodel projectViewmodel, MqttGlobalViewmodel mqttGlobalViewmodel, BuildContext context) {
+  Padding _buildPublishButton(ProjectGlobalViewmodel projectViewmodel, ViewerMqttService mqttGlobalViewmodel,
+      MqttConnectionViewmodel mqttConnectionViewmodel, BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(right: 16),
       child: Tooltip(
         message: 'topicsviewer_commandbar.publishbutton.tooltip'.tr(),
         child: TextButton(
-            onPressed: projectViewmodel.isProjectOpen && mqttGlobalViewmodel.isConnected()
+            onPressed: projectViewmodel.isProjectOpen && mqttConnectionViewmodel.isConnected()
                 ? () => _publishTopicPressed(projectViewmodel, context)
                 : null,
             child: Row(

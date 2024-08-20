@@ -1,196 +1,95 @@
 import 'dart:async';
-import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqtt_client/mqtt_client.dart';
-import 'package:mqttstudio/common/localstore.dart';
 import 'package:mqttstudio/model/mqtt_payload_type.dart';
 import 'package:mqttstudio/model/project.dart';
-import 'package:mqttstudio/model/received_mqtt_message.dart';
 import 'package:mqttstudio/model/topic_color.dart';
 import 'package:mqttstudio/model/topic_subscription.dart';
-import 'package:mqttstudio/mqtt/mqtt_global_viewmodel.dart';
-import 'package:mqttstudio/service/service_error.dart';
+import 'package:mqttstudio/project/project_service.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 
-// Global viewmodel for all project related operations.
+// Viewmodel for all project related operations.
 class ProjectGlobalViewmodel extends SrxChangeNotifier {
-  Project? _currentProject;
-  late MqttGlobalViewmodel _mqttGlobalViewmodel;
-  var closeProjectStreamController = StreamController.broadcast();
+  late ProjectService _projectService;
   bool paused = false;
-  int? lastSavedProjectHash;
-  Future Function() _onClosingNotSaved;
 
-  ProjectGlobalViewmodel(this._onClosingNotSaved) {
-    _mqttGlobalViewmodel = GetIt.I.get<MqttGlobalViewmodel>();
-    _mqttGlobalViewmodel.onConnected = onMqttConntected;
-    _mqttGlobalViewmodel.onMessageReceived = onMessageReceived;
+  ProjectGlobalViewmodel() {
+    _projectService = GetIt.I.get<ProjectService>();
+    _projectService.projectOpenedEvent.subscribe((_) => _projectOpened());
+    _projectService.projectClosedEvent.subscribe((_) => _projectClosed());
+    _projectService.topicSubscriptionsChangedEvent.subscribe((_) => _topicSubriptionsChanged());
   }
 
-  Project? get currentProject => _currentProject;
+  @override
+  void dispose() {
+    _projectService.projectOpenedEvent.unsubscribeAll();
+    _projectService.projectClosedEvent.unsubscribeAll();
+    _projectService.topicSubscriptionsChangedEvent.unsubscribeAll();
+    super.dispose();
+  }
 
-  bool get isProjectOpen => _currentProject != null;
+  Project? get currentProject => _projectService.currentProject;
+
+  bool get isProjectOpen => _projectService.isProjectOpen;
 
   Future openProject(Project? newProject) async {
-    await closeProject(true);
-
-    if (_mqttGlobalViewmodel.isConnected()) {
-      if (newProject == null) {
-        _mqttGlobalViewmodel.disconnect();
-      } else if (_currentProject != null) {
-        // if connection setting have been changed than reconnect
-        _mqttGlobalViewmodel.disconnect();
-        _mqttGlobalViewmodel.connect(newProject.mqttSettings);
-      }
-    }
-
-    _currentProject = newProject;
-    if (newProject?.lastUsed != null) {
-      _currentProject?.lastUsed = DateTime.now();
-      await saveProject();
-    } else {
-      _currentProject?.lastUsed = DateTime.now();
-    }
-
-    // keep the hash to check for changes
-    lastSavedProjectHash = _currentProject?.getHash();
-
+    await _projectService.openProject(newProject);
     notifyListeners();
   }
 
   Future<bool> closeProject([bool forceSave = false]) async {
-    if (forceSave) {
-      await saveProject();
-    } else if (hasProjectChanged()) {
-      var result = await _onClosingNotSaved();
-
-      if (result == null) {
-        return false;
-      } else if (result != null && result) {
-        await saveProject();
-      }
+    bool result = await _projectService.closeProject(forceSave);
+    if (result) {
+      notifyListeners();
     }
-
-    _mqttGlobalViewmodel.disconnect();
-    closeProjectStreamController.add(null);
-    _currentProject = null;
-    lastSavedProjectHash = null;
-    notifyListeners();
-    return true;
+    return result;
   }
 
   Future saveProject() async {
-    if (currentProject != null) {
-      await LocalStore().saveProject(currentProject!);
-    }
-  }
-
-  bool hasProjectChanged() {
-    return currentProject?.getHash() != lastSavedProjectHash;
-  }
-
-  void addTopicSubscription(TopicSubscription subscription) {
-    assert(isProjectOpen);
-    if (_currentProject!.topicSubscriptions.any((x) => x.topic == subscription.topic)) {
-      throw SrxServiceException('Trying to add duplicate topic \'${subscription.topic}\'', ServiceError.DuplicateTopic);
-    }
-    _currentProject!.topicSubscriptions.add(subscription);
-    _currentProject!.topicColors[subscription.topic] = subscription.color;
-    _addRecentTopic(subscription.topic);
-
-    if (_mqttGlobalViewmodel.isConnected() && !paused) {
-      _mqttGlobalViewmodel.subscribeToTopic(subscription.topic, subscription.qos);
-    }
-
-    notifyListeners();
-  }
-
-  void removeTopicSubscription(String topic) {
-    assert(isProjectOpen);
-    if (_mqttGlobalViewmodel.isConnected()) {
-      _mqttGlobalViewmodel.unSubscribeFromTopic(topic);
-    }
-
-    _currentProject!.topicSubscriptions.removeWhere((x) => x.topic == topic);
-    notifyListeners();
-  }
-
-  void tooglePauseTopicSubscription(String topic) {
-    assert(isProjectOpen);
-    var sub = _currentProject!.topicSubscriptions.singleWhere((x) => x.topic == topic);
-    sub.paused = !sub.paused;
-    if (sub.paused) {
-      _mqttGlobalViewmodel.unSubscribeFromTopic(topic);
-    } else if (!paused) {
-      _mqttGlobalViewmodel.subscribeToTopic(topic, sub.qos);
-    }
-    notifyListeners();
-  }
-
-  void pauseAllTopics() {
-    paused = true;
-    for (var sub in _currentProject!.topicSubscriptions) {
-      _mqttGlobalViewmodel.unSubscribeFromTopic(sub.topic);
-    }
-    notifyListeners();
-  }
-
-  void playAllTopics() {
-    paused = false;
-    for (var sub in _currentProject!.topicSubscriptions) {
-      if (!sub.paused) {
-        _mqttGlobalViewmodel.subscribeToTopic(sub.topic, sub.qos);
-      }
-    }
-    notifyListeners();
-  }
-
-  void clearMessages() {
-    _mqttGlobalViewmodel.messageBuffer.clear();
-  }
-
-  void publishTopic(String topic, dynamic payload, MqttPayloadType payloadType, bool retain, [MqttQos qos = MqttQos.atMostOnce]) {
-    _mqttGlobalViewmodel.publishTopic(topic, payload, payloadType, retain, qos);
-    _addRecentTopic(topic);
-  }
-
-  void onMqttConntected() {
-    // subscribe to all topics
-    if (_currentProject != null) {
-      for (var sub in _currentProject!.topicSubscriptions) {
-        if (!sub.paused) {
-          _mqttGlobalViewmodel.subscribeToTopic(sub.topic, sub.qos);
-        }
-      }
-    }
-  }
-
-  void onMessageReceived(ReceivedMqttMessage msg) {
-    assert(isProjectOpen);
-
-    var sub = TopicSubscription.getTopicSubscriptionMatch(msg.topicName, _currentProject!.topicSubscriptions);
-    if (sub != null) {
-      _currentProject!.topicColors[msg.topicName] = sub.color;
-    } else {
-      _currentProject!.topicColors[msg.topicName] = TopicColor(Colors.black);
-    }
+    await _projectService.saveProject();
   }
 
   TopicColor getTopicColor(String topicName) {
-    assert(isProjectOpen);
-
-    return _currentProject!.topicColors[topicName]!;
+    return _projectService.getTopicColor(topicName);
   }
 
-  void _addRecentTopic(String topic) {
-    assert(isProjectOpen);
+  void addTopicSubscription(TopicSubscription subscription) {
+    _projectService.addTopicSubscription(subscription);
+  }
 
-    if (!currentProject!.recentTopics.contains(topic)) {
-      currentProject!.recentTopics.insert(0, topic);
-    }
+  void removeTopicSubscription(String topic) {
+    _projectService.removeTopicSubscription(topic);
+  }
 
-    if (currentProject!.recentTopics.length > 20) {
-      _currentProject!.recentTopics.removeLast();
-    }
+  void tooglePauseTopicSubscription(String topic) {
+    _projectService.tooglePauseTopicSubscription(topic);
+  }
+
+  void pauseAllTopics() {
+    _projectService.pauseAllTopics();
+  }
+
+  void playAllTopics() {
+    _projectService.playAllTopics();
+  }
+
+  void clearMessages() {
+    _projectService.clearMessages();
+  }
+
+  void publishTopic(String topic, dynamic payload, MqttPayloadType payloadType, bool retain, [MqttQos qos = MqttQos.atMostOnce]) {
+    _projectService.publishTopic(topic, payload, payloadType, retain, qos);
+  }
+
+  _projectOpened() {
+    notifyListeners();
+  }
+
+  _projectClosed() {
+    notifyListeners();
+  }
+
+  _topicSubriptionsChanged() {
+    notifyListeners();
   }
 }

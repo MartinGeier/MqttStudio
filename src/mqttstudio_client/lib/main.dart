@@ -1,8 +1,10 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
-import 'package:mqttstudio/mqtt/mqtt_controller.dart';
+import 'package:mqttstudio/mqtt/mqtt_adapter.dart';
 import 'package:mqttstudio/custom_theme.dart';
+import 'package:mqttstudio/mqtt/mqtt_connection_viewmodel.dart';
+import 'package:mqttstudio/project/project_service.dart';
 import 'package:mqttstudio/service/piwik_tracking_service.dart';
 import 'package:provider/provider.dart';
 import 'package:srx_flutter/srx_flutter.dart';
@@ -10,7 +12,7 @@ import 'model/project.dart';
 import 'topic_viewer/topic_detailviewer_page.dart';
 import 'common/login_page.dart';
 import 'repository/local/local_project_repository.dart';
-import 'mqtt/mqtt_global_viewmodel.dart';
+import 'mqtt/viewer_mqtt_service.dart';
 import 'project/project_global_viewmodel.dart';
 
 //final String baseUrlRelease = 'to be defined';
@@ -48,11 +50,12 @@ void setupServiceLocator() {
   GetIt.I.registerSingleton(SrxSessionController(true, '', ''));
   //GetIt.I.registerSingleton(SrxHttpService(baseUrlRelease, baseUrlDebug, versionPath, GetIt.I.get<SessionController>()));
   GetIt.I.registerSingleton(SrxNavigationService(LoginPage(), TopicDetailViewerPage()));
-  GetIt.I.registerSingleton(MqttController());
+  GetIt.I.registerSingleton(MqttAdapter());
 
-  // global viewmodels
-  GetIt.I.registerSingleton(MqttGlobalViewmodel());
-  GetIt.I.registerSingleton(ProjectGlobalViewmodel(onClosingNotSaved));
+  // services
+  GetIt.I.registerSingleton(ViewerMqttService());
+  GetIt.I.registerSingleton(MqttConnectionViewmodel());
+  GetIt.I.registerSingleton(ProjectService(onClosingNotSaved));
 }
 
 class MyApp extends StatelessWidget {
@@ -60,18 +63,20 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider.value(
-      value: GetIt.I.get<MqttGlobalViewmodel>(),
-      child: ChangeNotifierProvider.value(
-          value: GetIt.I.get<ProjectGlobalViewmodel>(),
-          child: MaterialApp(
-              title: 'MQTT Studio',
-              theme: CustomTheme.lightTheme,
-              localizationsDelegates: context.localizationDelegates,
-              supportedLocales: context.supportedLocales,
-              locale: context.locale,
-              navigatorKey: GetIt.instance.get<SrxNavigationService>().navigatorKey,
-              home: /*GetIt.instance.get<SSessionController>().isLoggedIn ? */ TopicDetailViewerPage())) /*: LoginPage() */,
-    );
+        value: GetIt.I.get<ViewerMqttService>(),
+        child: ChangeNotifierProvider.value(
+          value: GetIt.I.get<MqttConnectionViewmodel>(),
+          child: ChangeNotifierProvider(
+              create: (_) => ProjectGlobalViewmodel(),
+              child: MaterialApp(
+                  title: 'MQTT Studio',
+                  theme: CustomTheme.lightTheme,
+                  localizationsDelegates: context.localizationDelegates,
+                  supportedLocales: context.supportedLocales,
+                  locale: context.locale,
+                  navigatorKey: GetIt.instance.get<SrxNavigationService>().navigatorKey,
+                  home: /*GetIt.instance.get<SSessionController>().isLoggedIn ? */ TopicDetailViewerPage())) /*: LoginPage() */,
+        ));
   }
 }
 

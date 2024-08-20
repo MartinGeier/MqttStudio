@@ -109,7 +109,7 @@ class MessageDetailView extends StatelessWidget {
   }
 
   Widget _buildTopicChip(ReceivedMqttMessage topic, BuildContext context) {
-    var color = GetIt.I.get<ProjectGlobalViewmodel>().getTopicColor(topic.topicName);
+    var color = context.read<ProjectGlobalViewmodel>().getTopicColor(topic.topicName);
     return Stack(
       children: [
         TopicChip(

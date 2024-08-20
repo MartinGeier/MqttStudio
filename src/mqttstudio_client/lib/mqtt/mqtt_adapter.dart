@@ -9,21 +9,22 @@ import 'package:mqttstudio/service/service_error.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:synchronized/synchronized.dart' as lock;
+import 'package:event/event.dart';
 
 // Keeps the connection to the MQTT broker and offers basic operations such as publishing a topic and subscribing to a topic.
 // Publishes the onMessageReceived event for further processing of incoming messages.
-class MqttController {
+class MqttAdapter {
   static const String WebSocketPrefix = "ws://";
   static const String SecureWebSocketPrefix = "wss://";
 
   MqttClient _client = mqttsetup.setup('', '');
   List<String> _activeSubscriptions = List.empty(growable: true);
-  Function? onConnected;
-  Function? onDisconnected;
-  Function(ReceivedMqttMessage msg)? onMessageReceived;
+  final onConnectedEvent = Event();
+  final onDisconnectedEvent = Event();
+  final onMessageReceivedEvent = Event<ReceivedMqttMessage>();
   var _lock = new lock.Lock();
 
-  MqttController() {
+  MqttAdapter() {
     if (!kIsWeb) {
       rootBundle
           .load('assets/cert/mosquitto.org.crt')
@@ -120,29 +121,24 @@ class MqttController {
   }
 
   void _onConnected() {
-    if (onConnected != null) {
-      print('MQTT: connected');
-      onConnected!();
-    }
+    print('MQTT: connected');
+    onConnectedEvent.broadcast();
   }
 
   void _onDisconnected() {
-    if (onDisconnected != null) {
-      print('MQTT: disconnected');
-      onDisconnected!();
-    }
+    print('MQTT: disconnected');
+    onDisconnectedEvent.broadcast();
   }
 
   void _onDataReceived(List<MqttReceivedMessage<MqttMessage>> messages) async {
+    print("message received");
     await _lock.synchronized(() async {
-      if (onMessageReceived != null) {
-        for (var msg in messages) {
-          var rawMsg = msg.payload as MqttPublishMessage;
-          var payload = rawMsg.payload.message;
-          ReceivedMqttMessage receivedMsg = ReceivedMqttMessage.received(rawMsg.variableHeader!.messageIdentifier,
-              rawMsg.variableHeader!.topicName, payload, rawMsg.header!.qos, rawMsg.header?.retain ?? false);
-          onMessageReceived!(receivedMsg);
-        }
+      for (var msg in messages) {
+        var rawMsg = msg.payload as MqttPublishMessage;
+        var payload = rawMsg.payload.message;
+        ReceivedMqttMessage receivedMsg = ReceivedMqttMessage.received(rawMsg.variableHeader!.messageIdentifier,
+            rawMsg.variableHeader!.topicName, payload, rawMsg.header!.qos, rawMsg.header?.retain ?? false);
+        onMessageReceivedEvent.broadcast(receivedMsg);
       }
     });
   }

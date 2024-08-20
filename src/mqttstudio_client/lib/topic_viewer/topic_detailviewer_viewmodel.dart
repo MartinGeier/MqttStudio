@@ -1,12 +1,12 @@
-import 'dart:async';
 import 'package:darq/darq.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqtt_client/mqtt_client.dart';
 import 'package:mqttstudio/model/mqtt_payload_type.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
-import 'package:mqttstudio/mqtt/mqtt_global_viewmodel.dart';
+import 'package:mqttstudio/mqtt/viewer_mqtt_service.dart';
 import 'package:mqttstudio/mqtt/mqtt_message_buffer.dart';
 import 'package:mqttstudio/project/project_global_viewmodel.dart';
+import 'package:mqttstudio/project/project_service.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 
 class TopicDetailViewerViewmodel extends SrxChangeNotifier {
@@ -14,8 +14,7 @@ class TopicDetailViewerViewmodel extends SrxChangeNotifier {
   MessageGroupTimePeriod _groupTimePeriod = MessageGroupTimePeriod.tenSeconds;
   ReceivedMqttMessage? _selectedMessage;
   bool _autoSelect = false;
-  StreamSubscription? _closeProjectStreamSubscription;
-  late MqttGlobalViewmodel _mqttGlobalViewmodel;
+  late ViewerMqttService _mqttGlobalViewmodel;
   String? _filter;
 
   bool get autoSelect => _autoSelect;
@@ -26,16 +25,15 @@ class TopicDetailViewerViewmodel extends SrxChangeNotifier {
   }
 
   TopicDetailViewerViewmodel() {
-    _mqttGlobalViewmodel = GetIt.I.get<MqttGlobalViewmodel>();
+    _mqttGlobalViewmodel = GetIt.I.get<ViewerMqttService>();
     _mqttGlobalViewmodel.addListener(_onMessageReceived);
-    _closeProjectStreamSubscription =
-        GetIt.I.get<ProjectGlobalViewmodel>().closeProjectStreamController.stream.listen((_) => selectedMessage = null);
+    GetIt.I.get<ProjectService>().projectClosedEvent.subscribe((_) => selectedMessage = null);
   }
 
   @override
   void dispose() {
+    GetIt.I.get<ProjectService>().projectClosedEvent.unsubscribeAll();
     super.dispose();
-    _closeProjectStreamSubscription?.cancel();
   }
 
   ReceivedMqttMessage? get selectedMessage => _selectedMessage;
@@ -75,13 +73,13 @@ class TopicDetailViewerViewmodel extends SrxChangeNotifier {
   void clearRetainedTopic() {
     assert(_selectedMessage?.retain ?? false);
 
-    GetIt.I.get<ProjectGlobalViewmodel>().publishTopic(_selectedMessage!.topicName, '', MqttPayloadType.string, true);
+    GetIt.I.get<ProjectService>().publishTopic(_selectedMessage!.topicName, '', MqttPayloadType.string, true);
   }
 
   void rePublish() {
     assert(_selectedMessage != null);
 
-    GetIt.I.get<ProjectGlobalViewmodel>().publishTopic(
+    GetIt.I.get<ProjectService>().publishTopic(
         _selectedMessage!.topicName, _selectedMessage!.payload, MqttPayloadType.binary, _selectedMessage!.retain, _selectedMessage!.qos);
   }
 

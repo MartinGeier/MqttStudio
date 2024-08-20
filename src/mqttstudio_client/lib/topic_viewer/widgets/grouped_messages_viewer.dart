@@ -1,7 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
-import 'package:mqttstudio/mqtt/mqtt_global_viewmodel.dart';
+import 'package:mqttstudio/mqtt/viewer_mqtt_service.dart';
 import 'package:mqttstudio/mqtt/mqtt_message_buffer.dart';
 import 'package:mqttstudio/project/project_global_viewmodel.dart';
 import 'package:mqttstudio/topic_viewer/topic_detailviewer_viewmodel.dart';
@@ -15,7 +15,7 @@ class GroupedMessagesViewer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<MqttGlobalViewmodel>(builder: (context, mqttGlobalViewmodel, child) {
+    return Consumer<ViewerMqttService>(builder: (context, mqttGlobalViewmodel, child) {
       return Consumer<TopicDetailViewerViewmodel>(builder: (context, viewmodel, child) {
         var groupedMessages = mqttGlobalViewmodel.messageBuffer.getGroupMessages(viewmodel.groupTimePeriod, viewmodel.filter);
         return Expanded(
@@ -53,7 +53,7 @@ class GroupedMessagesViewerRow extends StatelessWidget {
       var topicName = messageGroup.messages[index].topicName;
       return FastTopicChip(
           topic: topicName,
-          topicColor: GetIt.I.get<ProjectGlobalViewmodel>().getTopicColor(topicName),
+          topicColor: context.read<ProjectGlobalViewmodel>().getTopicColor(topicName),
           selected: viewmodel.selectedMessage == messageGroup.messages[index],
           onPressed: () => viewmodel.selectedMessage = messageGroup.messages[index]);
     });

@@ -11,6 +11,7 @@ import 'package:mqttstudio/project/project_global_viewmodel.dart';
 import 'package:community_charts_flutter/src/text_element.dart' as te;
 // ignore: implementation_imports
 import 'package:community_charts_flutter/src/text_style.dart' as style;
+import 'package:provider/provider.dart';
 
 class TopicChart extends StatefulWidget {
   const TopicChart({
@@ -31,7 +32,7 @@ class _TopicChartState extends State<TopicChart> {
 
   @override
   Widget build(BuildContext context) {
-    var seriesColor = GetIt.I.get<ProjectGlobalViewmodel>().getTopicColor(widget.topic.topicName);
+    var seriesColor = context.read<ProjectGlobalViewmodel>().getTopicColor(widget.topic.topicName);
     return chart.TimeSeriesChart(
       [
         chart.Series<Tuple2<DateTime, double>, DateTime>(
