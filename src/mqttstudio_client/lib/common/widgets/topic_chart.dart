@@ -4,9 +4,8 @@ import 'package:community_charts_flutter/community_charts_flutter.dart' as chart
 import 'package:darq/darq.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:get_it/get_it.dart';
+import 'package:mqttstudio/message_viewer/message_viewer_viewmodel.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
-import 'package:mqttstudio/project/project_global_viewmodel.dart';
 // ignore: implementation_imports
 import 'package:community_charts_flutter/src/text_element.dart' as te;
 // ignore: implementation_imports
@@ -32,7 +31,7 @@ class _TopicChartState extends State<TopicChart> {
 
   @override
   Widget build(BuildContext context) {
-    var seriesColor = context.read<ProjectGlobalViewmodel>().getTopicColor(widget.topic.topicName);
+    var seriesColor = context.read<MessageViewerViewmodel>().getTopicColor(widget.topic.topicName);
     return chart.TimeSeriesChart(
       [
         chart.Series<Tuple2<DateTime, double>, DateTime>(

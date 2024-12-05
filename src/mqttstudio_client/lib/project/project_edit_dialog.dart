@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/common/widgets/checkbox_field.dart';
-import 'package:mqttstudio/project/project_global_viewmodel.dart';
+import 'package:mqttstudio/project/project_viewmodel.dart';
 import 'package:mqttstudio/project/project_edit_viewmodel.dart';
 import 'package:provider/provider.dart';
 import 'package:reactive_forms/reactive_forms.dart';
@@ -32,7 +32,7 @@ class ProjectEditDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    var currentProject = context.read<ProjectGlobalViewmodel>().currentProject;
+    var currentProject = context.read<ProjectViewmodel>().currentProject;
 
     return ChangeNotifierProvider<ProjectEditViewmodel>(
         create: (_) => ProjectEditViewmodel(currentProject),

@@ -5,11 +5,9 @@ import 'package:typed_data/typed_buffers.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_json_viewer/flutter_json_viewer.dart';
-import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/common/widgets/topic_chip.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
-import 'package:mqttstudio/project/project_global_viewmodel.dart';
-import 'package:mqttstudio/topic_viewer/topic_detailviewer_viewmodel.dart';
+import 'package:mqttstudio/message_viewer/message_viewer_viewmodel.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/services.dart';
 import 'package:mqttstudio/custom_theme.dart';
@@ -22,7 +20,7 @@ class MessageDetailView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<TopicDetailViewerViewmodel>(builder: (context, viewmodel, child) {
+    return Consumer<MessageViewerViewmodel>(builder: (context, viewmodel, child) {
       var topic = viewmodel.selectedMessage;
       final nf = NumberFormat('.000', context.locale.countryCode);
       var chartValues = viewmodel.getChartValues();
@@ -58,7 +56,7 @@ class MessageDetailView extends StatelessWidget {
     });
   }
 
-  Widget _buildAutoSelectButton(TopicDetailViewerViewmodel viewmodel) {
+  Widget _buildAutoSelectButton(MessageViewerViewmodel viewmodel) {
     return ToggleButtons(
         renderBorder: false,
         isSelected: [viewmodel.autoSelect],
@@ -80,7 +78,7 @@ class MessageDetailView extends StatelessWidget {
         ]);
   }
 
-  Widget _buildClearRetainedButton(TopicDetailViewerViewmodel viewmodel) {
+  Widget _buildClearRetainedButton(MessageViewerViewmodel viewmodel) {
     return Tooltip(
       message: "messagedetailview.clearretainedbutton.tooltip".tr(),
       child: TextButton(
@@ -96,7 +94,7 @@ class MessageDetailView extends StatelessWidget {
     );
   }
 
-  Widget _buildRepublishButton(TopicDetailViewerViewmodel viewmodel) {
+  Widget _buildRepublishButton(MessageViewerViewmodel viewmodel) {
     return Tooltip(
       message: "messagedetailview.republishbutton.tooltip".tr(),
       child: TextButton(
@@ -109,7 +107,7 @@ class MessageDetailView extends StatelessWidget {
   }
 
   Widget _buildTopicChip(ReceivedMqttMessage topic, BuildContext context) {
-    var color = context.read<ProjectGlobalViewmodel>().getTopicColor(topic.topicName);
+    var color = context.read<MessageViewerViewmodel>().getTopicColor(topic.topicName);
     return Stack(
       children: [
         TopicChip(
@@ -146,7 +144,7 @@ class MessageDetailView extends StatelessWidget {
     );
   }
 
-  Padding _buildMessageCount(BuildContext context, TopicDetailViewerViewmodel viewmodel, NumberFormat nf) {
+  Padding _buildMessageCount(BuildContext context, MessageViewerViewmodel viewmodel, NumberFormat nf) {
     var msgCount = viewmodel.getSelectedMessageCount();
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),

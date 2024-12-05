@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/model/project.dart';
 import 'package:mqttstudio/project/open_project_viewmodel.dart';
-import 'package:mqttstudio/project/project_global_viewmodel.dart';
+import 'package:mqttstudio/project/project_viewmodel.dart';
 import 'package:provider/provider.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -78,6 +78,6 @@ Future deleteProject(Project project, OpenProjectViewmodel viewmodel) async {
 }
 
 Future _onTap(Project project, BuildContext context) async {
-  context.read<ProjectGlobalViewmodel>().openProject(project);
+  context.read<ProjectViewmodel>().openProject(project);
   await GetIt.I.get<SrxNavigationService>().pop();
 }

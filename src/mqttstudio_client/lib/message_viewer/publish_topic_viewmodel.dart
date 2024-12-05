@@ -1,11 +1,11 @@
 import 'dart:io';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:get_it/get_it.dart';
+import 'package:mqttstudio/message_viewer/message_viewer.dart';
 import 'package:mqttstudio/model/mqtt_payload_type.dart';
-import 'package:mqttstudio/project/project_service.dart';
 import 'package:reactive_forms/reactive_forms.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 import 'package:typed_data/typed_buffers.dart';
-import '../project/project_global_viewmodel.dart';
 
 class PublishTopicViewmodel extends SrxChangeNotifier {
   static String topicNameField = 'topicName';
@@ -20,7 +20,8 @@ class PublishTopicViewmodel extends SrxChangeNotifier {
 
   FormGroup buildFormGroup() {
     return FormGroup({
-      topicNameField: FormControl<String>(validators: [Validators.required, Validators.maxLength(200)]),
+      topicNameField:
+          FormControl<String>(validators: [Validators.required, Validators.maxLength(200), Validators.delegate(_excludeMqttWildcards)]),
       retainField: FormControl<bool>(),
       payloadField: FormControl<String>(validators: [Validators.maxLength(20000)]),
     });
@@ -32,7 +33,7 @@ class PublishTopicViewmodel extends SrxChangeNotifier {
       return false;
     }
 
-    GetIt.I.get<ProjectService>().publishTopic(form.control(topicNameField).value, form.control(payloadField).value ?? '',
+    GetIt.I.get<MessageViewer>().publishTopic(form.control(topicNameField).value, form.control(payloadField).value ?? '',
         MqttPayloadType.string, form.control(retainField).value ?? false);
 
     return true;
@@ -52,9 +53,25 @@ class PublishTopicViewmodel extends SrxChangeNotifier {
     var buf = Uint8Buffer();
     buf.addAll(bytes);
     GetIt.I
-        .get<ProjectGlobalViewmodel>()
+        .get<MessageViewer>()
         .publishTopic(form.control(topicNameField).value, buf, MqttPayloadType.binary, form.control(retainField).value ?? false);
 
     return true;
+  }
+
+  // Validator function to exclude MQTT wildcards
+  Map<String, dynamic>? _excludeMqttWildcards(AbstractControl<dynamic> control) {
+    final String? value = control.value;
+
+    if (value == null || value.isEmpty) {
+      return null; // Valid if the field is empty
+    }
+
+    // Check if the value contains '+' or '#'
+    if (value.contains('+') || value.contains('#')) {
+      return {'publishtopicdialog.wildcardsError'.tr(): '(+, #)'};
+    }
+
+    return null; // Valid
   }
 }

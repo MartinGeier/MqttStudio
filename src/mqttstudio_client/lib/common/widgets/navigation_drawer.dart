@@ -4,7 +4,7 @@ import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/project/open_project_dialog.dart';
 import 'package:mqttstudio/project/project_edit_dialog.dart';
 import 'package:mqttstudio/model/project.dart';
-import 'package:mqttstudio/project/project_global_viewmodel.dart';
+import 'package:mqttstudio/project/project_viewmodel.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -27,33 +27,33 @@ class NavigationDrawer extends SrxNavigationDrawer {
 
   @override
   List<Widget> buildItems(BuildContext context) {
-    var projectGlobalViewmodel = context.read<ProjectGlobalViewmodel>();
+    var projectViewmodel = context.read<ProjectViewmodel>();
     return [
       Divider(),
       ListTile(
-          onTap: () => _onNewProjectTap(projectGlobalViewmodel, context),
+          onTap: () => _onNewProjectTap(projectViewmodel, context),
           leading: Icon(Icons.create_new_folder_outlined),
           title: Text('navigator.newproject_menuitem'.tr())),
       ListTile(
-          onTap: () => _onOpenProjectTap(projectGlobalViewmodel, context),
+          onTap: () => _onOpenProjectTap(projectViewmodel, context),
           leading: Icon(Icons.folder_open),
           title: Text('navigator.openproject_menuitem'.tr())),
       ListTile(
-          onTap: projectGlobalViewmodel.isProjectOpen ? () => _onsaveProjectTap(projectGlobalViewmodel, context) : null,
+          onTap: projectViewmodel.isProjectOpen ? () => _onsaveProjectTap(projectViewmodel, context) : null,
           leading: Icon(Icons.save),
           title: Text('navigator.saveproject_menuitem'.tr()),
-          enabled: projectGlobalViewmodel.isProjectOpen),
+          enabled: projectViewmodel.isProjectOpen),
       ListTile(
-          onTap: projectGlobalViewmodel.isProjectOpen ? () => _onCloseProjectTap(projectGlobalViewmodel, context) : null,
+          onTap: projectViewmodel.isProjectOpen ? () => _onCloseProjectTap(projectViewmodel, context) : null,
           leading: Icon(Icons.close),
           title: Text('navigator.closeproject_menuitem'.tr()),
-          enabled: projectGlobalViewmodel.isProjectOpen),
+          enabled: projectViewmodel.isProjectOpen),
       Divider(),
       ListTile(
           onTap: () => _onProjectSettingsTap(context),
           leading: Icon(Icons.settings),
           title: Text('navigator.projectsettings_menuitem'.tr()),
-          enabled: projectGlobalViewmodel.isProjectOpen),
+          enabled: projectViewmodel.isProjectOpen),
       Divider(),
       FutureBuilder(
           future: PackageInfo.fromPlatform(),
@@ -133,35 +133,35 @@ class NavigationDrawer extends SrxNavigationDrawer {
 
   void _onProjectSettingsTap(BuildContext context) async {
     GetIt.I.get<SrxNavigationService>().pop();
-    var projectGlobalViewmodel = context.read<ProjectGlobalViewmodel>();
+    var projectViewmodel = context.read<ProjectViewmodel>();
     Project? project = await showDialog(context: context, builder: (context) => ProjectEditDialog());
     if (project == null) {
       return;
     }
 
-    projectGlobalViewmodel.openProject(project);
+    projectViewmodel.openProject(project);
   }
 
-  _onOpenProjectTap(ProjectGlobalViewmodel projectGlobalViewmodel, BuildContext context) async {
-    if (await projectGlobalViewmodel.closeProject()) {
+  _onOpenProjectTap(ProjectViewmodel projectViewmodel, BuildContext context) async {
+    if (await projectViewmodel.closeProject()) {
       GetIt.I.get<SrxNavigationService>().pop();
       await showDialog(context: context, builder: (context) => OpenProjectDialog());
     }
   }
 
-  _onCloseProjectTap(ProjectGlobalViewmodel projectGlobalViewmodel, BuildContext context) async {
-    if (await projectGlobalViewmodel.closeProject()) {
+  _onCloseProjectTap(ProjectViewmodel projectViewmodel, BuildContext context) async {
+    if (await projectViewmodel.closeProject()) {
       GetIt.I.get<SrxNavigationService>().pop();
     }
   }
 
-  _onsaveProjectTap(ProjectGlobalViewmodel projectGlobalViewmodel, BuildContext context) {
-    projectGlobalViewmodel.saveProject();
+  _onsaveProjectTap(ProjectViewmodel projectViewmodel, BuildContext context) {
+    projectViewmodel.saveProject();
     GetIt.I.get<SrxNavigationService>().pop();
   }
 
-  _onNewProjectTap(ProjectGlobalViewmodel projectGlobalViewmodel, BuildContext context) async {
-    if (await projectGlobalViewmodel.closeProject()) {
+  _onNewProjectTap(ProjectViewmodel projectViewmodel, BuildContext context) async {
+    if (await projectViewmodel.closeProject()) {
       _onProjectSettingsTap(context);
     }
   }

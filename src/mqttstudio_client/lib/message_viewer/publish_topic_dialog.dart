@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/common/widgets/checkbox_field.dart';
-import 'package:mqttstudio/project/project_global_viewmodel.dart';
+import 'package:mqttstudio/project/project_viewmodel.dart';
 import 'package:mqttstudio/service/piwik_tracking_service.dart';
 import 'package:provider/provider.dart';
 import 'package:reactive_forms/reactive_forms.dart';
@@ -78,7 +78,7 @@ class PublishTopicDialog extends StatelessWidget {
 
   Widget _buildTopicNameField(BuildContext context) {
     var vm = context.read<PublishTopicViewmodel>();
-    var recentTopics = context.read<ProjectGlobalViewmodel>().currentProject?.recentTopics;
+    var recentTopics = context.read<ProjectViewmodel>().currentProject?.recentTopics;
     return ReactiveTextField(
       autofocus: true,
       textInputAction: TextInputAction.next,

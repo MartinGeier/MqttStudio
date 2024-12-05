@@ -1,10 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:get_it/get_it.dart';
-import 'package:mqttstudio/mqtt/viewer_mqtt_service.dart';
-import 'package:mqttstudio/mqtt/mqtt_message_buffer.dart';
-import 'package:mqttstudio/project/project_global_viewmodel.dart';
-import 'package:mqttstudio/topic_viewer/topic_detailviewer_viewmodel.dart';
+import 'package:mqttstudio/message_viewer/message_buffer.dart';
+import 'package:mqttstudio/message_viewer/message_viewer_viewmodel.dart';
 import 'package:provider/provider.dart';
 
 import '../../common/widgets/fast_topic_chip.dart';
@@ -15,35 +12,33 @@ class GroupedMessagesViewer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<ViewerMqttService>(builder: (context, mqttGlobalViewmodel, child) {
-      return Consumer<TopicDetailViewerViewmodel>(builder: (context, viewmodel, child) {
-        var groupedMessages = mqttGlobalViewmodel.messageBuffer.getGroupMessages(viewmodel.groupTimePeriod, viewmodel.filter);
-        return Expanded(
-            child: Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: NotificationListener<ScrollNotification>(
-            onNotification: (notification) {
-              mqttGlobalViewmodel.delayViewUpdate();
-              return true;
-            },
-            child: Scrollbar(
+    return Consumer<MessageViewerViewmodel>(builder: (context, viewmodel, child) {
+      var groupedMessages = viewmodel.messageBuffer.getGroupMessages(viewmodel.groupTimePeriod, viewmodel.filter);
+      return Expanded(
+          child: Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: NotificationListener<ScrollNotification>(
+          onNotification: (notification) {
+            viewmodel.delayViewUpdate();
+            return true;
+          },
+          child: Scrollbar(
+              controller: _scrollController,
+              thumbVisibility: true,
+              trackVisibility: true,
+              child: ListView(
                 controller: _scrollController,
-                thumbVisibility: true,
-                trackVisibility: true,
-                child: ListView(
-                  controller: _scrollController,
-                  children: List.generate(groupedMessages.length, (index) => GroupedMessagesViewerRow(groupedMessages[index], viewmodel)),
-                )),
-          ),
-        ));
-      });
+                children: List.generate(groupedMessages.length, (index) => GroupedMessagesViewerRow(groupedMessages[index], viewmodel)),
+              )),
+        ),
+      ));
     });
   }
 }
 
 class GroupedMessagesViewerRow extends StatelessWidget {
   final MessageGroup messageGroup;
-  final TopicDetailViewerViewmodel viewmodel;
+  final MessageViewerViewmodel viewmodel;
 
   const GroupedMessagesViewerRow(this.messageGroup, this.viewmodel, {Key? key}) : super(key: key);
 
@@ -53,7 +48,7 @@ class GroupedMessagesViewerRow extends StatelessWidget {
       var topicName = messageGroup.messages[index].topicName;
       return FastTopicChip(
           topic: topicName,
-          topicColor: context.read<ProjectGlobalViewmodel>().getTopicColor(topicName),
+          topicColor: context.read<MessageViewerViewmodel>().getTopicColor(topicName),
           selected: viewmodel.selectedMessage == messageGroup.messages[index],
           onPressed: () => viewmodel.selectedMessage = messageGroup.messages[index]);
     });

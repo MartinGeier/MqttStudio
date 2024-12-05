@@ -1,10 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:get_it/get_it.dart';
-import 'package:mqttstudio/mqtt/viewer_mqtt_service.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
-import 'package:mqttstudio/project/project_global_viewmodel.dart';
-import 'package:mqttstudio/topic_viewer/topic_detailviewer_viewmodel.dart';
+import 'package:mqttstudio/message_viewer/message_viewer_viewmodel.dart';
 import 'package:provider/provider.dart';
 
 import '../../common/widgets/fast_topic_chip.dart';
@@ -15,37 +12,35 @@ class SequentialMessagesViewer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<ViewerMqttService>(builder: (context, mqttGlobalViewmodel, child) {
-      return Consumer<TopicDetailViewerViewmodel>(builder: (context, viewmodel, child) {
-        var messages = mqttGlobalViewmodel.messageBuffer.getMessages(viewmodel.filter);
-        return Expanded(
-            child: Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: NotificationListener<ScrollNotification>(
-                  onNotification: (notification) {
-                    mqttGlobalViewmodel.delayViewUpdate();
-                    return true;
-                  },
-                  child: Scrollbar(
-                    controller: _scrollController,
-                    thumbVisibility: true,
-                    trackVisibility: true,
-                    child: ListView(
-                        controller: _scrollController,
-                        children: List.generate(
-                          messages.length,
-                          (index) => MessagesViewerRow(messages[index], viewmodel),
-                        )),
-                  ),
-                )));
-      });
+    return Consumer<MessageViewerViewmodel>(builder: (context, viewmodel, child) {
+      var messages = viewmodel.messageBuffer.getMessages(viewmodel.filter);
+      return Expanded(
+          child: Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: NotificationListener<ScrollNotification>(
+                onNotification: (notification) {
+                  viewmodel.delayViewUpdate();
+                  return true;
+                },
+                child: Scrollbar(
+                  controller: _scrollController,
+                  thumbVisibility: true,
+                  trackVisibility: true,
+                  child: ListView(
+                      controller: _scrollController,
+                      children: List.generate(
+                        messages.length,
+                        (index) => MessagesViewerRow(messages[index], viewmodel),
+                      )),
+                ),
+              )));
     });
   }
 }
 
 class MessagesViewerRow extends StatelessWidget {
   final ReceivedMqttMessage message;
-  final TopicDetailViewerViewmodel viewmodel;
+  final MessageViewerViewmodel viewmodel;
 
   const MessagesViewerRow(this.message, this.viewmodel, {Key? key}) : super(key: key);
 
@@ -54,7 +49,7 @@ class MessagesViewerRow extends StatelessWidget {
     final nf = NumberFormat('.000', context.locale.countryCode);
     var topic = FastTopicChip(
         topic: message.topicName,
-        topicColor: context.read<ProjectGlobalViewmodel>().getTopicColor(message.topicName),
+        topicColor: context.read<MessageViewerViewmodel>().getTopicColor(message.topicName),
         selected: viewmodel.selectedMessage == message,
         onPressed: () => viewmodel.selectedMessage = message,
         dense: false);

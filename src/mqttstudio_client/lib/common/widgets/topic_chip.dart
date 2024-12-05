@@ -1,4 +1,4 @@
-import 'package:auto_size_text_pk/auto_size_text_pk.dart';
+import 'package:auto_size_text/auto_size_text.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:mqttstudio/model/topic_color.dart';
@@ -69,8 +69,9 @@ class _TopicChipState extends State<TopicChip> with SingleTickerProviderStateMix
             ? widget.topicColor.color.lighten(0.3)
             : widget.topicColor.color;
     var textColor = bgColor.computeLuminance() > 0.5 ? Colors.black : Colors.white;
-    var labelWidget =
-        AutoSizeText(widget.topic, minFontSize: 10, style: Theme.of(context).textTheme.titleSmall!.copyWith(color: textColor));
+    var labelWidget = Text(widget.topic, style: Theme.of(context).textTheme.titleSmall!.copyWith(color: textColor));
+    // AutoSizeText is commented as the widget has a bug in flutter 3.24. Reinsert when fixed!
+    //var labelWidget = AutoSizeText(widget.topic, minFontSize: 10, style: Theme.of(context).textTheme.titleSmall!.copyWith(color: textColor));
     return ConstrainedBox(
       constraints: BoxConstraints(
           maxWidth: widget.unlimitedWidth

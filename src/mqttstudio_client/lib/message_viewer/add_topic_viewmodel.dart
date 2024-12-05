@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqtt_client/mqtt_client.dart';
+import 'package:mqttstudio/message_viewer/message_viewer.dart';
 import 'package:mqttstudio/model/topic_color.dart';
 import 'package:mqttstudio/model/topic_subscription.dart';
-import 'package:mqttstudio/project/project_service.dart';
 import 'package:reactive_forms/reactive_forms.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 
@@ -35,7 +35,7 @@ class AddTopicViewmodel extends SrxChangeNotifier {
     TopicSubscription topicSub = TopicSubscription(form.control(topicNameField).value, form.control(qosField).value,
         color: TopicColor(form.control(colorField).value));
 
-    GetIt.I.get<ProjectService>().addTopicSubscription(topicSub);
+    GetIt.I.get<MessageViewer>().addTopicSubscription(topicSub);
     return true;
   }
 }

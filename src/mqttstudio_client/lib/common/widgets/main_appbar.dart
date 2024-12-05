@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:mqttstudio/common/widgets/connect_button.dart';
-import 'package:mqttstudio/project/project_global_viewmodel.dart';
+import 'package:mqttstudio/project/project_viewmodel.dart';
 import 'package:easy_localization/easy_localization.dart';
 
 class MainAppBar extends StatefulWidget implements PreferredSizeWidget {
-  final ProjectGlobalViewmodel viewmodel;
+  final ProjectViewmodel viewmodel;
 
   MainAppBar({required this.viewmodel, Key? key}) : super(key: key);
   @override

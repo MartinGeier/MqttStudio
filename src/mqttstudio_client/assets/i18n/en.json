@@ -45,6 +45,7 @@
     "publishtopicdialog.retain.label": "Retain",
     "publishtopicdialog.publishfilebutton.label": "PUBLISH FILE",
     "publishtopicdialog.maxfilesize.error": "Maximum file size is 500k!",
+    "publishtopicdialog.wildcardsError": "Wildcards not allowed",
     "messagedetailview.autoselectbutton.label": "AUTOSELECT",
     "messagedetailview.clearretainedbutton.label": "CLEAR",
     "messagedetailview.republishbutton.label": "PUBLISH",

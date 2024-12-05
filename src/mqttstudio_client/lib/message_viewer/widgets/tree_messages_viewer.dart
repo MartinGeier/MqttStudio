@@ -1,12 +1,10 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:mqttstudio/mqtt/viewer_mqtt_service.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
 import 'package:mqttstudio/model/topic_color.dart';
-import 'package:mqttstudio/mqtt/mqtt_message_buffer.dart';
-import 'package:mqttstudio/project/project_global_viewmodel.dart';
+import 'package:mqttstudio/message_viewer/message_buffer.dart';
 import 'package:mqttstudio/common/widgets/topic_chip.dart';
-import 'package:mqttstudio/topic_viewer/topic_detailviewer_viewmodel.dart';
+import 'package:mqttstudio/message_viewer/message_viewer_viewmodel.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_simple_treeview/flutter_simple_treeview.dart';
 
@@ -16,31 +14,29 @@ class TreeMessagesViewer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<ViewerMqttService>(builder: (context, mqttGlobalViewmodel, child) {
-      return Consumer<TopicDetailViewerViewmodel>(builder: (context, viewmodel, child) {
-        var rootNode = mqttGlobalViewmodel.messageBuffer.getMessagesTree(viewmodel.filter);
-        var nodes = _buildNodes(rootNode.children, viewmodel, context);
-        return Expanded(
-            child: Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: Scrollbar(
+    return Consumer<MessageViewerViewmodel>(builder: (context, viewmodel, child) {
+      var rootNode = viewmodel.messageBuffer.getMessagesTree(viewmodel.filter);
+      var nodes = _buildNodes(rootNode.children, viewmodel, context);
+      return Expanded(
+          child: Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: Scrollbar(
+          controller: _scrollController,
+          thumbVisibility: true,
+          child: SingleChildScrollView(
             controller: _scrollController,
-            thumbVisibility: true,
-            child: SingleChildScrollView(
-              controller: _scrollController,
-              child: TreeView(
-                nodes: nodes,
-                indent: 32,
-                treeController: _treeController,
-              ),
+            child: TreeView(
+              nodes: nodes,
+              indent: 32,
+              treeController: _treeController,
             ),
           ),
-        ));
-      });
+        ),
+      ));
     });
   }
 
-  List<TreeNode> _buildNodes(List<MessageNode> messageNodes, TopicDetailViewerViewmodel viewmodel, BuildContext context) {
+  List<TreeNode> _buildNodes(List<MessageNode> messageNodes, MessageViewerViewmodel viewmodel, BuildContext context) {
     List<TreeNode> result = [];
     for (var msgNode in messageNodes) {
       var childNodes = (_buildNodes(msgNode.children, viewmodel, context));
@@ -51,7 +47,7 @@ class TreeMessagesViewer extends StatelessWidget {
             countLabel: realTopic ? msgNode.messageCount.toString() : null,
             receivedTime: realTopic ? msgNode.message!.receivedOn : null,
             topicColor:
-                realTopic ? context.read<ProjectGlobalViewmodel>().getTopicColor(msgNode.message!.topicName) : TopicColor(Colors.grey),
+                realTopic ? context.read<MessageViewerViewmodel>().getTopicColor(msgNode.message!.topicName) : TopicColor(Colors.grey),
             selected: realTopic ? viewmodel.selectedMessage == msgNode.message : false,
             onPressed: realTopic ? () => viewmodel.selectedMessage = msgNode.message : () {},
           ),
@@ -65,7 +61,7 @@ class TreeMessagesViewer extends StatelessWidget {
 
 class MessagesViewerRow extends StatelessWidget {
   final ReceivedMqttMessage message;
-  final TopicDetailViewerViewmodel viewmodel;
+  final MessageViewerViewmodel viewmodel;
 
   const MessagesViewerRow(this.message, this.viewmodel, {Key? key}) : super(key: key);
 
@@ -74,7 +70,7 @@ class MessagesViewerRow extends StatelessWidget {
     final nf = NumberFormat('.000', context.locale.countryCode);
     var topic = TopicChip(
         topic: message.topicName,
-        topicColor: context.read<ProjectGlobalViewmodel>().getTopicColor(message.topicName),
+        topicColor: context.read<MessageViewerViewmodel>().getTopicColor(message.topicName),
         selected: viewmodel.selectedMessage == message,
         onPressed: () => viewmodel.selectedMessage = message,
         dense: false);

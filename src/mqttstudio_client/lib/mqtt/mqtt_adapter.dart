@@ -21,7 +21,7 @@ class MqttAdapter {
   List<String> _activeSubscriptions = List.empty(growable: true);
   final onConnectedEvent = Event();
   final onDisconnectedEvent = Event();
-  final onMessageReceivedEvent = Event<ReceivedMqttMessage>();
+  final messageReceivedEvent = Event<ReceivedMqttMessage>();
   var _lock = new lock.Lock();
 
   MqttAdapter() {
@@ -138,7 +138,7 @@ class MqttAdapter {
         var payload = rawMsg.payload.message;
         ReceivedMqttMessage receivedMsg = ReceivedMqttMessage.received(rawMsg.variableHeader!.messageIdentifier,
             rawMsg.variableHeader!.topicName, payload, rawMsg.header!.qos, rawMsg.header?.retain ?? false);
-        onMessageReceivedEvent.broadcast(receivedMsg);
+        messageReceivedEvent.broadcast(receivedMsg);
       }
     });
   }
