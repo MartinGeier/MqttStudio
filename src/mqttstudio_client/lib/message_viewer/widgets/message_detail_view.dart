@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:mqtt_client/mqtt_client.dart';
 import 'package:typed_data/typed_buffers.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -12,11 +13,19 @@ import 'package:provider/provider.dart';
 import 'package:flutter/services.dart';
 import 'package:mqttstudio/custom_theme.dart';
 import '../../common/widgets/topic_chart.dart';
+import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
+import 'package:latlong2/latlong.dart';
 
-class MessageDetailView extends StatelessWidget {
-  final _scrollController = ScrollController();
-
+class MessageDetailView extends StatefulWidget {
   MessageDetailView({Key? key}) : super(key: key);
+
+  @override
+  State<MessageDetailView> createState() => _MessageDetailViewState();
+}
+
+class _MessageDetailViewState extends State<MessageDetailView> {
+  final _scrollController = ScrollController();
+  bool showLast100Markers = false;
 
   @override
   Widget build(BuildContext context) {
@@ -33,7 +42,7 @@ class MessageDetailView extends StatelessWidget {
           decoration: BoxDecoration(border: Border(left: BorderSide(color: Theme.of(context).dividerColor))),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              _buildAutoSelectButton(viewmodel),
+              _buildAutoSelectButton(viewmodel, context),
               _buildClearRetainedButton(viewmodel),
               _buildRepublishButton(viewmodel),
               Spacer(),
@@ -49,14 +58,14 @@ class MessageDetailView extends StatelessWidget {
               children: [_buildReceivedOn(context, topic, nf), _buildMessageCount(context, viewmodel, nf), Spacer()],
             ),
             SizedBox(height: 24),
-            _buildPayload(context, topic),
-            SizedBox(height: 32),
+            _buildPayload(context, topic, viewmodel),
+            SizedBox(height: 12),
             chartValues.length > 1 ? Container(height: 300, child: TopicChart(values: chartValues, topic: topic)) : SizedBox(),
           ]));
     });
   }
 
-  Widget _buildAutoSelectButton(MessageViewerViewmodel viewmodel) {
+  Widget _buildAutoSelectButton(MessageViewerViewmodel viewmodel, BuildContext context) {
     return ToggleButtons(
         renderBorder: false,
         isSelected: [viewmodel.autoSelect],
@@ -69,7 +78,9 @@ class MessageDetailView extends StatelessWidget {
             child: Tooltip(
               message: "messagedetailview.autoselectbutton.tooltip".tr(),
               child: Row(children: [
-                viewmodel.autoSelect ? Icon(Icons.pause, color: Colors.blue) : Icon(Icons.play_arrow, color: Colors.green),
+                viewmodel.autoSelect
+                    ? Icon(Icons.pause, color: Theme.of(context).primaryColor)
+                    : Icon(Icons.play_arrow, color: Colors.green),
                 SizedBox(width: 12),
                 Text('messagedetailview.autoselectbutton.label'.tr())
               ]),
@@ -199,7 +210,7 @@ class MessageDetailView extends StatelessWidget {
     );
   }
 
-  Widget _buildPayload(BuildContext context, ReceivedMqttMessage topic) {
+  Widget _buildPayload(BuildContext context, ReceivedMqttMessage topic, MessageViewerViewmodel viewmodel) {
     var payLoadType = detectPayloadType(topic.payload);
     String payloadString = MqttPublishPayload.bytesToStringAsString(topic.payload);
 
@@ -211,6 +222,10 @@ class MessageDetailView extends StatelessWidget {
 
       case PayloadType.Image:
         viewer = _buildImageViewer(topic.payload, context);
+        break;
+
+      case PayloadType.GnssCoordinates:
+        viewer = _buildMapViewer(payloadString, context, viewmodel);
         break;
 
       default:
@@ -266,6 +281,58 @@ class MessageDetailView extends StatelessWidget {
     return Expanded(child: SingleChildScrollView(controller: _scrollController, child: JsonViewer(jsonDecode(payload))));
   }
 
+  Widget _buildMapViewer(String payload, BuildContext context, MessageViewerViewmodel viewmodel) {
+    var lat = double.parse(payload.split(',')[0]);
+    var lon = double.parse(payload.split(',')[1]);
+    return Expanded(
+        child: Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Checkbox(value: showLast100Markers, onChanged: (value) => setState(() => showLast100Markers = value ?? false)),
+                  InkWell(
+                      child: Text('Show last 100', style: Theme.of(context).textTheme.labelLarge),
+                      onTap: () => setState(() => showLast100Markers = !showLast100Markers)),
+                ],
+              ),
+              Text('( ' + payload + ' )', style: Theme.of(context).textTheme.labelLarge),
+            ],
+          ),
+        ),
+        Expanded(
+          child: FlutterMap(
+            options: MapOptions(initialCenter: LatLng(lat, lon), initialZoom: 18),
+            children: [
+              openStreetMapTileLayer,
+              MarkerLayer(markers: [
+                // add a marker for each message
+                if (showLast100Markers)
+                  ...viewmodel.getValues().map((value) {
+                    var lat = double.parse(value.split(',')[0]);
+                    var lon = double.parse(value.split(',')[1]);
+                    return Marker(
+                      point: LatLng(lat, lon),
+                      child: Icon(Icons.location_on, size: 24, color: Theme.of(context).colorScheme.primary),
+                    );
+                  }),
+                Marker(
+                  point: LatLng(lat, lon),
+                  child: Icon(Icons.location_on, size: 32, color: Theme.of(context).colorScheme.secondary),
+                ),
+              ])
+            ],
+          ),
+        ),
+      ],
+    ));
+  }
+
   Widget _buildImageViewer(Uint8Buffer payload, BuildContext context) {
     return Expanded(child: SingleChildScrollView(controller: _scrollController, child: Image.memory(Uint8List.view(payload.buffer))));
   }
@@ -296,8 +363,23 @@ class MessageDetailView extends StatelessWidget {
       return PayloadType.Image;
     }
 
+    // Gnss coordinates: if the payload contains two double numbers separated by a comma
+    if (payloadString.contains(',') && payloadString.split(',').length == 2) {
+      if (double.tryParse(payloadString.split(',')[0]) != null && double.tryParse(payloadString.split(',')[1]) != null) {
+        return PayloadType.GnssCoordinates;
+      }
+    }
+
     return PayloadType.Text;
   }
+
+  TileLayer get openStreetMapTileLayer => TileLayer(
+        urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+        userAgentPackageName: 'dev.fleaflet.flutter_map.example',
+        // Use the recommended flutter_map_cancellable_tile_provider package to
+        // support the cancellation of loading tiles.
+        tileProvider: CancellableNetworkTileProvider(),
+      );
 }
 
-enum PayloadType { Text, Number, Json, Image }
+enum PayloadType { Text, Number, Json, Image, GnssCoordinates }

@@ -72,6 +72,17 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
         .toList();
   }
 
+  List<String> getValues() {
+    var messages = selectedMessage != null
+        ? _messageViewer.messageBuffer.getTopicMessages(selectedMessage!.topicName)
+        : List<ReceivedMqttMessage>.empty();
+    return messages
+        .orderByDescending((x) => x.receivedOn)
+        .take(100)
+        .select((x, index) => MqttPublishPayload.bytesToStringAsString(x.payload))
+        .toList();
+  }
+
   set selectedMessage(ReceivedMqttMessage? selectedMessage) {
     _selectedMessage = selectedMessage;
     notifyListeners();
@@ -137,7 +148,7 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
   MessageGroupTimePeriod get groupTimePeriod => _groupTimePeriod;
 
   void _onMessageReceived(ReceivedMqttMessage msg) {
-    if (autoSelect && _selectedMessage != null) {
+    if (autoSelect && _selectedMessage != null && msg.topicName == _selectedMessage!.topicName) {
       if (msg.receivedOn != _selectedMessage!.receivedOn) {
         selectedMessage = msg;
       }
