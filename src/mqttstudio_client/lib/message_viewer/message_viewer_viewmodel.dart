@@ -78,9 +78,46 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
         : List<ReceivedMqttMessage>.empty();
     return messages
         .orderByDescending((x) => x.receivedOn)
-        .take(100)
+        .take(1000)
         .select((x, index) => MqttPublishPayload.bytesToStringAsString(x.payload))
         .toList();
+  }
+
+  num? getMinValue() {
+    var messages = selectedMessage != null
+        ? _messageViewer.messageBuffer.getTopicMessages(selectedMessage!.topicName)
+        : List<ReceivedMqttMessage>.empty();
+
+    var numMessages = messages.select((x, _) => double.tryParse(MqttPublishPayload.bytesToStringAsString(x.payload))).where((x) => x != null).toList().cast<double>();
+    if(numMessages.isEmpty) {
+      return null;
+    }
+    return numMessages.reduce((a, b) => a < b ? a : b);
+    
+  }
+
+  num? getMaxValue() {
+    var messages = selectedMessage != null
+        ? _messageViewer.messageBuffer.getTopicMessages(selectedMessage!.topicName)
+        : List<ReceivedMqttMessage>.empty();
+
+    var numMessages = messages.select((x, _) => double.tryParse(MqttPublishPayload.bytesToStringAsString(x.payload))).where((x) => x != null).toList().cast<double>();
+    if(numMessages.isEmpty) {
+      return null;
+    }
+    return numMessages.reduce((a, b) => a > b ? a : b);    
+  }
+
+  num? getAvgValue() {
+    var messages = selectedMessage != null
+        ? _messageViewer.messageBuffer.getTopicMessages(selectedMessage!.topicName)
+        : List<ReceivedMqttMessage>.empty();
+
+    var numMessages = messages.select((x, _) => double.tryParse(MqttPublishPayload.bytesToStringAsString(x.payload))).where((x) => x != null).toList().cast<double>();
+    if(numMessages.isEmpty) {
+      return null;
+    }
+    return numMessages.average(((x) => x));    
   }
 
   set selectedMessage(ReceivedMqttMessage? selectedMessage) {

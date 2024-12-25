@@ -25,7 +25,7 @@ class MessageDetailView extends StatefulWidget {
 
 class _MessageDetailViewState extends State<MessageDetailView> {
   final _scrollController = ScrollController();
-  bool showLast100Markers = false;
+  bool showLast1000Markers = false;
 
   @override
   Widget build(BuildContext context) {
@@ -228,6 +228,10 @@ class _MessageDetailViewState extends State<MessageDetailView> {
         viewer = _buildMapViewer(payloadString, context, viewmodel);
         break;
 
+      case PayloadType.Number:
+        viewer = _buildNumberViewer(payloadString, viewmodel, context);
+        break;
+
       default:
         viewer = _buildTextViewer(payloadString, context);
         break;
@@ -277,6 +281,47 @@ class _MessageDetailViewState extends State<MessageDetailView> {
                     : Theme.of(context).textTheme.bodyLarge!.copyWith(height: 1.7))));
   }
 
+  Widget _buildNumberViewer(String payload, MessageViewerViewmodel viewmodel, BuildContext context) {
+    return Expanded(
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [SelectableText(payload,
+                style: payload.length < 25
+                    ? Theme.of(context).textTheme.headlineMedium
+                    : Theme.of(context).textTheme.bodyLarge!.copyWith(height: 1.7)),
+                    Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            SizedBox(width: 36, child: Text('messagedetailview.min.label'.tr(), style: Theme.of(context).textTheme.labelLarge)),
+                            SelectableText(viewmodel.getMinValue()?.toStringAsPrecision(10) ?? ''),
+                          ],
+                        ),
+                        Row(
+                          children: [
+                            SizedBox(width: 36, child: Text('messagedetailview.max.label'.tr(), style: Theme.of(context).textTheme.labelLarge)),
+                            SelectableText(viewmodel.getMaxValue()?.toStringAsPrecision(10) ?? '', maxLines: 1),
+                          ],
+                        ),
+                      ],
+                    ),
+                  Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            SizedBox(width: 36, child: Text('messagedetailview.avg.label'.tr(), style: Theme.of(context).textTheme.labelLarge)),
+                            SelectableText(viewmodel.getAvgValue()?.toStringAsPrecision(10) ?? '', maxLines: 1),
+                          ],
+                        ),
+                        Row(children: [Text('')],)
+                      ],
+                    )]));
+  }
+
   Widget _buildJsonViewer(String payload, BuildContext context) {
     return Expanded(child: SingleChildScrollView(controller: _scrollController, child: JsonViewer(jsonDecode(payload))));
   }
@@ -295,10 +340,10 @@ class _MessageDetailViewState extends State<MessageDetailView> {
             children: [
               Row(
                 children: [
-                  Checkbox(value: showLast100Markers, onChanged: (value) => setState(() => showLast100Markers = value ?? false)),
+                  Checkbox(value: showLast1000Markers, onChanged: (value) => setState(() => showLast1000Markers = value ?? false)),
                   InkWell(
-                      child: Text('Show last 100', style: Theme.of(context).textTheme.labelLarge),
-                      onTap: () => setState(() => showLast100Markers = !showLast100Markers)),
+                      child: Text("messagedetailview.showlast1000.label".tr(), style: Theme.of(context).textTheme.labelLarge),
+                      onTap: () => setState(() => showLast1000Markers = !showLast1000Markers)),
                 ],
               ),
               Text('( ' + payload + ' )', style: Theme.of(context).textTheme.labelLarge),
@@ -312,7 +357,7 @@ class _MessageDetailViewState extends State<MessageDetailView> {
               openStreetMapTileLayer,
               MarkerLayer(markers: [
                 // add a marker for each message
-                if (showLast100Markers)
+                if (showLast1000Markers)
                   ...viewmodel.getValues().map((value) {
                     var lat = double.parse(value.split(',')[0]);
                     var lon = double.parse(value.split(',')[1]);
