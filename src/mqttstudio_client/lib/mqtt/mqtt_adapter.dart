@@ -35,7 +35,7 @@ class MqttAdapter {
   Future connect(MqttSettings mqttSettings) async {
     var hostname = mqttSettings.hostname;
     if (mqttSettings.useWebSockets) {
-      hostname = (mqttSettings.useSsl ? SecureWebSocketPrefix : WebSocketPrefix) + hostname + "/mqtt";
+      hostname = (mqttSettings.useSsl ? SecureWebSocketPrefix : WebSocketPrefix) + hostname;
     }
 
     _client = mqttsetup.setup(hostname, mqttSettings.clientId);
@@ -101,7 +101,8 @@ class MqttAdapter {
     _client.unsubscribe(topic, expectAcknowledge: true);
   }
 
-  void publish(String topic, dynamic payload, MqttPayloadType payloadType, bool retain, [MqttQos qos = MqttQos.atMostOnce]) {
+  void publish(String topic, dynamic payload, MqttPayloadType payloadType, bool retain,
+      [MqttQos qos = MqttQos.atMostOnce]) {
     var payloadBuilder = MqttClientPayloadBuilder();
     switch (payloadType) {
       case MqttPayloadType.string:
