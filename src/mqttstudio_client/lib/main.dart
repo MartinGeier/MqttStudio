@@ -33,7 +33,11 @@ void main() async {
 
   runApp(
     EasyLocalization(
-        supportedLocales: [Locale('en')], path: 'assets/i18n', fallbackLocale: Locale('en'), assetLoader: SrxAssetLoader(), child: MyApp()),
+        supportedLocales: [Locale('en')],
+        path: 'assets/i18n',
+        fallbackLocale: Locale('en'),
+        assetLoader: SrxAssetLoader(),
+        child: MyApp()),
   );
 }
 
@@ -44,7 +48,7 @@ Future openLocalDatabase() async {
 
 void setupServiceLocator() {
   // repositories
-  GetIt.I.registerSingleton<SrxCrudRepository<Project, Project>>(LocalProjectRepository());
+  GetIt.I.registerSingleton<SrxCrudRepository<Project>>(LocalProjectRepository());
 
   // common
   GetIt.I.registerSingleton(SrxSessionController(true, '', ''));
@@ -73,7 +77,8 @@ class MyApp extends StatelessWidget {
               supportedLocales: context.supportedLocales,
               locale: context.locale,
               navigatorKey: GetIt.instance.get<SrxNavigationService>().navigatorKey,
-              home: /*GetIt.instance.get<SSessionController>().isLoggedIn ? */ MessageViewerPage())) /*: LoginPage() */,
+              home: /*GetIt.instance.get<SSessionController>().isLoggedIn ? */
+                  SrxTheme(data: CustomTheme.srxTheme, child: MessageViewerPage()))) /*: LoginPage() */,
     );
   }
 }
@@ -81,5 +86,6 @@ class MyApp extends StatelessWidget {
 Future<bool?> onClosingNotSaved() async {
   return await showDialog<bool>(
       context: GetIt.instance.get<SrxNavigationService>().navigatorKey.currentContext!,
-      builder: (context) => SrxDialogs.srxYesNoDialog('navigator.confirmsaving_message'.tr(), context, showCancel: true));
+      builder: (context) =>
+          SrxDialogs.srxYesNoDialog('navigator.confirmsaving_message'.tr(), context, showCancel: true));
 }

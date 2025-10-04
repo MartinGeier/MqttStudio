@@ -1,20 +1,38 @@
 import 'package:flutter/material.dart';
+import 'package:srx_flutter/srx_flutter.dart';
 
 class CustomTheme {
   static ThemeData lightTheme = ThemeData(
       useMaterial3: false,
       colorScheme: ColorScheme.fromSwatch(
-          accentColor: Color(0xffB71C1C), primarySwatch: _primaryPalette, errorColor: Color(0xfff62a00), brightness: Brightness.light),
+          accentColor: Color(0xffB71C1C),
+          primarySwatch: _primaryPalette,
+          errorColor: Color(0xfff62a00),
+          brightness: Brightness.light),
       //toggleableActiveColor: _primaryPalette,
       inputDecorationTheme: InputDecorationTheme(
         errorStyle: TextStyle(height: 0.6),
       ),
       //popupMenuTheme: PopupMenuThemeData(textStyle: TextStyle(fontSize: 12)),
-      elevatedButtonTheme: ElevatedButtonThemeData(style: ButtonStyle(minimumSize: WidgetStateProperty.all(Size(150, 48)))),
-      outlinedButtonTheme: OutlinedButtonThemeData(style: ButtonStyle(minimumSize: WidgetStateProperty.all(Size(150, 48)))),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ButtonStyle(
+        minimumSize: WidgetStateProperty.all(Size(150, 48)),
+        shape: WidgetStateProperty.all(RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0))),
+      )),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+          style: ButtonStyle(
+        minimumSize: WidgetStateProperty.all(Size(150, 48)),
+        shape: WidgetStateProperty.all(RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0))),
+      )),
+      filledButtonTheme: FilledButtonThemeData(
+          style: ButtonStyle(
+        minimumSize: WidgetStateProperty.all(Size(150, 48)),
+        shape: WidgetStateProperty.all(RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0))),
+      )),
       textButtonTheme: TextButtonThemeData(style: ButtonStyle(minimumSize: WidgetStateProperty.all(Size(150, 48)))),
-      textTheme:
-          ThemeData.light().textTheme.copyWith(titleSmall: TextStyle(fontWeight: FontWeight.w600), titleMedium: TextStyle(fontSize: 16)));
+      textTheme: ThemeData.light()
+          .textTheme
+          .copyWith(titleSmall: TextStyle(fontWeight: FontWeight.w600), titleMedium: TextStyle(fontSize: 16)));
 
   // create with http://mcg.mbitson.com/
   static const int _grey = 0xFF616161;
@@ -30,6 +48,11 @@ class CustomTheme {
     800: Color(0xFF454545),
     900: Color(0xFF333333),
   });
+
+  static SrxThemeData srxTheme = SrxThemeData(
+      dialogsThemeData: SrxDialogsThemeData(
+    actionsPadding: EdgeInsets.all(16),
+  ));
 }
 
 extension ThemeDataEx on ThemeData {
