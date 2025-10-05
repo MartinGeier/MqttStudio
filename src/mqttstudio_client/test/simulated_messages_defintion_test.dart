@@ -1,12 +1,18 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mqtt_client/mqtt_client.dart';
+import 'package:mqtt5_client/mqtt5_client.dart';
 import 'package:mqttstudio/simulator/model/simulated_messages_definition.dart';
 
 void main() {
   group('RandomStringSimulatedMessageDefinition', () {
     test('constructor initializes fields correctly', () {
       var messageDefinition = RandomStringSimulatedMessageDefinition('topicPath',
-          minLength: 5, maxLength: 15, charSet: 'abc', qos: MqttQos.atLeastOnce, retained: true, prefix: 'pre', postfix: 'post');
+          minLength: 5,
+          maxLength: 15,
+          charSet: 'abc',
+          qos: MqttQos.atLeastOnce,
+          retained: true,
+          prefix: 'pre',
+          postfix: 'post');
 
       expect(messageDefinition.topicPath, equals('topicPath'));
       expect(messageDefinition.minLength, equals(5));
@@ -20,19 +26,32 @@ void main() {
 
     test('generatePayload returns string of correct length and with correct prefix and postfix', () {
       var messageDefinition = RandomStringSimulatedMessageDefinition('topicPath',
-          minLength: 5, maxLength: 15, charSet: 'abc', qos: MqttQos.atLeastOnce, retained: true, prefix: 'pre', postfix: 'post');
+          minLength: 5,
+          maxLength: 15,
+          charSet: 'abc',
+          qos: MqttQos.atLeastOnce,
+          retained: true,
+          prefix: 'pre',
+          postfix: 'post');
 
       var payload = messageDefinition.generatePayload();
       expect(payload.length, greaterThanOrEqualTo(5 + 'pre'.length + 'post'.length));
       expect(payload.length, lessThanOrEqualTo(15 + 'pre'.length + 'post'.length));
       expect(payload.startsWith('pre'), equals(true));
       expect(payload.endsWith('post'), equals(true));
-      expect(payload.substring('pre'.length, payload.length - 'post'.length).split('').every((x) => 'abc'.contains(x)), equals(true));
+      expect(payload.substring('pre'.length, payload.length - 'post'.length).split('').every((x) => 'abc'.contains(x)),
+          equals(true));
     });
 
     test('getPayloadDefintionString returns correct definition string', () {
       var messageDefinition = RandomStringSimulatedMessageDefinition('topicPath',
-          minLength: 5, maxLength: 15, charSet: 'abc', qos: MqttQos.atLeastOnce, retained: true, prefix: 'pre', postfix: 'post');
+          minLength: 5,
+          maxLength: 15,
+          charSet: 'abc',
+          qos: MqttQos.atLeastOnce,
+          retained: true,
+          prefix: 'pre',
+          postfix: 'post');
 
       var definitionString = messageDefinition.getPayloadDefintionString();
       expect(definitionString, equals('type=rs; prefix=pre; postfix=post; minLength=5; maxLength=15; charSet=abc'));
@@ -56,7 +75,13 @@ void main() {
 
     test('generatePayload returns string of correct length and with correct prefix and postfix', () {
       var messageDefinition = RandomNumberSimulatedMessageDefinition('topicPath',
-          minValue: 5, maxValue: 15, digitsAfterDecimalPoint: 2, qos: MqttQos.atLeastOnce, retained: true, prefix: 'pre', postfix: 'post');
+          minValue: 5,
+          maxValue: 15,
+          digitsAfterDecimalPoint: 2,
+          qos: MqttQos.atLeastOnce,
+          retained: true,
+          prefix: 'pre',
+          postfix: 'post');
 
       var payload = messageDefinition.generatePayload();
       // test number is between 5 and 15 by remioving prefix and postfix
@@ -69,10 +94,17 @@ void main() {
 
     test('getPayloadDefintionString returns correct definition string', () {
       var messageDefinition = RandomNumberSimulatedMessageDefinition('topicPath',
-          minValue: 5, maxValue: 15, digitsAfterDecimalPoint: 2, qos: MqttQos.atLeastOnce, retained: true, prefix: 'pre', postfix: 'post');
+          minValue: 5,
+          maxValue: 15,
+          digitsAfterDecimalPoint: 2,
+          qos: MqttQos.atLeastOnce,
+          retained: true,
+          prefix: 'pre',
+          postfix: 'post');
 
       var definitionString = messageDefinition.getPayloadDefintionString();
-      expect(definitionString, equals('type=rn; prefix=pre; postfix=post; minValue=5.0; maxValue=15.0; digitsAfterDecimalPoint=2'));
+      expect(definitionString,
+          equals('type=rn; prefix=pre; postfix=post; minValue=5.0; maxValue=15.0; digitsAfterDecimalPoint=2'));
     });
   });
 

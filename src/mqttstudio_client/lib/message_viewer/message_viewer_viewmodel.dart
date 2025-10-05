@@ -1,6 +1,6 @@
 import 'package:darq/darq.dart';
 import 'package:get_it/get_it.dart';
-import 'package:mqtt_client/mqtt_client.dart';
+import 'package:mqtt5_client/mqtt5_client.dart';
 import 'package:mqttstudio/model/mqtt_payload_type.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
 import 'package:mqttstudio/message_viewer/message_viewer.dart';
@@ -9,6 +9,7 @@ import 'package:mqttstudio/model/topic_subscription.dart';
 import 'package:mqttstudio/message_viewer/message_buffer.dart';
 import 'package:mqttstudio/project/project_manager.dart';
 import 'package:srx_flutter/srx_flutter.dart';
+import 'package:mqttstudio/common/utils/payload_utils.dart';
 
 class MessageViewerViewmodel extends SrxChangeNotifier {
   TopicViewMode _topicViewMode = TopicViewMode.Grouped;
@@ -65,10 +66,11 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
         ? _messageViewer.messageBuffer.getTopicMessages(selectedMessage!.topicName)
         : List<ReceivedMqttMessage>.empty();
     return messages
-        .where((x) => double.tryParse(MqttPublishPayload.bytesToStringAsString(x.payload)) != null)
+        .where((x) => double.tryParse(PayloadUtils.safePayloadToString(x.payload)) != null)
         .orderByDescending((x) => x.receivedOn)
         .take(100)
-        .select((x, index) => Tuple2<DateTime, double>(x.receivedOn, double.parse(MqttPublishPayload.bytesToStringAsString(x.payload))))
+        .select((x, index) =>
+            Tuple2<DateTime, double>(x.receivedOn, double.parse(PayloadUtils.safePayloadToString(x.payload))))
         .toList();
   }
 
@@ -79,7 +81,7 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
     return messages
         .orderByDescending((x) => x.receivedOn)
         .take(1000)
-        .select((x, index) => MqttPublishPayload.bytesToStringAsString(x.payload))
+        .select((x, index) => PayloadUtils.safePayloadToString(x.payload))
         .toList();
   }
 
@@ -88,12 +90,15 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
         ? _messageViewer.messageBuffer.getTopicMessages(selectedMessage!.topicName)
         : List<ReceivedMqttMessage>.empty();
 
-    var numMessages = messages.select((x, _) => double.tryParse(MqttPublishPayload.bytesToStringAsString(x.payload))).where((x) => x != null).toList().cast<double>();
-    if(numMessages.isEmpty) {
+    var numMessages = messages
+        .select((x, _) => double.tryParse(PayloadUtils.safePayloadToString(x.payload)))
+        .where((x) => x != null)
+        .toList()
+        .cast<double>();
+    if (numMessages.isEmpty) {
       return null;
     }
     return numMessages.reduce((a, b) => a < b ? a : b);
-    
   }
 
   num? getMaxValue() {
@@ -101,11 +106,15 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
         ? _messageViewer.messageBuffer.getTopicMessages(selectedMessage!.topicName)
         : List<ReceivedMqttMessage>.empty();
 
-    var numMessages = messages.select((x, _) => double.tryParse(MqttPublishPayload.bytesToStringAsString(x.payload))).where((x) => x != null).toList().cast<double>();
-    if(numMessages.isEmpty) {
+    var numMessages = messages
+        .select((x, _) => double.tryParse(PayloadUtils.safePayloadToString(x.payload)))
+        .where((x) => x != null)
+        .toList()
+        .cast<double>();
+    if (numMessages.isEmpty) {
       return null;
     }
-    return numMessages.reduce((a, b) => a > b ? a : b);    
+    return numMessages.reduce((a, b) => a > b ? a : b);
   }
 
   num? getAvgValue() {
@@ -113,11 +122,15 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
         ? _messageViewer.messageBuffer.getTopicMessages(selectedMessage!.topicName)
         : List<ReceivedMqttMessage>.empty();
 
-    var numMessages = messages.select((x, _) => double.tryParse(MqttPublishPayload.bytesToStringAsString(x.payload))).where((x) => x != null).toList().cast<double>();
-    if(numMessages.isEmpty) {
+    var numMessages = messages
+        .select((x, _) => double.tryParse(PayloadUtils.safePayloadToString(x.payload)))
+        .where((x) => x != null)
+        .toList()
+        .cast<double>();
+    if (numMessages.isEmpty) {
       return null;
     }
-    return numMessages.average(((x) => x));    
+    return numMessages.average(((x) => x));
   }
 
   set selectedMessage(ReceivedMqttMessage? selectedMessage) {
@@ -139,8 +152,8 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
   void rePublish() {
     assert(_selectedMessage != null);
 
-    GetIt.I.get<MessageViewer>().publishTopic(
-        _selectedMessage!.topicName, _selectedMessage!.payload, MqttPayloadType.binary, _selectedMessage!.retain, _selectedMessage!.qos);
+    GetIt.I.get<MessageViewer>().publishTopic(_selectedMessage!.topicName, _selectedMessage!.payload,
+        MqttPayloadType.binary, _selectedMessage!.retain, _selectedMessage!.qos);
   }
 
   TopicViewMode get topicViewMode => _topicViewMode;
@@ -178,7 +191,8 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
     _messageViewer.clearMessages();
   }
 
-  void publishTopic(String topic, dynamic payload, MqttPayloadType payloadType, bool retain, [MqttQos qos = MqttQos.atMostOnce]) {
+  void publishTopic(String topic, dynamic payload, MqttPayloadType payloadType, bool retain,
+      [MqttQos qos = MqttQos.atMostOnce]) {
     _messageViewer.publishTopic(topic, payload, payloadType, retain, qos);
   }
 

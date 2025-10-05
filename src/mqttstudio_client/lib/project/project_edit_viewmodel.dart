@@ -33,8 +33,10 @@ class ProjectEditViewmodel extends SrxChangeNotifier {
 
   FormGroup buildFormGroup() {
     return FormGroup({
-      projectNameField: FormControl<String>(validators: [Validators.required, Validators.maxLength(30), Validators.minLength(3)]),
-      mqttHostnameField: FormControl<String>(validators: [Validators.required, Validators.maxLength(100), Validators.minLength(5)]),
+      projectNameField:
+          FormControl<String>(validators: [Validators.required, Validators.maxLength(30), Validators.minLength(3)]),
+      mqttHostnameField:
+          FormControl<String>(validators: [Validators.required, Validators.maxLength(100), Validators.minLength(5)]),
       clientIdField: FormControl<String>(
           validators: [Validators.required, Validators.maxLength(100), Validators.minLength(3)],
           value: project == null ? Random().nextInt(999999).toString() : null),
@@ -62,7 +64,8 @@ class ProjectEditViewmodel extends SrxChangeNotifier {
   void toProject() {
     if (project == null) {
       project = Project(
-        MqttSettings(form.control(mqttHostnameField).value, form.control(clientIdField).value, form.control(portField).value,
+        MqttSettings(
+            form.control(mqttHostnameField).value, form.control(clientIdField).value, form.control(portField).value,
             username: form.control(usernameField).value, password: form.control(passwordField).value),
         name: form.control(projectNameField).value,
       );

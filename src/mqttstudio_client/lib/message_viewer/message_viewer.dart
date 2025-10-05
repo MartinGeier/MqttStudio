@@ -1,7 +1,7 @@
 import 'package:event/event.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
-import 'package:mqtt_client/mqtt_client.dart';
+import 'package:mqtt5_client/mqtt5_client.dart';
 import 'package:mqttstudio/model/topic_color.dart';
 import 'package:mqttstudio/model/topic_subscription.dart';
 import 'package:mqttstudio/mqtt/mqtt_adapter.dart';
@@ -11,8 +11,6 @@ import 'package:mqttstudio/message_viewer/message_buffer.dart';
 import 'package:mqttstudio/project/project_manager.dart';
 import 'package:mqttstudio/service/service_error.dart';
 import 'package:srx_flutter/srx_flutter.dart';
-
-import '../model/project.dart';
 
 // Manages MQTT operations for message viewers. Receives messages from MQTTAdapter and offers events for viewmodels.
 // Stores all received messages using MessageBuffer
@@ -121,7 +119,8 @@ class MessageViewer {
     messageBuffer.storeMessage(msg);
     messageReceivedEvent.broadcast(msg);
 
-    var sub = TopicSubscription.getTopicSubscriptionMatch(msg.topicName, _projectManager.currentProject!.topicSubscriptions);
+    var sub =
+        TopicSubscription.getTopicSubscriptionMatch(msg.topicName, _projectManager.currentProject!.topicSubscriptions);
     if (sub != null) {
       _projectManager.currentProject!.topicColors[msg.topicName] = sub.color;
     } else {
@@ -158,7 +157,8 @@ class MessageViewer {
     }
   }
 
-  void publishTopic(String topic, dynamic payload, MqttPayloadType payloadType, bool retain, [MqttQos qos = MqttQos.atLeastOnce]) {
+  void publishTopic(String topic, dynamic payload, MqttPayloadType payloadType, bool retain,
+      [MqttQos qos = MqttQos.atLeastOnce]) {
     if (_mqttAdapter.isConnected()) {
       _mqttAdapter.publish(topic, payload, payloadType, retain, qos);
     }

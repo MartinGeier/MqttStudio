@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
-import 'package:mqtt_client/mqtt_client.dart';
+import 'package:mqtt5_client/mqtt5_client.dart';
 import 'package:mqttstudio/message_viewer/message_viewer.dart';
 import 'package:mqttstudio/model/topic_color.dart';
 import 'package:mqttstudio/model/topic_subscription.dart';
@@ -20,7 +20,8 @@ class AddTopicViewmodel extends SrxChangeNotifier {
 
   FormGroup buildFormGroup() {
     return FormGroup({
-      topicNameField: FormControl<String>(validators: [Validators.required, Validators.maxLength(200), TopicNameValidator()]),
+      topicNameField:
+          FormControl<String>(validators: [Validators.required, Validators.maxLength(200), TopicNameValidator()]),
       qosField: FormControl<MqttQos>(validators: [Validators.required], value: MqttQos.atLeastOnce),
       colorField: FormControl<Color>(validators: [Validators.required], value: TopicColor.random().color),
     });
@@ -46,6 +47,8 @@ class TopicNameValidator extends Validator<dynamic> {
 
   @override
   Map<String, dynamic>? validate(AbstractControl<dynamic> control) {
-    return control.isNotNull && ('#'.allMatches(control.value).length) < 2 ? null : {'invalidTopicName': 'Invalid topic name'};
+    return control.isNotNull && ('#'.allMatches(control.value).length) < 2
+        ? null
+        : {'invalidTopicName': 'Invalid topic name'};
   }
 }

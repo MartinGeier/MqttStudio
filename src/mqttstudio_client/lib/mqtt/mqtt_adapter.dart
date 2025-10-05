@@ -1,6 +1,7 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/services.dart';
-import 'package:mqtt_client/mqtt_client.dart';
+import 'package:mqtt5_client/mqtt5_client.dart';
 import 'mqttserver.dart' if (dart.library.html) 'mqttbrowser.dart' as mqttsetup;
 import 'package:mqttstudio/model/mqtt_payload_type.dart';
 import 'package:mqttstudio/model/mqtt_settings.dart';
@@ -10,6 +11,7 @@ import 'package:srx_flutter/srx_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:synchronized/synchronized.dart' as lock;
 import 'package:event/event.dart';
+import 'package:typed_data/typed_buffers.dart';
 
 // Keeps the connection to the MQTT broker and offers basic operations such as publishing a topic and subscribing to a topic.
 // Publishes the onMessageReceived event for further processing of incoming messages.
@@ -48,8 +50,7 @@ class MqttAdapter {
     _client.connectionMessage = MqttConnectMessage().startClean().withClientIdentifier(mqttSettings.clientId);
     _client.keepAlivePeriod = 20;
     _client.logging(on: true);
-    _client.setProtocolV311();
-    _client.websocketProtocols = MqttClientConstants.protocolsSingleDefault;
+    _client.websocketProtocols = ['mqtt'];
 
     // setup for server client only
     mqttsetup.setupSecure(
@@ -63,15 +64,11 @@ class MqttAdapter {
 
     try {
       await _client.connect(mqttSettings.username, mqttSettings.password);
-      _client.updates!.listen((event) => _onDataReceived(event));
+      _client.updates.listen((event) => _onDataReceived(event));
     } on SocketException catch (exc) {
       print('MQTT: error connecting [${exc.message}, ${exc.osError?.message}]');
       _client.disconnect();
       throw new SrxServiceException('${exc.message}, ${exc.osError}', ServiceError.MqttCannotConnect);
-    } on NoConnectionException catch (exc) {
-      print('MQTT: error connecting [$exc]');
-      _client.disconnect();
-      throw new SrxServiceException(exc.toString(), ServiceError.MqttCannotConnect);
     } on Exception catch (exc) {
       print('MQTT: error connecting [$exc]');
       _client.disconnect();
@@ -98,15 +95,19 @@ class MqttAdapter {
     if (!isConnected()) {
       throw new SrxServiceException('Not connected to MQTT broker', ServiceError.MqttNotConnected);
     }
-    _client.unsubscribe(topic, expectAcknowledge: true);
+    _client.unsubscribeStringTopic(topic);
   }
 
   void publish(String topic, dynamic payload, MqttPayloadType payloadType, bool retain,
       [MqttQos qos = MqttQos.atMostOnce]) {
-    var payloadBuilder = MqttClientPayloadBuilder();
+    var payloadBuilder = MqttPayloadBuilder();
     switch (payloadType) {
       case MqttPayloadType.string:
-        payloadBuilder.addString(payload);
+        // Ensure proper UTF-8 encoding for German umlauts and other special characters
+        var utf8Bytes = utf8.encode(payload as String);
+        var buffer = Uint8Buffer();
+        buffer.addAll(utf8Bytes);
+        payloadBuilder.addBuffer(buffer);
         break;
 
       case MqttPayloadType.bool:
@@ -136,7 +137,7 @@ class MqttAdapter {
     await _lock.synchronized(() async {
       for (var msg in messages) {
         var rawMsg = msg.payload as MqttPublishMessage;
-        var payload = rawMsg.payload.message;
+        var payload = rawMsg.payload.message ?? Uint8Buffer(0); // or some other default
         ReceivedMqttMessage receivedMsg = ReceivedMqttMessage.received(rawMsg.variableHeader!.messageIdentifier,
             rawMsg.variableHeader!.topicName, payload, rawMsg.header!.qos, rawMsg.header?.retain ?? false);
         messageReceivedEvent.broadcast(receivedMsg);
@@ -144,11 +145,15 @@ class MqttAdapter {
     });
   }
 
-  void _onSubscribed(String topic) {
-    _activeSubscriptions.add(topic);
+  void _onSubscribed(MqttSubscription subscription) {
+    if (subscription.topic.rawTopic != null) {
+      _activeSubscriptions.add(subscription.topic.rawTopic!);
+    }
   }
 
-  void _onUnsubscribed(String? topic) {
-    _activeSubscriptions.remove(topic);
+  void _onUnsubscribed(MqttSubscription? subscription) {
+    if (subscription != null && subscription.topic.rawTopic != null) {
+      _activeSubscriptions.remove(subscription.topic.rawTopic!);
+    }
   }
 }

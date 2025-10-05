@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:path/path.dart' as path;
-import 'package:mqtt_client/mqtt_client.dart';
+import 'package:mqtt5_client/mqtt5_client.dart';
 import 'dart:math';
 
 class SimulatedMessageDefinition {
@@ -178,7 +178,11 @@ class IncrementingNumberSimulatedMessageDefinition extends SimulatedMessageDefin
   late int digitsAfterDecimalPoint;
 
   IncrementingNumberSimulatedMessageDefinition(String topicPath,
-      {this.nextValue = 1, this.increment = 1, this.digitsAfterDecimalPoint = 0, MqttQos qos = MqttQos.atLeastOnce, bool retained = false})
+      {this.nextValue = 1,
+      this.increment = 1,
+      this.digitsAfterDecimalPoint = 0,
+      MqttQos qos = MqttQos.atLeastOnce,
+      bool retained = false})
       : super(topicPath, qos: qos, retained: retained);
 
   IncrementingNumberSimulatedMessageDefinition.fromPayloadDefinitionString(String topicPath, String definition,
@@ -425,7 +429,8 @@ class DiscreteNumbersSimulatedMessageDefinition extends SimulatedMessageDefintio
 class RandomImageSimulatedMessageDefinition extends SimulatedMessageDefinition {
   late String imagesFolderPath;
 
-  RandomImageSimulatedMessageDefinition(String topicPath, this.imagesFolderPath, {MqttQos qos = MqttQos.atLeastOnce, bool retained = false})
+  RandomImageSimulatedMessageDefinition(String topicPath, this.imagesFolderPath,
+      {MqttQos qos = MqttQos.atLeastOnce, bool retained = false})
       : super(topicPath, qos: qos, retained: retained);
 
   RandomImageSimulatedMessageDefinition.fromPayloadDefinitionString(String topicPath, String definition,
@@ -473,7 +478,8 @@ class RandomImageSimulatedMessageDefinition extends SimulatedMessageDefinition {
 class JsonSimulatedMessageDefintion extends SimulatedMessageDefinition {
   String jsonTemplate;
 
-  JsonSimulatedMessageDefintion(String topicPath, this.jsonTemplate, {MqttQos qos = MqttQos.atLeastOnce, bool retained = false})
+  JsonSimulatedMessageDefintion(String topicPath, this.jsonTemplate,
+      {MqttQos qos = MqttQos.atLeastOnce, bool retained = false})
       : super(topicPath, qos: qos, retained: retained);
 
   @override
@@ -502,14 +508,16 @@ class JsonSimulatedMessageDefintion extends SimulatedMessageDefinition {
           var maxValue = double.parse(definitionParts.where((x) => x.startsWith("maxValue=")).first.split("=")[1]);
           var prefix = definitionParts.where((x) => x.startsWith("prefix=")).first.split("=")[1];
           var postfix = definitionParts.where((x) => x.startsWith("postfix=")).first.split("=")[1];
-          var value = RandomNumberSimulatedMessageDefinition("", minValue: minValue, maxValue: maxValue, prefix: prefix, postfix: postfix)
+          var value = RandomNumberSimulatedMessageDefinition("",
+                  minValue: minValue, maxValue: maxValue, prefix: prefix, postfix: postfix)
               .generatePayload();
           return value;
 
         case "in":
           var nextValue = double.parse(definitionParts.where((x) => x.startsWith("nextValue=")).first.split("=")[1]);
           var increment = double.parse(definitionParts.where((x) => x.startsWith("increment=")).first.split("=")[1]);
-          var value = IncrementingNumberSimulatedMessageDefinition("", nextValue: nextValue, increment: increment).generatePayload();
+          var value = IncrementingNumberSimulatedMessageDefinition("", nextValue: nextValue, increment: increment)
+              .generatePayload();
           return value;
 
         case "ic":
@@ -517,9 +525,9 @@ class JsonSimulatedMessageDefintion extends SimulatedMessageDefinition {
           var increment = int.parse(definitionParts.where((x) => x.startsWith("increment=")).first.split("=")[1]);
           var prefix = definitionParts.where((x) => x.startsWith("prefix=")).first.split("=")[1];
           var postfix = definitionParts.where((x) => x.startsWith("postfix=")).first.split("=")[1];
-          var value =
-              IncrementingCodeSimulatedMessageDefinition("", nextValue: nextValue, increment: increment, prefix: prefix, postfix: postfix)
-                  .generatePayload();
+          var value = IncrementingCodeSimulatedMessageDefinition("",
+                  nextValue: nextValue, increment: increment, prefix: prefix, postfix: postfix)
+              .generatePayload();
           return value;
 
         case "rb":
@@ -532,7 +540,8 @@ class JsonSimulatedMessageDefintion extends SimulatedMessageDefinition {
           strings = strings.map((e) => e.replaceAll("\\,", ",")).toList();
           var prefix = definitionParts.where((x) => x.startsWith("prefix=")).first.split("=")[1];
           var postfix = definitionParts.where((x) => x.startsWith("postfix=")).first.split("=")[1];
-          var value = DiscreteStringsSimulatedMessageDefinition("", strings, prefix: prefix, postfix: postfix).generatePayload();
+          var value = DiscreteStringsSimulatedMessageDefinition("", strings, prefix: prefix, postfix: postfix)
+              .generatePayload();
           return value;
 
         case "dn":
@@ -541,7 +550,8 @@ class JsonSimulatedMessageDefintion extends SimulatedMessageDefinition {
           var numbers = escapedNumbers.map((e) => double.parse(e.replaceAll("\\,", ","))).toList();
           var prefix = definitionParts.where((x) => x.startsWith("prefix=")).first.split("=")[1];
           var postfix = definitionParts.where((x) => x.startsWith("postfix=")).first.split("=")[1];
-          var value = DiscreteNumbersSimulatedMessageDefinition("", numbers, prefix: prefix, postfix: postfix).generatePayload();
+          var value = DiscreteNumbersSimulatedMessageDefinition("", numbers, prefix: prefix, postfix: postfix)
+              .generatePayload();
           return value;
 
         case "ri":

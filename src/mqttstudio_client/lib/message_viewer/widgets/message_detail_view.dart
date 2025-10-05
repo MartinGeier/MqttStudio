@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:mqtt_client/mqtt_client.dart';
+import 'package:mqtt5_client/mqtt5_client.dart';
 import 'package:typed_data/typed_buffers.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -15,6 +15,7 @@ import 'package:mqttstudio/custom_theme.dart';
 import '../../common/widgets/topic_chart.dart';
 import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:latlong2/latlong.dart';
+import '../../common/utils/payload_utils.dart';
 
 class MessageDetailView extends StatefulWidget {
   MessageDetailView({Key? key}) : super(key: key);
@@ -60,7 +61,9 @@ class _MessageDetailViewState extends State<MessageDetailView> {
             SizedBox(height: 24),
             _buildPayload(context, topic, viewmodel),
             SizedBox(height: 12),
-            chartValues.length > 1 ? Container(height: 300, child: TopicChart(values: chartValues, topic: topic)) : SizedBox(),
+            chartValues.length > 1
+                ? Container(height: 300, child: TopicChart(values: chartValues, topic: topic))
+                : SizedBox(),
           ]));
     });
   }
@@ -112,7 +115,11 @@ class _MessageDetailViewState extends State<MessageDetailView> {
           onPressed: () => viewmodel.rePublish(),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(children: [Icon(Icons.send), SizedBox(width: 12), Text('messagedetailview.republishbutton.label'.tr())]),
+            child: Row(children: [
+              Icon(Icons.send),
+              SizedBox(width: 12),
+              Text('messagedetailview.republishbutton.label'.tr())
+            ]),
           )),
     );
   }
@@ -147,7 +154,8 @@ class _MessageDetailViewState extends State<MessageDetailView> {
           width: 160,
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('messagedetailview.receivedon.label'.tr(), style: Theme.of(context).textTheme.titleMedium),
-            SelectableText(DateFormat('HH:mm:ss').format(topic.receivedOn) + nf.format(topic.receivedOn.millisecond / 1000),
+            SelectableText(
+                DateFormat('HH:mm:ss').format(topic.receivedOn) + nf.format(topic.receivedOn.millisecond / 1000),
                 style: Theme.of(context).textTheme.headlineSmall)
           ]),
         ),
@@ -181,7 +189,8 @@ class _MessageDetailViewState extends State<MessageDetailView> {
             width: 160,
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('messagedetailview.qos.label'.tr(), style: Theme.of(context).textTheme.titleMedium),
-              SelectableText(MqttQos.values[topic.qos.index].toString().tr(), style: Theme.of(context).textTheme.headlineSmall)
+              SelectableText(MqttQos.values[topic.qos.index].toString().tr(),
+                  style: Theme.of(context).textTheme.headlineSmall)
             ]),
           ),
           SizedBox(
@@ -212,7 +221,7 @@ class _MessageDetailViewState extends State<MessageDetailView> {
 
   Widget _buildPayload(BuildContext context, ReceivedMqttMessage topic, MessageViewerViewmodel viewmodel) {
     var payLoadType = detectPayloadType(topic.payload);
-    String payloadString = MqttPublishPayload.bytesToStringAsString(topic.payload);
+    String payloadString = PayloadUtils.safePayloadToString(topic.payload);
 
     Widget viewer;
     switch (payLoadType) {
@@ -260,7 +269,8 @@ class _MessageDetailViewState extends State<MessageDetailView> {
                 maintainState: true,
                 child: IconButton(
                     tooltip: 'messagedetailview.copypayload.label'.tr(),
-                    onPressed: () => Clipboard.setData(ClipboardData(text: MqttPublishPayload.bytesToStringAsString(topic.payload))),
+                    onPressed: () =>
+                        Clipboard.setData(ClipboardData(text: PayloadUtils.safePayloadToString(topic.payload))),
                     icon: Icon(Icons.copy)),
               ),
             ],
@@ -283,47 +293,56 @@ class _MessageDetailViewState extends State<MessageDetailView> {
 
   Widget _buildNumberViewer(String payload, MessageViewerViewmodel viewmodel, BuildContext context) {
     return Expanded(
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [SelectableText(payload,
-                style: payload.length < 25
-                    ? Theme.of(context).textTheme.headlineMedium
-                    : Theme.of(context).textTheme.bodyLarge!.copyWith(height: 1.7)),
-                    Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            SizedBox(width: 36, child: Text('messagedetailview.min.label'.tr(), style: Theme.of(context).textTheme.labelLarge)),
-                            SelectableText(viewmodel.getMinValue()?.toStringAsPrecision(10) ?? ''),
-                          ],
-                        ),
-                        Row(
-                          children: [
-                            SizedBox(width: 36, child: Text('messagedetailview.max.label'.tr(), style: Theme.of(context).textTheme.labelLarge)),
-                            SelectableText(viewmodel.getMaxValue()?.toStringAsPrecision(10) ?? '', maxLines: 1),
-                          ],
-                        ),
-                      ],
-                    ),
-                  Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            SizedBox(width: 36, child: Text('messagedetailview.avg.label'.tr(), style: Theme.of(context).textTheme.labelLarge)),
-                            SelectableText(viewmodel.getAvgValue()?.toStringAsPrecision(10) ?? '', maxLines: 1),
-                          ],
-                        ),
-                        Row(children: [Text('')],)
-                      ],
-                    )]));
+        child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+      SelectableText(payload,
+          style: payload.length < 25
+              ? Theme.of(context).textTheme.headlineMedium
+              : Theme.of(context).textTheme.bodyLarge!.copyWith(height: 1.7)),
+      Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              SizedBox(
+                  width: 36,
+                  child: Text('messagedetailview.min.label'.tr(), style: Theme.of(context).textTheme.labelLarge)),
+              SelectableText(viewmodel.getMinValue()?.toStringAsPrecision(10) ?? ''),
+            ],
+          ),
+          Row(
+            children: [
+              SizedBox(
+                  width: 36,
+                  child: Text('messagedetailview.max.label'.tr(), style: Theme.of(context).textTheme.labelLarge)),
+              SelectableText(viewmodel.getMaxValue()?.toStringAsPrecision(10) ?? '', maxLines: 1),
+            ],
+          ),
+        ],
+      ),
+      Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              SizedBox(
+                  width: 36,
+                  child: Text('messagedetailview.avg.label'.tr(), style: Theme.of(context).textTheme.labelLarge)),
+              SelectableText(viewmodel.getAvgValue()?.toStringAsPrecision(10) ?? '', maxLines: 1),
+            ],
+          ),
+          Row(
+            children: [Text('')],
+          )
+        ],
+      )
+    ]));
   }
 
   Widget _buildJsonViewer(String payload, BuildContext context) {
-    return Expanded(child: SingleChildScrollView(controller: _scrollController, child: JsonViewer(jsonDecode(payload))));
+    return Expanded(
+        child: SingleChildScrollView(controller: _scrollController, child: JsonViewer(jsonDecode(payload))));
   }
 
   Widget _buildMapViewer(String payload, BuildContext context, MessageViewerViewmodel viewmodel) {
@@ -340,9 +359,12 @@ class _MessageDetailViewState extends State<MessageDetailView> {
             children: [
               Row(
                 children: [
-                  Checkbox(value: showLast1000Markers, onChanged: (value) => setState(() => showLast1000Markers = value ?? false)),
+                  Checkbox(
+                      value: showLast1000Markers,
+                      onChanged: (value) => setState(() => showLast1000Markers = value ?? false)),
                   InkWell(
-                      child: Text("messagedetailview.showlast1000.label".tr(), style: Theme.of(context).textTheme.labelLarge),
+                      child: Text("messagedetailview.showlast1000.label".tr(),
+                          style: Theme.of(context).textTheme.labelLarge),
                       onTap: () => setState(() => showLast1000Markers = !showLast1000Markers)),
                 ],
               ),
@@ -379,11 +401,13 @@ class _MessageDetailViewState extends State<MessageDetailView> {
   }
 
   Widget _buildImageViewer(Uint8Buffer payload, BuildContext context) {
-    return Expanded(child: SingleChildScrollView(controller: _scrollController, child: Image.memory(Uint8List.view(payload.buffer))));
+    return Expanded(
+        child:
+            SingleChildScrollView(controller: _scrollController, child: Image.memory(Uint8List.view(payload.buffer))));
   }
 
   PayloadType detectPayloadType(Uint8Buffer payload) {
-    String payloadString = MqttPublishPayload.bytesToStringAsString(payload);
+    String payloadString = PayloadUtils.safePayloadToString(payload);
 
     if (double.tryParse(payloadString) != null) {
       return PayloadType.Number;
@@ -410,7 +434,8 @@ class _MessageDetailViewState extends State<MessageDetailView> {
 
     // Gnss coordinates: if the payload contains two double numbers separated by a comma
     if (payloadString.contains(',') && payloadString.split(',').length == 2) {
-      if (double.tryParse(payloadString.split(',')[0]) != null && double.tryParse(payloadString.split(',')[1]) != null) {
+      if (double.tryParse(payloadString.split(',')[0]) != null &&
+          double.tryParse(payloadString.split(',')[1]) != null) {
         return PayloadType.GnssCoordinates;
       }
     }

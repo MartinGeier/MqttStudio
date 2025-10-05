@@ -14,6 +14,9 @@ class ProjectEditDialog extends StatelessWidget {
   static const String MosquittoHostUrl = 'test.mosquitto.org';
   static const String HiveMqHostUrl = 'broker.hivemq.com';
   static const String EmqxHostUrl = 'broker.emqx.io';
+  static const String MosquittoWsHostUrl = 'test.mosquitto.org/mqtt';
+  static const String HiveMqWsHostUrl = 'broker.hivemq.com/mqtt';
+  static const String EmqxWsHostUrl = 'broker.emqx.io/mqtt';
 
   static const int MosquittoPort = 1883;
   static const int MosquittoSslPort = 8883;
@@ -117,7 +120,10 @@ class ProjectEditDialog extends StatelessWidget {
         formControlName: ProjectEditViewmodel.useWebSocketField,
         form: viewmodel.form,
         label: 'projectedit.usewebsockets'.tr(),
-        onChanged: () => _setPortNumber(viewmodel));
+        onChanged: () {
+          _setHostname(viewmodel);
+          _setPortNumber(viewmodel);
+        });
   }
 
   ReactiveTextField<String> _buildProjectNameField(ProjectEditViewmodel viewmodel) {
@@ -125,7 +131,8 @@ class ProjectEditDialog extends StatelessWidget {
       autofocus: true,
       textInputAction: TextInputAction.next,
       maxLines: 1,
-      decoration: InputDecoration(border: OutlineInputBorder(), labelText: 'projectedit.projectname.label'.tr(), isDense: true),
+      decoration:
+          InputDecoration(border: OutlineInputBorder(), labelText: 'projectedit.projectname.label'.tr(), isDense: true),
       formControlName: ProjectEditViewmodel.projectNameField,
       validationMessages: {
         'minLength': (error) => 'common.fieldcontenttoshort.error'.tr(),
@@ -179,7 +186,8 @@ class ProjectEditDialog extends StatelessWidget {
     return ReactiveTextField(
       textInputAction: TextInputAction.next,
       maxLines: 1,
-      decoration: InputDecoration(border: OutlineInputBorder(), labelText: 'projectedit.clientid.label'.tr(), isDense: true),
+      decoration:
+          InputDecoration(border: OutlineInputBorder(), labelText: 'projectedit.clientid.label'.tr(), isDense: true),
       formControlName: ProjectEditViewmodel.clientIdField,
       validationMessages: {
         'minLength': (error) => 'fieldcontenttoshort.error'.tr(),
@@ -193,7 +201,8 @@ class ProjectEditDialog extends StatelessWidget {
     return ReactiveTextField(
       textInputAction: TextInputAction.next,
       maxLines: 1,
-      decoration: InputDecoration(border: OutlineInputBorder(), labelText: 'projectedit.port.label'.tr(), isDense: true),
+      decoration:
+          InputDecoration(border: OutlineInputBorder(), labelText: 'projectedit.port.label'.tr(), isDense: true),
       formControlName: ProjectEditViewmodel.portField,
       validationMessages: {
         'min': (error) => 'projectedit.port.error'.tr(),
@@ -206,7 +215,8 @@ class ProjectEditDialog extends StatelessWidget {
     return ReactiveTextField(
       textInputAction: TextInputAction.next,
       maxLines: 1,
-      decoration: InputDecoration(border: OutlineInputBorder(), labelText: 'projectedit.username.label'.tr(), isDense: true),
+      decoration:
+          InputDecoration(border: OutlineInputBorder(), labelText: 'projectedit.username.label'.tr(), isDense: true),
       formControlName: ProjectEditViewmodel.usernameField,
       validationMessages: {
         'maxLength': (error) => 'common.fieldcontenttolong.error'.tr(),
@@ -224,7 +234,8 @@ class ProjectEditDialog extends StatelessWidget {
           labelText: 'projectedit.password.label'.tr(),
           isDense: true,
           suffixIcon: IconButton(
-              icon: Icon(Icons.visibility_rounded), onPressed: () => viewmodel.isPasswordObscureText = !viewmodel.isPasswordObscureText)),
+              icon: Icon(Icons.visibility_rounded),
+              onPressed: () => viewmodel.isPasswordObscureText = !viewmodel.isPasswordObscureText)),
       formControlName: ProjectEditViewmodel.passwordField,
       validationMessages: {
         'maxLength': (error) => 'common.fieldcontenttolong.error'.tr(),
@@ -240,7 +251,45 @@ class ProjectEditDialog extends StatelessWidget {
 
   _hostnameFieldChanged(ProjectEditViewmodel viewmodel, String hostname) {
     viewmodel.form.control(ProjectEditViewmodel.mqttHostnameField).value = hostname;
+    _setHostname(viewmodel);
     _setPortNumber(viewmodel);
+  }
+
+  void _setHostname(ProjectEditViewmodel viewmodel) {
+    bool ws = viewmodel.form.control(ProjectEditViewmodel.useWebSocketField).value;
+    String hostname = '';
+    switch (viewmodel.form.control(ProjectEditViewmodel.mqttHostnameField).value) {
+      case MosquittoHostUrl:
+      case MosquittoWsHostUrl:
+        if (ws) {
+          hostname = MosquittoWsHostUrl;
+        } else {
+          hostname = MosquittoHostUrl;
+        }
+        break;
+
+      case HiveMqHostUrl:
+      case HiveMqWsHostUrl:
+        if (ws) {
+          hostname = HiveMqWsHostUrl;
+        } else {
+          hostname = HiveMqHostUrl;
+        }
+        break;
+
+      case EmqxHostUrl:
+      case EmqxWsHostUrl:
+        if (ws) {
+          hostname = EmqxWsHostUrl;
+        } else {
+          hostname = EmqxHostUrl;
+        }
+        break;
+    }
+
+    if (hostname.isNotEmpty) {
+      viewmodel.form.control(ProjectEditViewmodel.mqttHostnameField).value = hostname;
+    }
   }
 
   void _setPortNumber(ProjectEditViewmodel viewmodel) {
@@ -249,6 +298,7 @@ class ProjectEditDialog extends StatelessWidget {
     int port = 0;
     switch (viewmodel.form.control(ProjectEditViewmodel.mqttHostnameField).value) {
       case MosquittoHostUrl:
+      case MosquittoWsHostUrl:
         if (ws && ssl) {
           port = MosquittoWsSslPort;
         } else if (ws) {
@@ -261,6 +311,7 @@ class ProjectEditDialog extends StatelessWidget {
         break;
 
       case HiveMqHostUrl:
+      case HiveMqWsHostUrl:
         if (ws && ssl) {
           port = HiveMqWsSslPort;
         } else if (ws) {
@@ -273,6 +324,7 @@ class ProjectEditDialog extends StatelessWidget {
         break;
 
       case EmqxHostUrl:
+      case EmqxWsHostUrl:
         if (ws && ssl) {
           port = EmqxWsSslPort;
         } else if (ws) {

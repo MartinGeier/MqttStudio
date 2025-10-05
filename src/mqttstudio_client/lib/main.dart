@@ -86,6 +86,9 @@ class MyApp extends StatelessWidget {
 Future<bool?> onClosingNotSaved() async {
   return await showDialog<bool>(
       context: GetIt.instance.get<SrxNavigationService>().navigatorKey.currentContext!,
-      builder: (context) =>
-          SrxDialogs.srxYesNoDialog('navigator.confirmsaving_message'.tr(), context, showCancel: true));
+      builder: (outerContext) => SrxTheme(
+          data: CustomTheme.srxTheme,
+          child: Builder(
+              builder: (themedContext) =>
+                  SrxDialogs.srxYesNoDialog('navigator.confirmsaving_message'.tr(), themedContext, showCancel: true))));
 }

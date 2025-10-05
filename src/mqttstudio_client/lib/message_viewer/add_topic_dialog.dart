@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
-import 'package:mqtt_client/mqtt_client.dart';
+import 'package:mqtt5_client/mqtt5_client.dart';
 import 'package:mqttstudio/model/topic_color.dart';
 import 'package:mqttstudio/project/project_viewmodel.dart';
 import 'package:mqttstudio/service/service_error.dart';
@@ -38,11 +38,14 @@ class AddTopicDialog extends StatelessWidget {
                     ),
                     SrxFormExpandedPadded(
                         flex: 5,
-                        child: ElevatedButton(onPressed: () => _onOkPressed(context), child: Text('addtopicdialog.subscribe.button'.tr()))),
+                        child: ElevatedButton(
+                            onPressed: () => _onOkPressed(context),
+                            child: Text('addtopicdialog.subscribe.button'.tr()))),
                     SrxFormExpandedPadded.start(
                         flex: 5,
                         child: ElevatedButton(
-                            onPressed: () => _onOkPressed(context, true), child: Text('addtopicdialog.subscribenew.button'.tr())))
+                            onPressed: () => _onOkPressed(context, true),
+                            child: Text('addtopicdialog.subscribenew.button'.tr())))
                   ],
                 )
               ],
@@ -68,7 +71,8 @@ class AddTopicDialog extends StatelessWidget {
     } on SrxServiceException catch (exc) {
       if (exc.serviceError == ServiceError.DuplicateTopic) {
         await showDialog(
-            builder: (context) => SrxDialogs.srxErrorDialog('addtopicdialog.duplicatetopic.error'.tr(), context), context: context);
+            builder: (context) => SrxDialogs.srxErrorDialog('addtopicdialog.duplicatetopic.error'.tr(), context),
+            context: context);
       } else {
         throw exc;
       }
@@ -125,11 +129,12 @@ class AddTopicDialog extends StatelessWidget {
   }
 
   Widget _buildQosField(BuildContext context) {
-    var items = List<DropdownMenuItem>.generate(
-        3, (index) => DropdownMenuItem(value: MqttQos.values[index], child: Text(MqttQos.values[index].toString().tr())));
+    var items = List<DropdownMenuItem>.generate(3,
+        (index) => DropdownMenuItem(value: MqttQos.values[index], child: Text(MqttQos.values[index].toString().tr())));
     return ReactiveDropdownField(
       items: items,
-      decoration: InputDecoration(border: OutlineInputBorder(), labelText: 'addtopicdialog.qos.label'.tr(), isDense: true),
+      decoration:
+          InputDecoration(border: OutlineInputBorder(), labelText: 'addtopicdialog.qos.label'.tr(), isDense: true),
       formControlName: AddTopicViewmodel.qosField,
       validationMessages: {'required': (error) => 'srx.common.fieldrequired'.tr()},
     );
@@ -146,7 +151,8 @@ class AddTopicDialog extends StatelessWidget {
             )));
     return ReactiveDropdownField(
       items: items,
-      decoration: InputDecoration(border: OutlineInputBorder(), labelText: 'addtopicdialog.color.label'.tr(), isDense: true),
+      decoration:
+          InputDecoration(border: OutlineInputBorder(), labelText: 'addtopicdialog.color.label'.tr(), isDense: true),
       formControlName: AddTopicViewmodel.colorField,
       validationMessages: {'required': (error) => 'srx.common.fieldrequired'.tr()},
     );
