@@ -228,7 +228,7 @@ class _MessageDetailViewState extends State<MessageDetailView> {
   }
 
   Widget _buildPayload(BuildContext context, ReceivedMqttMessage topic, MessageViewerViewmodel viewmodel) {
-    var payLoadType = detectPayloadType(topic.payload);
+    var payLoadType = PayloadUtils.detectPayloadType(topic.payload);
     String payloadString = PayloadUtils.safePayloadToString(topic.payload);
 
     Widget viewer;
@@ -355,7 +355,7 @@ class _MessageDetailViewState extends State<MessageDetailView> {
 
   Widget _buildMapViewer(
       ReceivedMqttMessage message, String payload, BuildContext context, MessageViewerViewmodel viewmodel) {
-    var position = tryParseCoordinates(payload)!;
+    var position = PayloadUtils.tryParseCoordinates(payload)!;
     _centerMapOnMessage(message, position);
     return Expanded(
         child: Column(
@@ -390,7 +390,7 @@ class _MessageDetailViewState extends State<MessageDetailView> {
               MarkerLayer(markers: [
                 // add a marker for each message, skipping messages that are no coordinates
                 if (showLast1000Markers)
-                  ...viewmodel.getValues().map(tryParseCoordinates).nonNulls.map((point) => Marker(
+                  ...viewmodel.getValues().map(PayloadUtils.tryParseCoordinates).nonNulls.map((point) => Marker(
                         point: point,
                         child: Icon(Icons.location_on, size: 24, color: Theme.of(context).colorScheme.primary),
                       )),
@@ -433,56 +433,6 @@ class _MessageDetailViewState extends State<MessageDetailView> {
             SingleChildScrollView(controller: _scrollController, child: Image.memory(Uint8List.view(payload.buffer))));
   }
 
-  PayloadType detectPayloadType(Uint8Buffer payload) {
-    String payloadString = PayloadUtils.safePayloadToString(payload);
-
-    if (double.tryParse(payloadString) != null) {
-      return PayloadType.Number;
-    }
-
-    try {
-      if (payloadString.trim().startsWith('{')) {
-        jsonDecode(payloadString);
-        return PayloadType.Json;
-      }
-    } catch (error) {
-      // ignore errors
-    }
-
-    // PNG
-    if (payload.isNotEmpty && payload[0] == 137 && payload[1] == 80 && payload[2] == 78 && payload[3] == 71) {
-      return PayloadType.Image;
-    }
-
-    // JPG
-    if (payload.isNotEmpty && payload[0] == 255 && payload[1] == 216 && payload[2] == 255) {
-      return PayloadType.Image;
-    }
-
-    // Gnss coordinates: if the payload contains two double numbers separated by a comma
-    if (tryParseCoordinates(payloadString) != null) {
-      return PayloadType.GnssCoordinates;
-    }
-
-    return PayloadType.Text;
-  }
-
-  // Returns null if the value is not "latitude,longitude" with both numbers in their valid range
-  LatLng? tryParseCoordinates(String value) {
-    var parts = value.split(',');
-    if (parts.length != 2) {
-      return null;
-    }
-
-    var lat = double.tryParse(parts[0]);
-    var lon = double.tryParse(parts[1]);
-    if (lat == null || lon == null || lat.abs() > 90 || lon.abs() > 180) {
-      return null;
-    }
-
-    return LatLng(lat, lon);
-  }
-
   TileLayer get openStreetMapTileLayer => TileLayer(
         urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
         // OpenStreetMap blocks requests without a user agent identifying the app
@@ -496,5 +446,3 @@ class _MessageDetailViewState extends State<MessageDetailView> {
         onTap: () => launchUrl(Uri.parse('https://www.openstreetmap.org/copyright')),
       );
 }
-
-enum PayloadType { Text, Number, Json, Image, GnssCoordinates }

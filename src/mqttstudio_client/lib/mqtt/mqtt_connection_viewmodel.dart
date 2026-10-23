@@ -1,3 +1,4 @@
+import 'package:event/event.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/mqtt/mqtt_adapter.dart';
 import 'package:mqttstudio/model/mqtt_settings.dart';
@@ -11,15 +12,16 @@ class MqttConnectionViewmodel extends SrxChangeNotifier {
 
   void Function(String errorMessage)? onError;
 
-  ViewerMqttService() {
-    _mqttAdapter.onConnectedEvent.subscribe((args) => _onConnected());
-    _mqttAdapter.onDisconnectedEvent.subscribe((args) => _onDisconnected());
+  MqttConnectionViewmodel() {
+    _mqttAdapter.onConnectedEvent.subscribe(_onConnected);
+    _mqttAdapter.onDisconnectedEvent.subscribe(_onDisconnected);
   }
 
   @override
   void dispose() {
-    _mqttAdapter.onConnectedEvent.unsubscribeAll();
-    _mqttAdapter.onDisconnectedEvent.unsubscribeAll();
+    // only remove our own handlers, the events are shared with other services and viewmodels
+    _mqttAdapter.onConnectedEvent.unsubscribe(_onConnected);
+    _mqttAdapter.onDisconnectedEvent.unsubscribe(_onDisconnected);
     super.dispose();
   }
 
@@ -49,11 +51,11 @@ class MqttConnectionViewmodel extends SrxChangeNotifier {
     return _mqttAdapter.isConnected();
   }
 
-  _onConnected() {
+  void _onConnected(EventArgs _) {
     notifyListeners();
   }
 
-  _onDisconnected() {
+  void _onDisconnected(EventArgs _) {
     notifyListeners();
   }
 }

@@ -47,8 +47,14 @@ class TopicNameValidator extends Validator<dynamic> {
 
   @override
   Map<String, dynamic>? validate(AbstractControl<dynamic> control) {
-    return control.isNotNull && ('#'.allMatches(control.value).length) < 2
+    return control.isNotNull && _isValidMultiLevelWildcard(control.value)
         ? null
         : {'invalidTopicName': 'Invalid topic name'};
+  }
+
+  // MQTT allows at most one '#', and only as the whole last level ('#' or '.../#')
+  bool _isValidMultiLevelWildcard(String topic) {
+    var index = topic.indexOf('#');
+    return index < 0 || (index == topic.length - 1 && (index == 0 || topic[index - 1] == '/'));
   }
 }

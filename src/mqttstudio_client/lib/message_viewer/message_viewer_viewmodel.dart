@@ -1,4 +1,5 @@
 import 'package:darq/darq.dart';
+import 'package:event/event.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqtt5_client/mqtt5_client.dart';
 import 'package:mqttstudio/model/mqtt_payload_type.dart';
@@ -30,18 +31,19 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
 
   MessageViewerViewmodel() {
     _messageViewer = GetIt.I.get<MessageViewer>();
-    _messageViewer.messageReceivedEvent.subscribe((args) => _onMessageReceived(args));
-    _messageViewer.topicSubscriptionsChangedEvent.subscribe((_) => _topicSubriptionsChanged());
-    _messageViewer.messagesClearedEvent.subscribe((_) => notifyListeners());
-    GetIt.I.get<ProjectManager>().projectClosedEvent.subscribe((_) => selectedMessage = null);
+    _messageViewer.messageReceivedEvent.subscribe(_onMessageReceived);
+    _messageViewer.topicSubscriptionsChangedEvent.subscribe(_topicSubriptionsChanged);
+    _messageViewer.messagesClearedEvent.subscribe(_messagesCleared);
+    GetIt.I.get<ProjectManager>().projectClosedEvent.subscribe(_projectClosed);
   }
 
   @override
   void dispose() {
-    GetIt.I.get<ProjectManager>().projectClosedEvent.unsubscribeAll();
-    _messageViewer.topicSubscriptionsChangedEvent.unsubscribeAll();
-    _messageViewer.messageReceivedEvent.unsubscribeAll();
-    _messageViewer.messagesClearedEvent.unsubscribeAll();
+    // only remove our own handlers, the events are shared with other services and viewmodels
+    GetIt.I.get<ProjectManager>().projectClosedEvent.unsubscribe(_projectClosed);
+    _messageViewer.topicSubscriptionsChangedEvent.unsubscribe(_topicSubriptionsChanged);
+    _messageViewer.messageReceivedEvent.unsubscribe(_onMessageReceived);
+    _messageViewer.messagesClearedEvent.unsubscribe(_messagesCleared);
     super.dispose();
   }
 
@@ -217,8 +219,16 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
     _lastRefresh = DateTime.now();
   }
 
-  _topicSubriptionsChanged() {
+  void _topicSubriptionsChanged(EventArgs _) {
     notifyListeners();
+  }
+
+  void _messagesCleared(EventArgs _) {
+    notifyListeners();
+  }
+
+  void _projectClosed(EventArgs _) {
+    selectedMessage = null;
   }
 }
 

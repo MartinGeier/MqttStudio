@@ -13,7 +13,7 @@ class TopicSubscription {
   bool paused;
 
   TopicSubscription(this.topic, this.qos, {TopicColor? color, this.paused = false}) {
-    if (topic.allMatches('#').length > 1) {
+    if ('#'.allMatches(topic).length > 1) {
       throw new Exception('Invalid topic \'$topic\'');
     }
 

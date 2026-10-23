@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:event/event.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/model/project.dart';
 import 'package:mqttstudio/project/project_manager.dart';
@@ -10,14 +11,15 @@ class ProjectViewmodel extends SrxChangeNotifier {
 
   ProjectViewmodel() {
     _projectService = GetIt.I.get<ProjectManager>();
-    _projectService.projectOpenedEvent.subscribe((_) => _projectOpened());
-    _projectService.projectClosedEvent.subscribe((_) => _projectClosed());
+    _projectService.projectOpenedEvent.subscribe(_projectOpened);
+    _projectService.projectClosedEvent.subscribe(_projectClosed);
   }
 
   @override
   void dispose() {
-    _projectService.projectOpenedEvent.unsubscribeAll();
-    _projectService.projectClosedEvent.unsubscribeAll();
+    // only remove our own handlers, the events are shared with other services and viewmodels
+    _projectService.projectOpenedEvent.unsubscribe(_projectOpened);
+    _projectService.projectClosedEvent.unsubscribe(_projectClosed);
     super.dispose();
   }
 
@@ -42,11 +44,11 @@ class ProjectViewmodel extends SrxChangeNotifier {
     await _projectService.saveProject();
   }
 
-  _projectOpened() {
+  void _projectOpened(EventArgs _) {
     notifyListeners();
   }
 
-  _projectClosed() {
+  void _projectClosed(EventArgs _) {
     notifyListeners();
   }
 }
