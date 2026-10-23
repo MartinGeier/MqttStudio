@@ -42,5 +42,5 @@ class _ColorConverter implements JsonConverter<Color, int> {
   Color fromJson(int jsonValue) => Color(jsonValue);
 
   @override
-  int toJson(Color color) => color.value;
+  int toJson(Color color) => color.toARGB32();
 }

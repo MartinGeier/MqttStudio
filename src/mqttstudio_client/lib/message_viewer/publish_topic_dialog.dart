@@ -28,19 +28,20 @@ class PublishTopicDialog extends StatelessWidget {
                 SrxFormRow(
                   alignment: CrossAxisAlignment.center,
                   children: [
-                    SrxFormExpandedPadded.end(
+                    Expanded(
                       child: OutlinedButton(
                           onPressed: () => _publishFile(context), child: Text('publishtopicdialog.publishfilebutton.label'.tr())),
                     ),
                     Spacer(),
-                    SrxFormExpandedPadded(
+                    Expanded(
                       child: OutlinedButton(
                           onPressed: () {
                             GetIt.I.get<SrxNavigationService>().pop(null);
                           },
                           child: Text('srx.common.cancel'.tr())),
                     ),
-                    SrxFormExpandedPadded.start(
+                    SizedBox(width: 16),
+                    Expanded(
                         child:
                             ElevatedButton(onPressed: () => _onOkPressed(context), child: Text('publishtopicdialog.publish.button'.tr()))),
                   ],
@@ -67,8 +68,9 @@ class PublishTopicDialog extends StatelessWidget {
       child: Column(
         children: [
           SrxFormRow(children: [
-            SrxFormExpandedPadded.end(flex: 4, child: _buildTopicNameField(context)),
-            SrxFormExpandedPadded.start(flex: 1, child: _buildRetainField(context)),
+            Expanded(flex: 4, child: _buildTopicNameField(context)),
+            SizedBox(width: 16),
+            Expanded(flex: 1, child: _buildRetainField(context)),
           ]),
           SrxFormRow(multipleLineHeight: 3, children: [Flexible(flex: 1, child: _buildPayloadField(context))]),
         ],
@@ -131,7 +133,7 @@ class PublishTopicDialog extends StatelessWidget {
       return false;
     }
 
-    var filePickerResult = await FilePicker.platform.pickFiles();
+    var filePickerResult = await FilePicker.pickFiles();
     if (filePickerResult == null || filePickerResult.count != 1) {
       return;
     }
@@ -141,7 +143,7 @@ class PublishTopicDialog extends StatelessWidget {
         GetIt.I.get<SrxNavigationService>().pop();
       }
     } on Exception {
-      showDialog(context: context, builder: (_) => SrxDialogs.srxErrorDialog('publishtopicdialog.maxfilesize.error'.tr(), context));
+      showDialog(context: context, builder: (_) => SrxDialog.error(bodyText: 'publishtopicdialog.maxfilesize.error'.tr()));
     }
   }
 }

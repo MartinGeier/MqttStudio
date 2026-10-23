@@ -87,8 +87,5 @@ Future<bool?> onClosingNotSaved() async {
   return await showDialog<bool>(
       context: GetIt.instance.get<SrxNavigationService>().navigatorKey.currentContext!,
       builder: (outerContext) => SrxTheme(
-          data: CustomTheme.srxTheme,
-          child: Builder(
-              builder: (themedContext) =>
-                  SrxDialogs.srxYesNoDialog('navigator.confirmsaving_message'.tr(), themedContext, showCancel: true))));
+          data: CustomTheme.srxTheme, child: SrxDialog.yesNo(bodyText: 'navigator.confirmsaving_message'.tr())));
 }

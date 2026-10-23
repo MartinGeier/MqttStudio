@@ -50,7 +50,7 @@ class CustomTheme {
   });
 
   static SrxThemeData srxTheme = SrxThemeData(
-      dialogsThemeData: SrxDialogsThemeData(
+      dialogThemeData: SrxDialogThemeData(
     actionsPadding: EdgeInsets.all(16),
   ));
 }

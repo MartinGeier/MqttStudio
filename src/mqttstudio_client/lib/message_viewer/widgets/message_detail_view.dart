@@ -13,8 +13,8 @@ import 'package:provider/provider.dart';
 import 'package:flutter/services.dart';
 import 'package:mqttstudio/custom_theme.dart';
 import '../../common/widgets/topic_chart.dart';
-import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../common/utils/payload_utils.dart';
 
 class MessageDetailView extends StatefulWidget {
@@ -26,7 +26,15 @@ class MessageDetailView extends StatefulWidget {
 
 class _MessageDetailViewState extends State<MessageDetailView> {
   final _scrollController = ScrollController();
+  final _mapController = MapController();
+  ReceivedMqttMessage? _centeredMessage;
   bool showLast1000Markers = false;
+
+  @override
+  void dispose() {
+    _mapController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -234,7 +242,7 @@ class _MessageDetailViewState extends State<MessageDetailView> {
         break;
 
       case PayloadType.GnssCoordinates:
-        viewer = _buildMapViewer(payloadString, context, viewmodel);
+        viewer = _buildMapViewer(topic, payloadString, context, viewmodel);
         break;
 
       case PayloadType.Number:
@@ -345,9 +353,10 @@ class _MessageDetailViewState extends State<MessageDetailView> {
         child: SingleChildScrollView(controller: _scrollController, child: JsonViewer(jsonDecode(payload))));
   }
 
-  Widget _buildMapViewer(String payload, BuildContext context, MessageViewerViewmodel viewmodel) {
-    var lat = double.parse(payload.split(',')[0]);
-    var lon = double.parse(payload.split(',')[1]);
+  Widget _buildMapViewer(
+      ReceivedMqttMessage message, String payload, BuildContext context, MessageViewerViewmodel viewmodel) {
+    var position = tryParseCoordinates(payload)!;
+    _centerMapOnMessage(message, position);
     return Expanded(
         child: Column(
       crossAxisAlignment: CrossAxisAlignment.end,
@@ -374,30 +383,48 @@ class _MessageDetailViewState extends State<MessageDetailView> {
         ),
         Expanded(
           child: FlutterMap(
-            options: MapOptions(initialCenter: LatLng(lat, lon), initialZoom: 18),
+            mapController: _mapController,
+            options: MapOptions(initialCenter: position, initialZoom: 18),
             children: [
               openStreetMapTileLayer,
               MarkerLayer(markers: [
-                // add a marker for each message
+                // add a marker for each message, skipping messages that are no coordinates
                 if (showLast1000Markers)
-                  ...viewmodel.getValues().map((value) {
-                    var lat = double.parse(value.split(',')[0]);
-                    var lon = double.parse(value.split(',')[1]);
-                    return Marker(
-                      point: LatLng(lat, lon),
-                      child: Icon(Icons.location_on, size: 24, color: Theme.of(context).colorScheme.primary),
-                    );
-                  }),
+                  ...viewmodel.getValues().map(tryParseCoordinates).nonNulls.map((point) => Marker(
+                        point: point,
+                        child: Icon(Icons.location_on, size: 24, color: Theme.of(context).colorScheme.primary),
+                      )),
                 Marker(
-                  point: LatLng(lat, lon),
+                  point: position,
                   child: Icon(Icons.location_on, size: 32, color: Theme.of(context).colorScheme.secondary),
                 ),
-              ])
+              ]),
+              openStreetMapAttribution,
             ],
           ),
         ),
       ],
     ));
+  }
+
+  // initialCenter only applies to the first map, afterwards the map controller keeps its camera.
+  // So move the map to the pin of a newly selected message, keeping the current zoom.
+  void _centerMapOnMessage(ReceivedMqttMessage message, LatLng position) {
+    if (identical(message, _centeredMessage)) {
+      return;
+    }
+
+    var isFirstMap = _centeredMessage == null;
+    _centeredMessage = message;
+    if (isFirstMap) {
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _mapController.move(position, _mapController.camera.zoom);
+      }
+    });
   }
 
   Widget _buildImageViewer(Uint8Buffer payload, BuildContext context) {
@@ -433,22 +460,40 @@ class _MessageDetailViewState extends State<MessageDetailView> {
     }
 
     // Gnss coordinates: if the payload contains two double numbers separated by a comma
-    if (payloadString.contains(',') && payloadString.split(',').length == 2) {
-      if (double.tryParse(payloadString.split(',')[0]) != null &&
-          double.tryParse(payloadString.split(',')[1]) != null) {
-        return PayloadType.GnssCoordinates;
-      }
+    if (tryParseCoordinates(payloadString) != null) {
+      return PayloadType.GnssCoordinates;
     }
 
     return PayloadType.Text;
   }
 
+  // Returns null if the value is not "latitude,longitude" with both numbers in their valid range
+  LatLng? tryParseCoordinates(String value) {
+    var parts = value.split(',');
+    if (parts.length != 2) {
+      return null;
+    }
+
+    var lat = double.tryParse(parts[0]);
+    var lon = double.tryParse(parts[1]);
+    if (lat == null || lon == null || lat.abs() > 90 || lon.abs() > 180) {
+      return null;
+    }
+
+    return LatLng(lat, lon);
+  }
+
   TileLayer get openStreetMapTileLayer => TileLayer(
         urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-        userAgentPackageName: 'dev.fleaflet.flutter_map.example',
-        // Use the recommended flutter_map_cancellable_tile_provider package to
-        // support the cancellation of loading tiles.
-        tileProvider: CancellableNetworkTileProvider(),
+        // OpenStreetMap blocks requests without a user agent identifying the app
+        userAgentPackageName: 'eu.redpin.mqttstudio',
+        // The default NetworkTileProvider of flutter_map 8 cancels obsolete tile requests itself.
+      );
+
+  // Attribution required by the OpenStreetMap tile usage policy
+  Widget get openStreetMapAttribution => SimpleAttributionWidget(
+        source: Text('OpenStreetMap contributors'),
+        onTap: () => launchUrl(Uri.parse('https://www.openstreetmap.org/copyright')),
       );
 }
 

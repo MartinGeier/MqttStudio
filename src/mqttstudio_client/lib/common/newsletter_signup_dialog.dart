@@ -56,8 +56,9 @@ class _NewsletterSignupDialogState extends State<NewsletterSignupDialog> {
   Widget _buildForm(NewsletterSignupViewmodel viewmodel, BuildContext context) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       SrxFormRow(children: [
-        SrxFormExpandedPadded.end(child: _buildEmailField(viewmodel)),
-        SrxFormExpandedPadded.start(
+        Expanded(child: _buildEmailField(viewmodel)),
+        SizedBox(width: 16),
+        Expanded(
           child: SizedBox(
             width: 200,
             child: Text('newsletter_signup.emailsharing.label'.tr(),
@@ -66,8 +67,9 @@ class _NewsletterSignupDialogState extends State<NewsletterSignupDialog> {
         )
       ]),
       SrxFormRow(children: [
-        SrxFormExpandedPadded.end(child: _buildFirstnameField(viewmodel)),
-        SrxFormExpandedPadded.start(child: _buildLastnameField(viewmodel))
+        Expanded(child: _buildFirstnameField(viewmodel)),
+        SizedBox(width: 16),
+        Expanded(child: _buildLastnameField(viewmodel))
       ]),
       SrxFormRow(children: [Expanded(child: _buildCompanyField(viewmodel))]),
       Text.rich(TextSpan(children: [

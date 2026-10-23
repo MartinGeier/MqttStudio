@@ -20,7 +20,10 @@ class Project extends SrxBaseModel {
   Project(this.mqttSettings, {this.name = 'New Project'});
 
   int getHash() {
-    return json.encode(_$ProjectToJson(this)).hashCode;
+    var projectJson = _$ProjectToJson(this);
+    // while id is null, SrxBaseModel generates a new id on every serialization, so it must not be part of the hash
+    projectJson.remove('id');
+    return json.encode(projectJson).hashCode;
   }
 
   factory Project.fromJson(Map<String, dynamic> json) => _$ProjectFromJson(json);

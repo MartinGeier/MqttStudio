@@ -27,15 +27,15 @@ class PiwikTrackingService {
         'ua': kIsWeb ? 'browser' : Platform.operatingSystem,
       });
 
-      http.get(uri).then((response) {
-        if (kDebugMode) {
-          if (response.statusCode == 202) {
-            print('PiwikTrackingService: Tracked action: $action');
-          } else {
-            print('PiwikTrackingService: Failed to track action: $action');
-          }
+      // awaited so that a failed request (offline, blocked by CORS) is caught below instead of being uncaught
+      var response = await http.get(uri);
+      if (kDebugMode) {
+        if (response.statusCode == 202) {
+          print('PiwikTrackingService: Tracked action: $action');
+        } else {
+          print('PiwikTrackingService: Failed to track action: $action');
         }
-      });
+      }
     } catch (e) {
       print('PiwikTrackingService: Error tracking action=$action: $e');
     }

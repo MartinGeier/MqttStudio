@@ -4,6 +4,7 @@ import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/project/open_project_dialog.dart';
 import 'package:mqttstudio/project/project_edit_dialog.dart';
 import 'package:mqttstudio/model/project.dart';
+import 'package:mqttstudio/mqtt/mqtt_connection_viewmodel.dart';
 import 'package:mqttstudio/project/project_viewmodel.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 import 'package:provider/provider.dart';
@@ -100,7 +101,7 @@ class NavigationDrawer extends SrxNavigationDrawer {
             onTap: _openWebSite,
             child: Text(
               'www.mqttstudio.com',
-              style: isHovering as bool
+              style: isHovering
                   ? Theme.of(context).textTheme.bodyMedium!.copyWith(decoration: TextDecoration.underline)
                   : Theme.of(context).textTheme.bodyMedium,
             ),
@@ -121,7 +122,7 @@ class NavigationDrawer extends SrxNavigationDrawer {
             onTap: _openEmail,
             child: Text(
               'info@redpin.eu',
-              style: isHovering as bool
+              style: isHovering
                   ? Theme.of(context).textTheme.bodyMedium!.copyWith(decoration: TextDecoration.underline)
                   : Theme.of(context).textTheme.bodyMedium,
             ),
@@ -132,19 +133,25 @@ class NavigationDrawer extends SrxNavigationDrawer {
   }
 
   void _onProjectSettingsTap(BuildContext context) async {
-    GetIt.I.get<SrxNavigationService>().pop();
     var projectViewmodel = context.read<ProjectViewmodel>();
+    var mqttConnectionViewmodel = context.read<MqttConnectionViewmodel>();
+    await GetIt.I.get<SrxNavigationService>().pop();
     Project? project = await showDialog(context: context, builder: (context) => ProjectEditDialog());
     if (project == null) {
       return;
     }
 
-    projectViewmodel.openProject(project);
+    // reopening the project closes the connection, so reconnect with the new settings if it was connected
+    var wasConnected = mqttConnectionViewmodel.isConnected();
+    await projectViewmodel.openProject(project);
+    if (wasConnected) {
+      mqttConnectionViewmodel.connect(project.mqttSettings);
+    }
   }
 
   _onOpenProjectTap(ProjectViewmodel projectViewmodel, BuildContext context) async {
     if (await projectViewmodel.closeProject()) {
-      GetIt.I.get<SrxNavigationService>().pop();
+      await GetIt.I.get<SrxNavigationService>().pop();
       await showDialog(context: context, builder: (context) => OpenProjectDialog());
     }
   }

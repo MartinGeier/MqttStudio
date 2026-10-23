@@ -27,17 +27,8 @@ class ProjectManager {
   bool get isProjectOpen => _currentProject != null;
 
   Future openProject(Project? newProject) async {
+    // also disconnects from the broker, callers that want to stay connected reconnect after opening
     await closeProject(true);
-
-    if (_mqttAdapter.isConnected()) {
-      if (newProject == null) {
-        _mqttAdapter.disconnect();
-      } else if (_currentProject != null) {
-        // if connection setting have been changed than reconnect
-        _mqttAdapter.disconnect();
-        _mqttAdapter.connect(newProject.mqttSettings);
-      }
-    }
 
     _currentProject = newProject;
     if (newProject?.lastUsed != null) {
@@ -77,6 +68,8 @@ class ProjectManager {
   Future saveProject() async {
     if (currentProject != null) {
       await LocalStore().saveProject(currentProject!);
+      // the saved state is the new reference to check for changes
+      lastSavedProjectHash = currentProject!.getHash();
     }
   }
 

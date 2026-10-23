@@ -27,8 +27,8 @@ class AddTopicDialog extends StatelessWidget {
                 SrxFormRow(
                   alignment: CrossAxisAlignment.center,
                   children: [
-                    SrxFormExpandedPadded(flex: 1, child: Spacer()),
-                    SrxFormExpandedPadded(
+                    Spacer(flex: 1),
+                    Expanded(
                       flex: 5,
                       child: OutlinedButton(
                           onPressed: () {
@@ -36,12 +36,14 @@ class AddTopicDialog extends StatelessWidget {
                           },
                           child: Text('srx.common.cancel'.tr())),
                     ),
-                    SrxFormExpandedPadded(
+                    SizedBox(width: 16),
+                    Expanded(
                         flex: 5,
                         child: ElevatedButton(
                             onPressed: () => _onOkPressed(context),
                             child: Text('addtopicdialog.subscribe.button'.tr()))),
-                    SrxFormExpandedPadded.start(
+                    SizedBox(width: 16),
+                    Expanded(
                         flex: 5,
                         child: ElevatedButton(
                             onPressed: () => _onOkPressed(context, true),
@@ -71,7 +73,7 @@ class AddTopicDialog extends StatelessWidget {
     } on SrxServiceException catch (exc) {
       if (exc.serviceError == ServiceError.DuplicateTopic) {
         await showDialog(
-            builder: (context) => SrxDialogs.srxErrorDialog('addtopicdialog.duplicatetopic.error'.tr(), context),
+            builder: (context) => SrxDialog.error(bodyText: 'addtopicdialog.duplicatetopic.error'.tr()),
             context: context);
       } else {
         throw exc;
@@ -86,8 +88,9 @@ class AddTopicDialog extends StatelessWidget {
         children: [
           SrxFormRow(children: [Expanded(child: _buildTopicNameField(context))]),
           SrxFormRow(children: [
-            SrxFormExpandedPadded.end(flex: 5, child: _buildQosField(context)),
-            SrxFormExpandedPadded.start(flex: 2, child: _buildColorField(context))
+            Expanded(flex: 5, child: _buildQosField(context)),
+            SizedBox(width: 16),
+            Expanded(flex: 2, child: _buildColorField(context))
           ]),
         ],
       ),

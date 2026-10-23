@@ -58,14 +58,15 @@ class ProjectEditDialog extends StatelessWidget {
               alignment: CrossAxisAlignment.center,
               children: [
                 Spacer(),
-                SrxFormExpandedPadded.end(
+                Expanded(
                   child: OutlinedButton(
                       onPressed: () {
                         GetIt.I.get<SrxNavigationService>().pop(null);
                       },
                       child: Text('srx.common.cancel'.tr())),
                 ),
-                SrxFormExpandedPadded.start(
+                SizedBox(width: 16),
+                Expanded(
                     child: ElevatedButton(onPressed: () => _onOkPressed(viewmodel), child: Text('srx.common.ok'.tr())))
               ],
             )
@@ -87,21 +88,24 @@ class ProjectEditDialog extends StatelessWidget {
       ),
       SrxFormRow(
         children: [
-          SrxFormExpandedPadded.end(child: _buildMqttHostnameField(viewmodel, context), flex: 3),
-          SrxFormExpandedPadded.start(flex: 1, child: _buildPortField(viewmodel)),
+          Expanded(child: _buildMqttHostnameField(viewmodel, context), flex: 3),
+          SizedBox(width: 16),
+          Expanded(flex: 1, child: _buildPortField(viewmodel)),
         ],
       ),
       SrxFormRow(children: [Expanded(child: _buildClientIdField(viewmodel))]),
       SrxFormRow(
         children: [
-          SrxFormExpandedPadded.end(flex: 2, child: _buildUsernameField(viewmodel)),
-          SrxFormExpandedPadded.start(flex: 2, child: _buildPasswordField(viewmodel)),
+          Expanded(flex: 2, child: _buildUsernameField(viewmodel)),
+          SizedBox(width: 16),
+          Expanded(flex: 2, child: _buildPasswordField(viewmodel)),
         ],
       ),
       SrxFormRow(
         children: [
-          SrxFormExpandedPadded.end(child: _buildSslCheckbox(viewmodel)),
-          SrxFormExpandedPadded.start(child: _buildWebSocketCheckbox(viewmodel))
+          Expanded(child: _buildSslCheckbox(viewmodel)),
+          SizedBox(width: 16),
+          Expanded(child: _buildWebSocketCheckbox(viewmodel))
         ],
       )
     ]);
