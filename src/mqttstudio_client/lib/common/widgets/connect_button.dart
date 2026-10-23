@@ -16,6 +16,12 @@ class ConnectButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<MqttConnectionViewmodel>(builder: (context, mqttConnectionViewmodel, child) {
       mqttConnectionViewmodel.onError = (message) => _onMqttConnectionError(message, context);
+      mqttConnectionViewmodel.onBrokerDisconnected = (reason) => _showError('mqtt.brokerdisconnected.error'.tr(args: [reason]), context);
+      mqttConnectionViewmodel.onSubscribeFailed = (topic, reason) => _showError(
+          reason == null
+              ? 'mqtt.subscribefailed.error'.tr(args: [topic])
+              : 'mqtt.subscribefailedreason.error'.tr(args: [topic, reason]),
+          context);
       return _buildConnectButton(context);
     });
   }
@@ -68,6 +74,10 @@ class ConnectButton extends StatelessWidget {
   }
 
   _onMqttConnectionError(String message, BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(errorSnackBar('mqtt.connecting.error'.tr() + ' ' + message, context));
+    _showError('mqtt.connecting.error'.tr() + ' ' + message, context);
+  }
+
+  _showError(String message, BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(errorSnackBar(message, context));
   }
 }

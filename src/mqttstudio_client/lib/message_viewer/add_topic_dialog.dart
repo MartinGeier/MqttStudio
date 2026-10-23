@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqtt5_client/mqtt5_client.dart';
+import 'package:mqttstudio/common/widgets/checkbox_field.dart';
+import 'package:mqttstudio/common/widgets/mqtt5_section.dart';
 import 'package:mqttstudio/model/topic_color.dart';
+import 'package:mqttstudio/model/topic_subscription.dart';
 import 'package:mqttstudio/project/project_viewmodel.dart';
 import 'package:mqttstudio/service/service_error.dart';
 import 'package:mqttstudio/message_viewer/add_topic_viewmodel.dart';
@@ -92,8 +95,42 @@ class AddTopicDialog extends StatelessWidget {
             SizedBox(width: 16),
             Expanded(flex: 2, child: _buildColorField(context))
           ]),
+          _buildMqtt5Options(context),
         ],
       ),
+    );
+  }
+
+  Widget _buildMqtt5Options(BuildContext context) {
+    var vm = context.read<AddTopicViewmodel>();
+    return Mqtt5Section(title: 'addtopicdialog.mqtt5options.label'.tr(), enabled: vm.isMqtt5, children: [
+      SrxFormRow(children: [
+        Expanded(
+            child: CheckboxField(
+                formControlName: AddTopicViewmodel.noLocalField,
+                form: vm.form,
+                label: 'addtopicdialog.nolocal.label'.tr())),
+        SizedBox(width: 16),
+        Expanded(
+            child: CheckboxField(
+                formControlName: AddTopicViewmodel.retainAsPublishedField,
+                form: vm.form,
+                label: 'addtopicdialog.retainaspublished.label'.tr())),
+      ]),
+      SrxFormRow(children: [Expanded(child: _buildRetainHandlingField(context))]),
+    ]);
+  }
+
+  Widget _buildRetainHandlingField(BuildContext context) {
+    var items = SubscriptionRetainHandling.values
+        .map((handling) => DropdownMenuItem(value: handling, child: Text('addtopicdialog.retainhandling.${handling.name}'.tr())))
+        .toList();
+    return ReactiveDropdownField<SubscriptionRetainHandling>(
+      items: items,
+      decoration: InputDecoration(
+          border: OutlineInputBorder(), labelText: 'addtopicdialog.retainhandling.label'.tr(), isDense: true),
+      formControlName: AddTopicViewmodel.retainHandlingField,
+      validationMessages: {'required': (error) => 'srx.common.fieldrequired'.tr()},
     );
   }
 

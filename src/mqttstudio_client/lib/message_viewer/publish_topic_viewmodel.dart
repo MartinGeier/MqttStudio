@@ -1,8 +1,13 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:get_it/get_it.dart';
+import 'package:mqtt5_client/mqtt5_client.dart';
 import 'package:mqttstudio/message_viewer/message_viewer.dart';
+import 'package:mqttstudio/model/mqtt_message_properties.dart';
 import 'package:mqttstudio/model/mqtt_payload_type.dart';
+import 'package:mqttstudio/project/project_manager.dart';
 import 'package:reactive_forms/reactive_forms.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 import 'package:typed_data/typed_buffers.dart';
@@ -11,6 +16,17 @@ class PublishTopicViewmodel extends SrxChangeNotifier {
   static String topicNameField = 'topicName';
   static String retainField = 'retain';
   static String payloadField = 'payload';
+  static String contentTypeField = 'contentType';
+  static String responseTopicField = 'responseTopic';
+  static String correlationDataField = 'correlationData';
+  static String messageExpiryIntervalField = 'messageExpiryInterval';
+  static String payloadFormatUtf8Field = 'payloadFormatUtf8';
+  static String userPropertiesField = 'userProperties';
+  static String userPropertyKeyField = 'key';
+  static String userPropertyValueField = 'value';
+
+  // largest message expiry interval MQTT 5 allows (four byte integer)
+  static const int maxMessageExpiryInterval = 4294967295;
 
   late FormGroup form;
 
@@ -18,13 +34,39 @@ class PublishTopicViewmodel extends SrxChangeNotifier {
     form = buildFormGroup();
   }
 
+  // the message properties are only sent to MQTT 5 brokers
+  bool get isMqtt5 => GetIt.I.get<ProjectManager>().currentProject?.mqttSettings.isMqtt5 ?? false;
+
+  FormArray<Map<String, Object?>> get userProperties =>
+      form.control(userPropertiesField) as FormArray<Map<String, Object?>>;
+
   FormGroup buildFormGroup() {
     return FormGroup({
-      topicNameField:
-          FormControl<String>(validators: [Validators.required, Validators.maxLength(200), Validators.delegate(_excludeMqttWildcards)]),
+      topicNameField: FormControl<String>(
+          validators: [Validators.required, Validators.maxLength(200), Validators.delegate(_excludeMqttWildcards)]),
       retainField: FormControl<bool>(),
       payloadField: FormControl<String>(validators: [Validators.maxLength(20000)]),
+      contentTypeField: FormControl<String>(validators: [Validators.maxLength(200)]),
+      responseTopicField: FormControl<String>(
+          validators: [Validators.maxLength(200), Validators.delegate(_excludeMqttWildcards)]),
+      correlationDataField: FormControl<String>(validators: [Validators.maxLength(1000)]),
+      messageExpiryIntervalField: FormControl<int>(validators: [Validators.delegate(_validateMessageExpiryInterval)]),
+      payloadFormatUtf8Field: FormControl<bool>(value: false),
+      userPropertiesField: FormArray<Map<String, Object?>>([]),
     });
+  }
+
+  void addUserProperty() {
+    userProperties.add(FormGroup({
+      userPropertyKeyField: FormControl<String>(validators: [Validators.required, Validators.maxLength(200)]),
+      userPropertyValueField: FormControl<String>(validators: [Validators.maxLength(1000)]),
+    }));
+    notifyListeners();
+  }
+
+  void removeUserProperty(int index) {
+    userProperties.removeAt(index);
+    notifyListeners();
   }
 
   Future<bool> publishTopic() async {
@@ -34,7 +76,7 @@ class PublishTopicViewmodel extends SrxChangeNotifier {
     }
 
     GetIt.I.get<MessageViewer>().publishTopic(form.control(topicNameField).value, form.control(payloadField).value ?? '',
-        MqttPayloadType.string, form.control(retainField).value ?? false);
+        MqttPayloadType.string, form.control(retainField).value ?? false, MqttQos.atLeastOnce, buildProperties());
 
     return true;
   }
@@ -52,11 +94,48 @@ class PublishTopicViewmodel extends SrxChangeNotifier {
 
     var buf = Uint8Buffer();
     buf.addAll(bytes);
-    GetIt.I
-        .get<MessageViewer>()
-        .publishTopic(form.control(topicNameField).value, buf, MqttPayloadType.binary, form.control(retainField).value ?? false);
+    GetIt.I.get<MessageViewer>().publishTopic(form.control(topicNameField).value, buf, MqttPayloadType.binary,
+        form.control(retainField).value ?? false, MqttQos.atLeastOnce, buildProperties());
 
     return true;
+  }
+
+  // null for MQTT 3.1.1 projects, there the fields are disabled and must not be sent
+  MqttMessageProperties? buildProperties() {
+    if (!isMqtt5) {
+      return null;
+    }
+
+    String? correlationData = _nullIfEmpty(form.control(correlationDataField).value);
+    return MqttMessageProperties(
+      contentType: _nullIfEmpty(form.control(contentTypeField).value),
+      responseTopic: _nullIfEmpty(form.control(responseTopicField).value),
+      correlationData: correlationData == null ? null : Uint8List.fromList(utf8.encode(correlationData)),
+      messageExpiryInterval: form.control(messageExpiryIntervalField).value,
+      payloadFormatUtf8: form.control(payloadFormatUtf8Field).value ?? false,
+      userProperties: userProperties.controls
+          .map((group) => (group as FormGroup))
+          .map((group) => MqttUserPropertyEntry(
+              group.control(userPropertyKeyField).value ?? '', group.control(userPropertyValueField).value ?? ''))
+          .toList(),
+    );
+  }
+
+  static String? _nullIfEmpty(String? value) => value == null || value.isEmpty ? null : value;
+
+  // the expiry is optional, Validators.min and max would reject an empty field
+  Map<String, dynamic>? _validateMessageExpiryInterval(AbstractControl<dynamic> control) {
+    final int? value = control.value;
+    if (value == null) {
+      return null;
+    }
+    if (value < 0) {
+      return {ValidationMessage.min: value};
+    }
+    if (value > maxMessageExpiryInterval) {
+      return {ValidationMessage.max: value};
+    }
+    return null;
   }
 
   // Validator function to exclude MQTT wildcards

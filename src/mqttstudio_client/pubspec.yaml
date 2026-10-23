@@ -18,7 +18,8 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 version: 1.0.3+4
 
 environment:
-  sdk: ">=3.0.0 <4.0.0"
+  # 3.8 is needed for the null-aware elements that json_serializable 6.15 generates
+  sdk: ">=3.8.0 <4.0.0"
 
 dependencies:
   flutter:
@@ -41,6 +42,8 @@ dependencies:
   # 5.x is not usable in the browser: MqttBrowserConnection.onDone() calls disconnect(), which calls onDone() again,
   # so every disconnect ends in a stack overflow (checked up to 5.1.0). Upgrade once that is fixed.
   mqtt5_client: ^4.17.1
+  # MQTT 3.1.1 connections, the protocol is chosen per project
+  mqtt_client: ^10.3.0
   auto_size_text : ^3.0.0
   flutter_json_viewer: ^1.0.1
   file_picker: ^11.0.3

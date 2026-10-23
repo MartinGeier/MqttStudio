@@ -31,9 +31,9 @@ Run all Flutter commands from `src/mqttstudio_client`.
 
 ## Tech stack
 
-- Flutter / Dart (SDK `>=3.0.0 <4.0.0`), targets **Windows** and **Web**.
+- Flutter / Dart (SDK `>=3.8.0 <4.0.0`, needed for the null-aware elements json_serializable generates), targets **Windows** and **Web**.
 - **srx_flutter**: Sarix's in-house framework, pulled from `github.com/sarixgmbh/SrxFlutter` (git ref `2.0`). It provides `SrxChangeNotifier`, `SrxDialog`, `SrxTheme`, `SrxNavigationService`, `SrxSessionController`, `SrxLocalDatabaseController`, `SrxCrudRepository`/`SrxLocalCrudRepository`, `SrxBaseModel`, `SrxServiceException`, `SrxAssetLoader`. Prefer these over writing new equivalents.
-- **mqtt5_client** for MQTT 5. The current branch `mqtt5` moves to MQTT 5 and upgrades dependencies (srx_flutter 1.5 → 2.0). PRs target `develop`.
+- **mqtt5_client** for MQTT 5 and **mqtt_client** for MQTT 3.1.1; the protocol is chosen per project (`MqttSettings.protocolVersion`, old projects default to 3.1.1). Both packages use the same class names, so `mqtt_client` is only imported with the `v3` prefix. The app-wide `MqttQos` is the `mqtt5_client` one. The current branch `mqtt5` adds MQTT 5 and upgrades dependencies (srx_flutter 1.5 → 2.0). PRs target `develop`.
 - State/DI: `provider` + `get_it` (singletons are registered in `main.dart` `setupServiceLocator()`).
 - Forms: `reactive_forms`. Localization: `easy_localization` (`assets/i18n/en.json`, English only). Persistence: `sembast` / `sembast_web` via srx local DB. JSON models: `json_serializable`. Events: `event` package.
 - Charts: `community_charts_flutter`. Map: `flutter_map`. Analytics: Piwik (`service/piwik_tracking_service.dart`).
@@ -56,7 +56,8 @@ dart run msix:create                                       # Store MSIX package,
 
 The data flows as **MqttAdapter → MessageViewer → viewmodels → widgets**.
 
-- `lib/mqtt/mqtt_adapter.dart`: holds the broker connection, subscribes/publishes, and raises `onConnectedEvent`, `onDisconnectedEvent` and `messageReceivedEvent`. Platform-specific client creation goes through a conditional import: `mqttserver.dart` (native TCP/WebSocket, TLS with the bundled `assets/cert/mosquitto.org.crt`) or `mqttbrowser.dart` (`dart.library.html`, WebSockets only). On the web only `ws://`/`wss://` work, so keep both paths in mind when touching connection code.
+- `lib/mqtt/mqtt_adapter.dart`: holds the broker connection, subscribes/publishes, and raises `onConnectedEvent`, `onDisconnectedEvent`, `messageReceivedEvent` and `subscribeFailedEvent`. It picks a `MqttProtocolClient` (`mqtt_protocol_client.dart`) per connection: `Mqtt5ProtocolClient` or `Mqtt311ProtocolClient`. They map the package types to app models (`ReceivedMqttMessage` with `MqttMessageProperties`, `BrokerInfo`), so nothing else depends on a client package except `MqttQos`. Platform-specific client creation goes through a conditional import per package: `mqttserver.dart` / `mqtt3server.dart` (native TCP/WebSocket, TLS with the bundled `assets/cert/mosquitto.org.crt`) or `mqttbrowser.dart` / `mqtt3browser.dart` (`dart.library.html`, WebSockets only). On the web only `ws://`/`wss://` work, so keep both paths in mind when touching connection code.
+- MQTT 5 only UI (subscription options, publish properties) sits in a `Mqtt5Section` that stays visible but disabled for 3.1.1 projects. mqtt5_client returns defaults for properties a broker did not send (empty strings, an expiry of 65535, `retainAvailable` false), see the comments in `mqtt5_protocol_client.dart`.
 - `lib/mqtt/mqtt_connection_viewmodel.dart`: connection state for the UI (connect button).
 - `lib/message_viewer/message_viewer.dart`: domain service that manages topic subscriptions on the current project, pause/resume, and stores messages in `MQTTMessageBuffer` (`message_buffer.dart`). It re-broadcasts events to viewmodels.
 - `lib/message_viewer/widgets/`: the grouped, sequential and tree viewers, the detail view, the subscription panel and the command bar.

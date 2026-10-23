@@ -20,6 +20,15 @@ class PayloadUtils {
     }
   }
 
+  /// Text if the bytes are valid UTF-8, otherwise hex bytes such as '0a ff 3c'. Used for binary MQTT 5 properties.
+  static String toUtf8OrHex(List<int> bytes) {
+    try {
+      return utf8.decode(bytes, allowMalformed: false);
+    } on FormatException {
+      return bytes.map((byte) => byte.toRadixString(16).padLeft(2, '0')).join(' ');
+    }
+  }
+
   /// Detects how a payload is shown in the message detail view
   static PayloadType detectPayloadType(Uint8Buffer payload) {
     String payloadString = safePayloadToString(payload);

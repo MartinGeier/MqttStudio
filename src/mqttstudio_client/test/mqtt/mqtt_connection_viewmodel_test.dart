@@ -78,5 +78,52 @@ void main() {
 
       expect(notified, greaterThan(0));
     });
+
+    test('reports the reason an MQTT 5 broker gave for closing the connection', () async {
+      var viewmodel = MqttConnectionViewmodel();
+      String? reason;
+      viewmodel.onBrokerDisconnected = (value) => reason = value;
+      await viewmodel.connect(settings);
+
+      adapter.dropConnection(reason: 'Session taken over (0x8e)');
+
+      expect(reason, 'Session taken over (0x8e)');
+      expect(viewmodel.isConnected(), isFalse);
+    });
+
+    test('does not report a reason when none was given', () async {
+      var viewmodel = MqttConnectionViewmodel();
+      var reported = false;
+      viewmodel.onBrokerDisconnected = (_) => reported = true;
+      await viewmodel.connect(settings);
+
+      adapter.dropConnection();
+
+      expect(reported, isFalse);
+    });
+
+    test('reports a rejected subscription', () async {
+      var viewmodel = MqttConnectionViewmodel();
+      String? failedTopic;
+      String? failedReason;
+      viewmodel.onSubscribeFailed = (topic, reason) {
+        failedTopic = topic;
+        failedReason = reason;
+      };
+
+      adapter.failSubscription('home/#', 'Not authorized (0x87)');
+
+      expect(failedTopic, 'home/#');
+      expect(failedReason, 'Not authorized (0x87)');
+    });
+
+    test('offers the broker info of the connection', () async {
+      var viewmodel = MqttConnectionViewmodel();
+      expect(viewmodel.brokerInfo, isNull);
+
+      await viewmodel.connect(settings);
+
+      expect(viewmodel.brokerInfo!.protocolVersion, settings.protocolVersion);
+    });
   });
 }

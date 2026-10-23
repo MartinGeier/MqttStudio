@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/common/widgets/checkbox_field.dart';
+import 'package:mqttstudio/model/mqtt_protocol_version.dart';
 import 'package:mqttstudio/project/project_viewmodel.dart';
 import 'package:mqttstudio/project/project_edit_viewmodel.dart';
 import 'package:provider/provider.dart';
@@ -93,7 +94,13 @@ class ProjectEditDialog extends StatelessWidget {
           Expanded(flex: 1, child: _buildPortField(viewmodel)),
         ],
       ),
-      SrxFormRow(children: [Expanded(child: _buildClientIdField(viewmodel))]),
+      SrxFormRow(
+        children: [
+          Expanded(flex: 3, child: _buildClientIdField(viewmodel)),
+          SizedBox(width: 16),
+          Expanded(flex: 2, child: _buildProtocolVersionField(viewmodel)),
+        ],
+      ),
       SrxFormRow(
         children: [
           Expanded(flex: 2, child: _buildUsernameField(viewmodel)),
@@ -107,8 +114,51 @@ class ProjectEditDialog extends StatelessWidget {
           SizedBox(width: 16),
           Expanded(child: _buildWebSocketCheckbox(viewmodel))
         ],
+      ),
+      SrxFormRow(
+        children: [
+          Expanded(child: _buildCleanStartCheckbox(viewmodel)),
+          SizedBox(width: 16),
+          Expanded(child: _buildSessionExpiryIntervalField(viewmodel))
+        ],
       )
     ]);
+  }
+
+  Widget _buildProtocolVersionField(ProjectEditViewmodel viewmodel) {
+    var items = MqttProtocolVersion.values
+        .map((version) => DropdownMenuItem(value: version, child: Text(version.displayName)))
+        .toList();
+    return ReactiveDropdownField<MqttProtocolVersion>(
+      items: items,
+      decoration: InputDecoration(
+          border: OutlineInputBorder(), labelText: 'projectedit.protocolversion.label'.tr(), isDense: true),
+      formControlName: ProjectEditViewmodel.protocolVersionField,
+      validationMessages: {'required': (error) => 'srx.common.fieldrequired'.tr()},
+    );
+  }
+
+  Widget _buildCleanStartCheckbox(ProjectEditViewmodel viewmodel) {
+    return CheckboxField(
+        formControlName: ProjectEditViewmodel.cleanStartField,
+        form: viewmodel.form,
+        label: 'projectedit.cleanstart'.tr());
+  }
+
+  ReactiveTextField<int> _buildSessionExpiryIntervalField(ProjectEditViewmodel viewmodel) {
+    return ReactiveTextField(
+      textInputAction: TextInputAction.next,
+      maxLines: 1,
+      decoration: InputDecoration(
+          border: OutlineInputBorder(), labelText: 'projectedit.sessionexpiry.label'.tr(), isDense: true),
+      formControlName: ProjectEditViewmodel.sessionExpiryIntervalField,
+      validationMessages: {
+        'required': (error) => 'srx.common.fieldrequired'.tr(),
+        'min': (error) => 'projectedit.sessionexpiry.error'.tr(),
+        'max': (error) => 'projectedit.sessionexpiry.error'.tr(),
+        'number': (error) => 'projectedit.sessionexpiry.error'.tr(),
+      },
+    );
   }
 
   Widget _buildSslCheckbox(ProjectEditViewmodel viewmodel) {

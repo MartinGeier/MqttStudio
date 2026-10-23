@@ -83,4 +83,14 @@ void main() {
       expect(PayloadUtils.detectPayloadType(bytes([0xFF, 0xD8])), PayloadType.Text);
     });
   });
+
+  group('PayloadUtils.toUtf8OrHex', () {
+    test('decodes valid UTF-8', () {
+      expect(PayloadUtils.toUtf8OrHex(toPayload('request-ä1')), 'request-ä1');
+    });
+
+    test('shows other bytes as hex', () {
+      expect(PayloadUtils.toUtf8OrHex([0x0a, 0xff, 0x3c]), '0a ff 3c');
+    });
+  });
 }

@@ -14,6 +14,14 @@ TopicSubscription _$TopicSubscriptionFromJson(Map<String, dynamic> json) =>
           ? null
           : TopicColor.fromJson(json['color'] as Map<String, dynamic>),
       paused: json['paused'] as bool? ?? false,
+      noLocal: json['noLocal'] as bool? ?? false,
+      retainAsPublished: json['retainAsPublished'] as bool? ?? false,
+      retainHandling:
+          $enumDecodeNullable(
+            _$SubscriptionRetainHandlingEnumMap,
+            json['retainHandling'],
+          ) ??
+          SubscriptionRetainHandling.sendOnSubscribe,
     );
 
 Map<String, dynamic> _$TopicSubscriptionToJson(TopicSubscription instance) =>
@@ -22,6 +30,10 @@ Map<String, dynamic> _$TopicSubscriptionToJson(TopicSubscription instance) =>
       'qos': _$MqttQosEnumMap[instance.qos]!,
       'color': instance.color.toJson(),
       'paused': instance.paused,
+      'noLocal': instance.noLocal,
+      'retainAsPublished': instance.retainAsPublished,
+      'retainHandling':
+          _$SubscriptionRetainHandlingEnumMap[instance.retainHandling]!,
     };
 
 const _$MqttQosEnumMap = {
@@ -30,4 +42,10 @@ const _$MqttQosEnumMap = {
   MqttQos.exactlyOnce: 'exactlyOnce',
   MqttQos.reserved1: 'reserved1',
   MqttQos.failure: 'failure',
+};
+
+const _$SubscriptionRetainHandlingEnumMap = {
+  SubscriptionRetainHandling.sendOnSubscribe: 'sendOnSubscribe',
+  SubscriptionRetainHandling.sendIfNew: 'sendIfNew',
+  SubscriptionRetainHandling.doNotSend: 'doNotSend',
 };

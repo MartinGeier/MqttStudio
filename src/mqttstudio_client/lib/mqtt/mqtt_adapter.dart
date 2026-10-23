@@ -2,10 +2,16 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:mqtt5_client/mqtt5_client.dart';
-import 'mqttserver.dart' if (dart.library.html) 'mqttbrowser.dart' as mqttsetup;
+import 'package:mqttstudio/model/broker_info.dart';
+import 'package:mqttstudio/model/mqtt_message_properties.dart';
 import 'package:mqttstudio/model/mqtt_payload_type.dart';
+import 'package:mqttstudio/model/mqtt_protocol_version.dart';
 import 'package:mqttstudio/model/mqtt_settings.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
+import 'package:mqttstudio/model/topic_subscription.dart';
+import 'package:mqttstudio/mqtt/mqtt311_protocol_client.dart';
+import 'package:mqttstudio/mqtt/mqtt5_protocol_client.dart';
+import 'package:mqttstudio/mqtt/mqtt_protocol_client.dart';
 import 'package:mqttstudio/service/service_error.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 import 'package:flutter/foundation.dart';
@@ -13,17 +19,24 @@ import 'package:synchronized/synchronized.dart' as lock;
 import 'package:event/event.dart';
 import 'package:typed_data/typed_buffers.dart';
 
+class SubscribeFailedEventArgs extends EventArgs {
+  final String topic;
+  // reason code sent by an MQTT 5 broker, null for MQTT 3.1.1
+  final String? reason;
+
+  SubscribeFailedEventArgs(this.topic, this.reason);
+}
+
 // Keeps the connection to the MQTT broker and offers basic operations such as publishing a topic and subscribing to a topic.
 // Publishes the onMessageReceived event for further processing of incoming messages.
+// The protocol version is chosen per project, the protocol specific work is done by a MqttProtocolClient.
 class MqttAdapter {
-  static const String WebSocketPrefix = "ws://";
-  static const String SecureWebSocketPrefix = "wss://";
-
-  MqttClient _client = mqttsetup.setup('', '');
+  MqttProtocolClient _client = Mqtt5ProtocolClient();
   List<String> _activeSubscriptions = List.empty(growable: true);
   final onConnectedEvent = Event();
   final onDisconnectedEvent = Event();
   final messageReceivedEvent = Event<ReceivedMqttMessage>();
+  final subscribeFailedEvent = Event<SubscribeFailedEventArgs>();
   var _lock = new lock.Lock();
 
   MqttAdapter() {
@@ -34,46 +47,27 @@ class MqttAdapter {
     }
   }
 
+  MqttProtocolVersion get protocolVersion => _client.protocolVersion;
+
+  // what the broker reported when it accepted the connection, null while not connected
+  BrokerInfo? get brokerInfo => _client.brokerInfo;
+
+  // the reason the broker gave for closing the connection, MQTT 5 only
+  String? get lastDisconnectReason => _client.lastDisconnectReason;
+
   Future connect(MqttSettings mqttSettings) async {
-    var hostname = mqttSettings.hostname;
-    if (mqttSettings.useWebSockets) {
-      hostname = (mqttSettings.useSsl ? SecureWebSocketPrefix : WebSocketPrefix) + hostname;
+    if (_client.isConnected()) {
+      _client.disconnect();
     }
-
-    _client = mqttsetup.setup(hostname, mqttSettings.clientId);
-
-    _client.port = mqttSettings.port;
+    _client = _createClient(mqttSettings.protocolVersion);
     _client.onConnected = _onConnected;
     _client.onDisconnected = _onDisconnected;
+    _client.onMessagesReceived = _onDataReceived;
     _client.onSubscribed = _onSubscribed;
     _client.onUnsubscribed = _onUnsubscribed;
-    _client.connectionMessage = MqttConnectMessage().startClean().withClientIdentifier(mqttSettings.clientId);
-    _client.keepAlivePeriod = 20;
-    _client.logging(on: true);
-    _client.websocketProtocols = ['mqtt'];
+    _client.onSubscribeFailed = _onSubscribeFailed;
 
-    // setup for server client only
-    mqttsetup.setupSecure(
-        _client,
-        mqttSettings.useSsl
-            ? mqttSettings.useWebSockets
-                ? false
-                : true
-            : false);
-    mqttsetup.setupUserWebSockets(_client, mqttSettings.useWebSockets);
-
-    try {
-      await _client.connect(mqttSettings.username, mqttSettings.password);
-      _client.updates.listen((event) => _onDataReceived(event));
-    } on SocketException catch (exc) {
-      print('MQTT: error connecting [${exc.message}, ${exc.osError?.message}]');
-      _client.disconnect();
-      throw new SrxServiceException('${exc.message}, ${exc.osError}', ServiceError.MqttCannotConnect);
-    } on Exception catch (exc) {
-      print('MQTT: error connecting [$exc]');
-      _client.disconnect();
-      throw new SrxServiceException(exc.toString(), ServiceError.MqttCannotConnect);
-    }
+    await _client.connect(mqttSettings);
   }
 
   void disconnect() {
@@ -81,25 +75,26 @@ class MqttAdapter {
   }
 
   bool isConnected() {
-    return _client.connectionStatus!.state == MqttConnectionState.connected;
+    return _client.isConnected();
   }
 
-  void subscribeToTopic(String topic, MqttQos qos) {
+  void subscribeToTopic(TopicSubscription subscription) {
     if (!isConnected()) {
       throw new SrxServiceException('Not connected to MQTT broker', ServiceError.MqttNotConnected);
     }
-    _client.subscribe(topic, qos);
+    _client.subscribe(subscription);
   }
 
   void unSubscribeFromTopic(String topic) {
     if (!isConnected()) {
       throw new SrxServiceException('Not connected to MQTT broker', ServiceError.MqttNotConnected);
     }
-    _client.unsubscribeStringTopic(topic);
+    _client.unsubscribe(topic);
   }
 
+  // properties are only sent over MQTT 5 connections
   void publish(String topic, dynamic payload, MqttPayloadType payloadType, bool retain,
-      [MqttQos qos = MqttQos.atMostOnce]) {
+      [MqttQos qos = MqttQos.atMostOnce, MqttMessageProperties? properties]) {
     var payloadBuilder = MqttPayloadBuilder();
     switch (payloadType) {
       case MqttPayloadType.string:
@@ -119,11 +114,20 @@ class MqttAdapter {
         break;
     }
 
-    _client.publishMessage(topic, qos, payloadBuilder.payload!, retain: retain);
+    _client.publish(topic, payloadBuilder.payload!, qos, retain, properties);
+  }
+
+  MqttProtocolClient _createClient(MqttProtocolVersion protocolVersion) {
+    switch (protocolVersion) {
+      case MqttProtocolVersion.v311:
+        return Mqtt311ProtocolClient();
+      case MqttProtocolVersion.v5:
+        return Mqtt5ProtocolClient();
+    }
   }
 
   void _onConnected() {
-    print('MQTT: connected');
+    print('MQTT: connected (${_client.protocolVersion.displayName})');
     onConnectedEvent.broadcast();
   }
 
@@ -132,28 +136,25 @@ class MqttAdapter {
     onDisconnectedEvent.broadcast();
   }
 
-  void _onDataReceived(List<MqttReceivedMessage<MqttMessage>> messages) async {
+  void _onDataReceived(List<ReceivedMqttMessage> messages) async {
     print("message received");
     await _lock.synchronized(() async {
       for (var msg in messages) {
-        var rawMsg = msg.payload as MqttPublishMessage;
-        var payload = rawMsg.payload.message ?? Uint8Buffer(0); // or some other default
-        ReceivedMqttMessage receivedMsg = ReceivedMqttMessage.received(rawMsg.variableHeader!.messageIdentifier,
-            rawMsg.variableHeader!.topicName, payload, rawMsg.header!.qos, rawMsg.header?.retain ?? false);
-        messageReceivedEvent.broadcast(receivedMsg);
+        messageReceivedEvent.broadcast(msg);
       }
     });
   }
 
-  void _onSubscribed(MqttSubscription subscription) {
-    if (subscription.topic.rawTopic != null) {
-      _activeSubscriptions.add(subscription.topic.rawTopic!);
-    }
+  void _onSubscribed(String topic) {
+    _activeSubscriptions.add(topic);
   }
 
-  void _onUnsubscribed(MqttSubscription? subscription) {
-    if (subscription != null && subscription.topic.rawTopic != null) {
-      _activeSubscriptions.remove(subscription.topic.rawTopic!);
-    }
+  void _onUnsubscribed(String topic) {
+    _activeSubscriptions.remove(topic);
+  }
+
+  void _onSubscribeFailed(String topic, String? reason) {
+    print('MQTT: subscribing to $topic failed [${reason ?? 'no reason given'}]');
+    subscribeFailedEvent.broadcast(SubscribeFailedEventArgs(topic, reason));
   }
 }

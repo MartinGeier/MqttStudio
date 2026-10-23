@@ -7,6 +7,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_json_viewer/flutter_json_viewer.dart';
 import 'package:mqttstudio/common/widgets/topic_chip.dart';
+import 'package:mqttstudio/model/mqtt_message_properties.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
 import 'package:mqttstudio/message_viewer/message_viewer_viewmodel.dart';
 import 'package:provider/provider.dart';
@@ -67,6 +68,10 @@ class _MessageDetailViewState extends State<MessageDetailView> {
               children: [_buildReceivedOn(context, topic, nf), _buildMessageCount(context, viewmodel, nf), Spacer()],
             ),
             SizedBox(height: 24),
+            if (topic.properties != null && !topic.properties!.isEmpty) ...[
+              _buildMqtt5Properties(context, topic.properties!),
+              SizedBox(height: 24),
+            ],
             _buildPayload(context, topic, viewmodel),
             SizedBox(height: 12),
             chartValues.length > 1
@@ -225,6 +230,53 @@ class _MessageDetailViewState extends State<MessageDetailView> {
         ],
       ),
     );
+  }
+
+  Widget _buildMqtt5Properties(BuildContext context, MqttMessageProperties properties) {
+    var rows = <TableRow>[
+      if (properties.contentType != null)
+        _buildPropertyRow(context, 'messagedetailview.contenttype.label'.tr(), properties.contentType!),
+      if (properties.responseTopic != null)
+        _buildPropertyRow(context, 'messagedetailview.responsetopic.label'.tr(), properties.responseTopic!),
+      if (properties.correlationData != null)
+        _buildPropertyRow(context, 'messagedetailview.correlationdata.label'.tr(),
+            PayloadUtils.toUtf8OrHex(properties.correlationData!)),
+      if (properties.messageExpiryInterval != null)
+        _buildPropertyRow(
+            context, 'messagedetailview.messageexpiry.label'.tr(), '${properties.messageExpiryInterval} s'),
+      if (properties.payloadFormatUtf8)
+        _buildPropertyRow(context, 'messagedetailview.payloadformat.label'.tr(), 'UTF-8'),
+      if (properties.subscriptionIdentifiers.isNotEmpty)
+        _buildPropertyRow(context, 'messagedetailview.subscriptionids.label'.tr(),
+            properties.subscriptionIdentifiers.join(', ')),
+      for (var userProperty in properties.userProperties)
+        _buildPropertyRow(context, userProperty.key, userProperty.value),
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('messagedetailview.mqtt5properties.label'.tr(), style: Theme.of(context).textTheme.titleMedium),
+        SizedBox(height: 6),
+        Table(
+            columnWidths: {0: FixedColumnWidth(160), 1: FlexColumnWidth()},
+            defaultVerticalAlignment: TableCellVerticalAlignment.top,
+            children: rows),
+      ]),
+    );
+  }
+
+  TableRow _buildPropertyRow(BuildContext context, String name, String value) {
+    return TableRow(children: [
+      Padding(
+        padding: const EdgeInsets.only(bottom: 4, right: 12),
+        child: Text(name, style: Theme.of(context).textTheme.titleSmall, overflow: TextOverflow.ellipsis),
+      ),
+      Padding(
+        padding: const EdgeInsets.only(bottom: 4),
+        child: SelectableText(value, style: Theme.of(context).textTheme.bodyMedium),
+      ),
+    ]);
   }
 
   Widget _buildPayload(BuildContext context, ReceivedMqttMessage topic, MessageViewerViewmodel viewmodel) {

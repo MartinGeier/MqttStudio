@@ -7,10 +7,8 @@ part of 'topic_color.dart';
 // **************************************************************************
 
 TopicColor _$TopicColorFromJson(Map<String, dynamic> json) => TopicColor(
-      const _ColorConverter().fromJson(json['color'] as int),
-    );
+  const _ColorConverter().fromJson((json['color'] as num).toInt()),
+);
 
 Map<String, dynamic> _$TopicColorToJson(TopicColor instance) =>
-    <String, dynamic>{
-      'color': const _ColorConverter().toJson(instance.color),
-    };
+    <String, dynamic>{'color': const _ColorConverter().toJson(instance.color)};

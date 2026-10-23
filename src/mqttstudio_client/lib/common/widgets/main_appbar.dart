@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mqttstudio/common/widgets/broker_info_button.dart';
 import 'package:mqttstudio/common/widgets/connect_button.dart';
 import 'package:mqttstudio/project/project_viewmodel.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -65,7 +66,7 @@ class _MainAppBarState extends State<MainAppBar> {
           )
         ],
       ),
-      actions: [ConnectButton(key: coachKey)],
+      actions: [BrokerInfoButton(), SizedBox(width: 6), ConnectButton(key: coachKey)],
     );
   }
 }

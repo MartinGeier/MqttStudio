@@ -85,8 +85,11 @@ void main() {
     });
   });
 
-  // opens the dialog through a button, like the app does
+  // opens the dialog through a button, like the app does. The app is designed for a desktop window, in the default
+  // 800x600 test surface the project dialog does not fit and taps on its buttons hit the barrier instead.
   Future openDialog(WidgetTester tester, Widget dialog) async {
+    await tester.binding.setSurfaceSize(Size(1500, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(testApp(DialogHost(dialog)));
     await tester.pumpAndSettle();
     await tester.tap(find.text('open'));

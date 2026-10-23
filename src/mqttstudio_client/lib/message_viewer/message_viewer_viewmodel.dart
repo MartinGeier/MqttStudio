@@ -155,7 +155,7 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
     assert(_selectedMessage != null);
 
     GetIt.I.get<MessageViewer>().publishTopic(_selectedMessage!.topicName, _selectedMessage!.payload,
-        MqttPayloadType.binary, _selectedMessage!.retain, _selectedMessage!.qos);
+        MqttPayloadType.binary, _selectedMessage!.retain, _selectedMessage!.qos, _selectedMessage!.properties);
   }
 
   TopicViewMode get topicViewMode => _topicViewMode;
