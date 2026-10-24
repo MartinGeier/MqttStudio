@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqtt5_client/mqtt5_client.dart' show MqttQos;
+import 'package:mqttstudio/documentation/discover_viewmodel.dart';
 import 'package:mqttstudio/documentation/discovery_service.dart';
 import 'package:mqttstudio/documentation/doc_node_editor_model.dart';
 import 'package:mqttstudio/documentation/documentation_service.dart';
@@ -228,7 +229,7 @@ void main() {
     });
 
     test('a lost connection is a gap and the discovery goes on after the reconnect', () async {
-      await discovery.start(DiscoverySettings(stop: DiscoveryStop.manual));
+      await discovery.start(DiscoverySettings(filters: [RecorderFilter('#')], stop: DiscoveryStop.manual));
       var connection = connections.single;
       connection.disconnect();
       expect(discovery.state, DiscoveryState.reconnecting);
@@ -244,7 +245,7 @@ void main() {
       }
       var results = 0;
       discovery.resultEvent.subscribe((_) => results++);
-      await discovery.start(DiscoverySettings(), source: DiscoverySource.buffer);
+      await discovery.start(DiscoverySettings(filters: [RecorderFilter('#')]), source: DiscoverySource.buffer);
       await pumpEventQueue();
       expect(results, 1);
       var item = discovery.lastResult!.added.single;
@@ -256,7 +257,8 @@ void main() {
 
     test('discovers from a recording', () async {
       var info = await recordInLibrary('Line 1', ['plant/a', 'plant/b', 'plant/a']);
-      await discovery.start(DiscoverySettings(), source: DiscoverySource.recording, recording: info);
+      await discovery.start(DiscoverySettings(filters: [RecorderFilter('#')]),
+          source: DiscoverySource.recording, recording: info);
       await pumpEventQueue();
       var result = discovery.lastResult!;
       expect(result.sourceName, 'Line 1');
@@ -264,12 +266,86 @@ void main() {
       expect(result.added.map((item) => item.path), ['plant/a', 'plant/b']);
     });
 
+    test('a discovery after another one can be stopped', () async {
+      var info = await recordInLibrary('Line 1', ['plant/a', 'plant/b']);
+      await discovery.start(DiscoverySettings(filters: [RecorderFilter('#')]),
+          source: DiscoverySource.recording, recording: info);
+      await pumpEventQueue();
+      expect(discovery.state, DiscoveryState.idle);
+
+      for (var run = 0; run < 2; run++) {
+        await discovery.start(DiscoverySettings(filters: [RecorderFilter('#')], stop: DiscoveryStop.manual));
+        connections.last.messageReceivedEvent.broadcast(received('plant/run$run', '1'));
+        await discovery.stop();
+        expect(discovery.state, DiscoveryState.idle, reason: 'run $run');
+        expect(connections.last.connected, isFalse);
+        expect(discovery.lastResult!.added.single.path, 'plant/run$run');
+      }
+    });
+
+    test('the message limit stops a live discovery', () async {
+      await discovery
+          .start(DiscoverySettings(filters: [RecorderFilter('#')], stop: DiscoveryStop.messages, maxMessages: 2));
+      for (var i = 0; i < 3; i++) {
+        connections.single.messageReceivedEvent.broadcast(received('plant/t$i', '1'));
+      }
+      await pumpEventQueue();
+      expect(discovery.state, DiscoveryState.idle);
+      expect(discovery.lastResult!.messages, 2);
+    });
+
+    test('a result that can not be built ends the discovery with an error', () async {
+      await discovery.start(DiscoverySettings(filters: [RecorderFilter('#')], stop: DiscoveryStop.manual));
+      var errors = <String>[];
+      discovery.errorEvent.subscribe((args) => errors.add(args.message));
+      // anything that throws while the result is built
+      GetIt.I.get<ProjectManager>().currentProject!.documentation.nodes.add(_BrokenNode());
+      connections.single.messageReceivedEvent.broadcast(received('plant/x', '1'));
+      await discovery.stop();
+      expect(discovery.state, DiscoveryState.idle);
+      expect(errors, isNotEmpty);
+      GetIt.I.get<ProjectManager>().currentProject!.documentation.nodes.removeLast();
+      await discovery.start(DiscoverySettings(filters: [RecorderFilter('#')], stop: DiscoveryStop.manual));
+      expect(discovery.state, DiscoveryState.running);
+      await discovery.stop();
+    });
+
+    test('the dialog starts with an empty filter and remembers the filters of an applied discovery', () async {
+      String firstFilter() => (DiscoverViewmodel().filters.value!.first!)[DiscoverViewmodel.filterField] as String;
+      var documentation = GetIt.I.get<ProjectManager>().currentProject!.documentation;
+      expect(firstFilter(), '');
+      // settings that were never applied don't count
+      documentation.discoverySettings.filters = [RecorderFilter('#')];
+      expect(firstFilter(), '');
+      await discovery.start(DiscoverySettings(filters: [RecorderFilter('plant/#')]));
+      connections.single.messageReceivedEvent.broadcast(received('plant/a', '1'));
+      await discovery.stop();
+      discovery.apply(discovery.lastResult!);
+      expect(firstFilter(), 'plant/#');
+    });
+
+    test('a discovery needs an include filter', () async {
+      expect(DiscoverySettings().filters, isEmpty);
+      expect(() => discovery.start(DiscoverySettings()), throwsArgumentError);
+      expect(() => discovery.start(DiscoverySettings(filters: [RecorderFilter('a/#', exclude: true)])),
+          throwsArgumentError);
+      expect(discovery.state, DiscoveryState.idle);
+      expect(connections, isEmpty);
+    });
+
     test('closing the project cancels a discovery without a result', () async {
-      await discovery.start(DiscoverySettings());
+      await discovery.start(DiscoverySettings(filters: [RecorderFilter('#')]));
       closingNotSavedAnswer = false;
       await GetIt.I.get<ProjectManager>().closeProject();
       expect(discovery.state, DiscoveryState.idle);
       expect(discovery.lastResult, isNull);
     });
   });
+}
+
+class _BrokenNode extends DocNode {
+  _BrokenNode() : super(path: 'broken');
+
+  @override
+  bool get isTopic => throw StateError('broken node');
 }

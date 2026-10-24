@@ -39,12 +39,16 @@ class DiscoverViewmodel extends SrxChangeNotifier {
   final List<StreamSubscription> _subscriptions = [];
 
   DiscoverViewmodel({DiscoverySource source = DiscoverySource.live, String? recordingId}) {
-    var settings = _projectManager.currentProject?.documentation.discoverySettings ?? DiscoverySettings();
+    var documentation = _projectManager.currentProject?.documentation;
+    var settings = documentation?.discoverySettings ?? DiscoverySettings();
+    // only the filters of an applied discovery are remembered; otherwise one empty filter to fill in
+    var filters =
+        documentation?.lastDiscoveryAt != null && settings.filters.isNotEmpty ? settings.filters : [RecorderFilter('')];
     form = FormGroup({
       sourceField: FormControl<DiscoverySource>(value: source),
       recordingField: FormControl<String>(value: recordingId, validators: [Validators.delegate(_validateRecording)]),
       filtersField: FormArray<Map<String, Object?>>(
-          [for (var filter in settings.filters) _filterGroup(filter.filter, filter.exclude)],
+          [for (var filter in filters) _filterGroup(filter.filter, filter.exclude)],
           validators: [Validators.delegate(_validateIncludes)]),
       stopField: FormControl<DiscoveryStop>(value: settings.stop),
       durationField: FormControl<int>(
@@ -57,8 +61,10 @@ class DiscoverViewmodel extends SrxChangeNotifier {
       keepExamplesField: FormControl<bool>(value: settings.keepExamples),
       ignoreSysField: FormControl<bool>(value: settings.ignoreSys),
     });
+    _updateStopControls();
     _subscriptions.add(form.control(sourceField).valueChanges.listen((_) {
       form.control(recordingField).updateValueAndValidity();
+      _updateStopControls();
       notifyListeners();
     }));
     _subscriptions.add(form.control(stopField).valueChanges.listen((_) => notifyListeners()));
@@ -90,6 +96,18 @@ class DiscoverViewmodel extends SrxChangeNotifier {
   int get bufferedMessages => GetIt.I.get<MessageViewer>().messageBuffer.length;
 
   FormArray<Map<String, Object?>> get filters => form.control(filtersField) as FormArray<Map<String, Object?>>;
+
+  // a recording and the topic viewer are read to the end, so the stop settings only apply to a live discovery. They
+  // stay visible but disabled, and the dialog keeps its height on every source.
+  void _updateStopControls() {
+    for (var name in [stopField, durationField, maxMessagesField]) {
+      if (isLive) {
+        form.control(name).markAsEnabled();
+      } else {
+        form.control(name).markAsDisabled();
+      }
+    }
+  }
 
   void addFilter() {
     filters.add(_filterGroup('', false));

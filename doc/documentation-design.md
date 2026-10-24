@@ -128,7 +128,7 @@ class TopicDocumentation {
   String description = '';                // Markdown
   String owner = '';
   List<DocNode> nodes = [];
-  List<String> discoveryFilters = ['#'];  // remembered for the next discovery and the check
+  List<String> discoveryFilters = [];     // none by default (§5.1); remembered for the next discovery and the check
   List<String> ignoreFilters = ['\$SYS/#'];
   DiscoverySettings discoverySettings;    // duration, message limit, options (§5.1)
   DateTime? lastDiscoveryAt;
@@ -270,9 +270,11 @@ enums. No `dynamic`: the schema is typed, and JSON examples are stored as text.
 
 `DiscoverySettings`: filters (several, include and exclude, like the recorder's), stop after a
 duration (default 5 min), after N messages, or manually; options: detect templates (on), infer
-JSON schemas (on), keep examples (on), ignore `$SYS/#` (on). The filters are remembered in
-`TopicDocumentation.discoveryFilters`. Overlapping filters are normalized like the recorder's
-(R22) and shared subscriptions are rejected (R21).
+JSON schemas (on), keep examples (on), ignore `$SYS/#` (on). There is **no default filter**: `#`
+on a busy broker would flood the app, so the dialog starts with one empty filter and a discovery
+needs at least one include filter. The filters of an applied discovery are remembered in
+`TopicDocumentation.discoverySettings` and prefilled next time. Overlapping filters are normalized
+like the recorder's (R22) and shared subscriptions are rejected (R21).
 
 ### 5.2 Live connection (T9, T10)
 

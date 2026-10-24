@@ -821,10 +821,8 @@
     "documentation.menu.totopic": "Document as topic",
     "documentation.menu.tonamespace": "Document as namespace",
     "documentation.menu.delete": "Delete",
-    "documentation.delete.confirm": {
-        "one": "Delete the documentation of {path}?",
-        "other": "Delete {path} and everything below it ({} documented entries)?"
-    },
+    "documentation.delete.confirm.one": "Delete the documentation of {path}?",
+    "documentation.delete.confirm.other": "Delete {path} and everything below it ({} documented entries)?",
     "documentation.tonamespace.confirm": "Document {} as a namespace? Its payload, delivery and access details are deleted.",
     "doctree.title": "Topics",
     "doctree.counts": "{} topics · {} undocumented",
@@ -899,10 +897,8 @@
     "docpathdialog.move.title": "Rename or Move",
     "docpathdialog.path.label": "Topic",
     "docpathdialog.path.helper": "Write a parameter as {name}, e.g. plant/{line}/m{machine}/temp",
-    "docpathdialog.move.helper": {
-        "one": "Only this entry moves",
-        "other": "{} documented entries move"
-    },
+    "docpathdialog.move.helper.one": "Only this entry moves",
+    "docpathdialog.move.helper.other": "{} documented entries move",
     "docpathdialog.path.taken.error": "This topic is already documented",
     "docpathdialog.path.sameshape.error": "A documented topic already matches the same topics",
     "docpathdialog.copyfrom.label": "Copy details from",
@@ -956,7 +952,8 @@
     "discoverdialog.source.buffer": "TOPIC VIEWER",
     "discoverdialog.broker.label": "Broker (from the project)",
     "discoverdialog.recording.label": "Recording",
-    "discoverdialog.buffer.label": "The {} messages the topic viewer holds",
+    "discoverdialog.buffer.label": "Topic viewer",
+    "discoverdialog.buffer.value": "{} messages",
     "discoverdialog.filters.label": "Topic filters",
     "discoverdialog.stop.label": "Stop after",
     "discoverdialog.stop.duration": "Duration",
@@ -984,18 +981,12 @@
     "docreview.empty.added": "No new topics",
     "docreview.empty.changed": "No documented topic differs from what was seen",
     "docreview.empty.notSeen": "Every documented topic received messages",
-    "docreview.template.meta": {
-        "one": "Template · 1 topic",
-        "other": "Template · {} topics"
-    },
-    "docreview.template.replaces": {
-        "one": "replaces 1 documented topic",
-        "other": "replaces {} documented topics"
-    },
-    "docreview.differences.meta": {
-        "one": "1 difference",
-        "other": "{} differences"
-    },
+    "docreview.template.meta.one": "Template · 1 topic",
+    "docreview.template.meta.other": "Template · {} topics",
+    "docreview.template.replaces.one": "replaces 1 documented topic",
+    "docreview.template.replaces.other": "replaces {} documented topics",
+    "docreview.differences.meta.one": "1 difference",
+    "docreview.differences.meta.other": "{} differences",
     "docreview.messages.label": "Messages",
     "docreview.instances.label": "Topics",
     "docreview.payload.label": "Payload",

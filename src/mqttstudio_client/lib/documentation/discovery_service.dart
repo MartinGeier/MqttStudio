@@ -119,7 +119,7 @@ class DiscoveryService {
     };
   }
 
-  // throws when the broker or the recording can't be opened; nothing runs then
+  // throws without an include filter, or when the broker or the recording can't be opened; nothing runs then
   Future<void> start(DiscoverySettings settings,
       {DiscoverySource source = DiscoverySource.live, RecordingInfo? recording}) async {
     if (isRunning) {
@@ -128,6 +128,9 @@ class DiscoveryService {
     var project = _projectManager.currentProject;
     if (project == null) {
       throw StateError('Discovery needs an open project');
+    }
+    if (!settings.filters.any((filter) => !filter.exclude && filter.filter.isNotEmpty)) {
+      throw ArgumentError('Discovery needs at least one topic filter');
     }
     _settings = settings.copy();
     _source = source;
@@ -139,6 +142,7 @@ class DiscoveryService {
     _read = 0;
     _total = 0;
     _stopRequested = false;
+    _finishing = null;
     _isMqtt5 = switch (source) {
       DiscoverySource.recording => recording!.header.protocol == MqttProtocolVersion.v5,
       _ => project.mqttSettings.isMqtt5,
@@ -169,7 +173,7 @@ class DiscoveryService {
       _stopRequested = true;
       return _finishing ?? Future.value();
     }
-    return _finishing ??= _finish();
+    return _finishOnce();
   }
 
   // writes the reviewed result into the documentation
@@ -285,9 +289,6 @@ class DiscoveryService {
           case MessageEntry(:var message):
             _read++;
             _accept(message, startedAt.add(message.offset));
-            if (_settings!.stop == DiscoveryStop.messages && messages >= _settings!.maxMessages) {
-              _stopRequested = true;
-            }
           case MarkerEntry(:var marker):
             if (marker.kind == RecordingMarker.connectionLost) {
               _analyzer!.markGap();
@@ -301,11 +302,15 @@ class DiscoveryService {
       _errors.add(exc.toString());
       errorEvent.broadcast(DiscoveryErrorEventArgs(exc.toString()));
     } finally {
-      await reader?.close();
+      try {
+        await reader?.close();
+      } catch (_) {
+        // the messages are read, a file that doesn't close doesn't change the result
+      }
     }
     if (_analyzer != null) {
       _analyzer!.finish(info.header.startedAt.add(Duration(microseconds: info.footer.durationMicros)));
-      await (_finishing ??= _finish());
+      await _finishOnce();
     }
   }
 
@@ -333,28 +338,41 @@ class DiscoveryService {
       }
     }
     if (_analyzer != null) {
-      await (_finishing ??= _finish());
+      await _finishOnce();
     }
   }
 
+  // _finish runs to its end before it returns, so the future is kept until it completed and cleared afterwards;
+  // assigning the result of _finish() after it cleared the field would keep a finished future for the next discovery
+  Future<void> _finishOnce() => _finishing ??= _finish().whenComplete(() => _finishing = null);
+
+  // always ends the discovery; a result that can't be built is reported as an error
   Future<void> _finish() async {
     var analyzer = _analyzer;
-    _closeConnection();
     _stopTimer?.cancel();
     _statsTimer?.cancel();
     _stopwatch?.stop();
-    var documentation = _projectManager.currentProject?.documentation;
-    if (analyzer != null && documentation != null) {
-      if (_source == DiscoverySource.live) {
-        analyzer.finish(clock.now());
+    DiscoveryResult? result;
+    try {
+      _closeConnection();
+      var documentation = _projectManager.currentProject?.documentation;
+      if (analyzer != null && documentation != null) {
+        if (_source == DiscoverySource.live) {
+          analyzer.finish(clock.now());
+        }
+        result =
+            DiscoveryMerger.build(documentation, analyzer, _settings!, isMqtt5: _isMqtt5, errors: List.of(_errors));
       }
-      lastResult =
-          DiscoveryMerger.build(documentation, analyzer, _settings!, isMqtt5: _isMqtt5, errors: List.of(_errors));
+    } catch (exc) {
+      errorEvent.broadcast(DiscoveryErrorEventArgs(exc.toString()));
     }
+    _connection = null;
     _analyzer = null;
-    _finishing = null;
+    if (result != null) {
+      lastResult = result;
+    }
     _setState(DiscoveryState.idle);
-    if (lastResult != null && analyzer != null) {
+    if (result != null) {
       resultEvent.broadcast();
     }
   }

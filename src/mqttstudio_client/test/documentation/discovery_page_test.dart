@@ -6,6 +6,7 @@ import 'package:mqtt5_client/mqtt5_client.dart' show MqttQos;
 import 'package:mqttstudio/documentation/discovery_service.dart';
 import 'package:mqttstudio/documentation/documentation_page.dart';
 import 'package:mqttstudio/documentation/documentation_service.dart';
+import 'package:mqttstudio/documentation/model/observed_topic.dart';
 import 'package:mqttstudio/documentation/model/topic_documentation.dart';
 import 'package:mqttstudio/model/mqtt_protocol_version.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
@@ -101,7 +102,16 @@ void main() {
         await tester.tap(find.text('DISCOVER'));
         await tester.pumpAndSettle();
         expect(find.text('Discover Topics'), findsOneWidget);
-        await tester.tap(find.descendant(of: find.byType(SimpleDialog), matching: find.text('DISCOVER')));
+        // no filter by default: # on a busy broker would flood the app
+        var dialog = find.byType(SimpleDialog);
+        var filter = find.descendant(of: dialog, matching: find.byType(TextField)).first;
+        expect(tester.widget<TextField>(filter).controller!.text, isEmpty);
+        await tester.tap(find.descendant(of: dialog, matching: find.text('DISCOVER')));
+        await tester.pumpAndSettle();
+        expect(dialog, findsOneWidget);
+        expect(connections, isEmpty);
+        await tester.enterText(filter, 'plant/#');
+        await tester.tap(find.descendant(of: dialog, matching: find.text('DISCOVER')));
         await tester.pumpAndSettle();
 
         var connection = connections.single;
@@ -133,6 +143,34 @@ void main() {
       });
     });
 
+    testWidgets('the discover dialog keeps its height on every source', (tester) async {
+      await ignoringOverflowErrors(() async {
+        await tester.binding.setSurfaceSize(Size(1600, 1400));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        await openNewProject();
+        await tester.pumpWidget(testApp(DocumentationPage()));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('DISCOVER'));
+        await tester.pumpAndSettle();
+
+        var dialog = find.byType(SimpleDialog);
+        var heights = [tester.getSize(dialog).height];
+        for (var source in ['RECORDING', 'TOPIC VIEWER', 'LIVE BROKER']) {
+          await tester.tap(find.text(source));
+          await tester.pumpAndSettle();
+          heights.add(tester.getSize(dialog).height);
+        }
+        expect(heights.toSet(), hasLength(1));
+
+        // the stop settings only apply to a live discovery
+        await tester.tap(find.text('TOPIC VIEWER'));
+        await tester.pumpAndSettle();
+        expect(find.text('Stop after'), findsOneWidget);
+        var stop = tester.widget<DropdownButton<DiscoveryStop>>(find.byType(DropdownButton<DiscoveryStop>));
+        expect(stop.onChanged, isNull);
+      });
+    });
+
     testWidgets('a broker that can not be reached shows an error', (tester) async {
       await ignoringOverflowErrors(() async {
         GetIt.I.get<DiscoveryService>().dispose();
@@ -145,7 +183,9 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.text('DISCOVER'));
         await tester.pumpAndSettle();
-        await tester.tap(find.descendant(of: find.byType(SimpleDialog), matching: find.text('DISCOVER')));
+        var dialog = find.byType(SimpleDialog);
+        await tester.enterText(find.descendant(of: dialog, matching: find.byType(TextField)).first, '#');
+        await tester.tap(find.descendant(of: dialog, matching: find.text('DISCOVER')));
         await tester.pumpAndSettle();
         expect(find.text('Cannot start the discovery'), findsOneWidget);
         expect(GetIt.I.get<DiscoveryService>().isRunning, isFalse);

@@ -140,6 +140,7 @@ class ObservedInterval {
 // What a discovery listens to and when it stops (§5.1), remembered for the next one
 @JsonSerializable(explicitToJson: true)
 class DiscoverySettings {
+  // no filter by default: # on a busy broker would flood the app, the user enters what to listen to
   static const int defaultDurationSeconds = 300;
 
   List<RecorderFilter> filters;
@@ -160,7 +161,7 @@ class DiscoverySettings {
       this.inferSchemas = true,
       this.keepExamples = true,
       this.ignoreSys = true})
-      : filters = filters ?? [RecorderFilter('#')];
+      : filters = filters ?? [];
 
   DiscoverySettings copy() => DiscoverySettings.fromJson(toJson());
 

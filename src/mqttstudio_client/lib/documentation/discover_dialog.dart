@@ -4,6 +4,7 @@ import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/common/widgets/checkbox_field.dart';
 import 'package:mqttstudio/documentation/discover_viewmodel.dart';
 import 'package:mqttstudio/documentation/model/observed_topic.dart';
+import 'package:mqttstudio/documentation/widgets/doc_format.dart';
 import 'package:provider/provider.dart';
 import 'package:reactive_forms/reactive_forms.dart';
 import 'package:srx_flutter/srx_flutter.dart';
@@ -58,7 +59,8 @@ class _DiscoverDialogState extends State<DiscoverDialog> {
                   _buildLabel(context, 'discoverdialog.filters.label'),
                   SizedBox(height: 8),
                   _buildFilters(context, vm),
-                  if (vm.isLive) ...[SizedBox(height: 8), _buildStop(vm)],
+                  SizedBox(height: 8),
+                  _buildStop(vm),
                   SizedBox(height: 8),
                   _buildOptions(vm),
                   SizedBox(height: 8),
@@ -133,8 +135,14 @@ class _DiscoverDialogState extends State<DiscoverDialog> {
           ],
         );
       case DiscoverySource.buffer:
-        return Text('discoverdialog.buffer.label'.tr(args: ['${vm.bufferedMessages}']),
-            style: Theme.of(context).textTheme.bodyMedium);
+        // a read-only field like the broker's, so the dialog keeps its height
+        return InputDecorator(
+            decoration: InputDecoration(
+                border: OutlineInputBorder(),
+                labelText: 'discoverdialog.buffer.label'.tr(),
+                isDense: true,
+                enabled: false),
+            child: Text('discoverdialog.buffer.value'.tr(args: [DocFormat.count(vm.bufferedMessages)])));
     }
   }
 
