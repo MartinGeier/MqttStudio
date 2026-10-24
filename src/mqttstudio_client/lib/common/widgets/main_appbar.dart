@@ -9,6 +9,7 @@ class MainAppBar extends StatefulWidget implements PreferredSizeWidget {
   static const int topicViewerTab = 0;
   static const int simulatorTab = 1;
   static const int recorderTab = 2;
+  static const int documentationTab = 3;
 
   final ProjectViewmodel viewmodel;
 
@@ -55,12 +56,9 @@ class _MainAppBarState extends State<MainAppBar> {
                     padding: const EdgeInsets.symmetric(horizontal: 36),
                     child: Text('topicviewerpage.menuitem.recorder'.tr()),
                   ),
-                  Visibility(
-                    visible: false,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 48),
-                      child: Text('topicviewerpage.menuitem.documentation'.tr()),
-                    ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 36),
+                    child: Text('topicviewerpage.menuitem.documentation'.tr()),
                   ),
                 ]),
           )

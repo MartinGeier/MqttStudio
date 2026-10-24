@@ -1,5 +1,7 @@
 import 'dart:io';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:mqttstudio/documentation/discovery_service.dart';
+import 'package:mqttstudio/documentation/documentation_service.dart';
 import 'package:mqttstudio/cli/run_cli.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
@@ -81,6 +83,8 @@ void setupServiceLocator(RecordingLibrary recordingLibrary) {
   GetIt.I.registerSingleton(RecorderService(recordingLibrary, appVersion: _appVersion)..confirmStopOnClose = onClosingWhileRecording);
   GetIt.I.registerSingleton(PlaybackService(recordingLibrary));
   GetIt.I.registerSingleton(RecordingAnalysisService(recordingLibrary));
+  GetIt.I.registerSingleton(DocumentationService());
+  GetIt.I.registerSingleton(DiscoveryService());
   GetIt.I.registerSingleton(MqttConnectionViewmodel());
 }
 

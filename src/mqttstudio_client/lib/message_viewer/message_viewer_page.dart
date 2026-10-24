@@ -14,6 +14,7 @@ import 'package:mqttstudio/message_viewer/widgets/topics_viewer_command_bar.dart
 import 'package:mqttstudio/message_viewer/widgets/tree_messages_viewer.dart';
 import 'package:mqttstudio/simulator/simulator_page.dart';
 import 'package:mqttstudio/recorder/recorder_page.dart';
+import 'package:mqttstudio/documentation/documentation_page.dart';
 import 'package:mqttstudio/recorder/engine/recorder_service.dart';
 import 'package:mqttstudio/custom_theme.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -66,11 +67,12 @@ class _MessageViewerPageState extends State<MessageViewerPage> {
                     body: AnimatedBuilder(
                       animation: tabController,
                       builder: (context, _) => IndexedStack(
-                          index: tabController.index.clamp(MainAppBar.topicViewerTab, MainAppBar.recorderTab),
+                          index: tabController.index.clamp(MainAppBar.topicViewerTab, MainAppBar.documentationTab),
                           children: [
                             _buildTopicViewer(viewmodel, projectViewmodel),
                             SimulatorPage(),
                             RecorderPage(),
+                            DocumentationPage(),
                           ]),
                     ),
                   );

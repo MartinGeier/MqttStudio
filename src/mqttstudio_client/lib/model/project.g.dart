@@ -30,6 +30,9 @@ Project _$ProjectFromJson(Map<String, dynamic> json) =>
           : DateTime.parse(json['lastUsed'] as String)
       ..simulation = Simulation.fromJsonOrEmpty(
         json['simulation'] as Map<String, dynamic>?,
+      )
+      ..documentation = TopicDocumentation.fromJsonOrEmpty(
+        json['documentation'] as Map<String, dynamic>?,
       );
 
 Map<String, dynamic> _$ProjectToJson(Project instance) => <String, dynamic>{
@@ -47,4 +50,5 @@ Map<String, dynamic> _$ProjectToJson(Project instance) => <String, dynamic>{
   'recentTopics': instance.recentTopics,
   'lastUsed': instance.lastUsed?.toIso8601String(),
   'simulation': instance.simulation.toJson(),
+  'documentation': instance.documentation.toJson(),
 };

@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:mqttstudio/common/utils/number_value_accessor.dart';
 import 'package:mqttstudio/common/widgets/checkbox_field.dart';
 import 'package:mqttstudio/custom_theme.dart';
 import 'package:mqttstudio/simulator/generator_editor_model.dart';
@@ -162,7 +163,7 @@ class GeneratorEditor extends StatelessWidget {
 
   Widget _double(String name, String label, {String? helper}) => ReactiveTextField<double>(
         formControlName: name,
-        valueAccessor: _NumberValueAccessor(),
+        valueAccessor: NumberValueAccessor(),
         decoration: _decoration(label, helper: helper),
         validationMessages: M.validationMessages,
       );
@@ -278,23 +279,6 @@ class GeneratorEditor extends StatelessWidget {
       SelectableText(preview.samples.join(' · '), style: textStyle, maxLines: 3),
     ]);
   }
-}
-
-// Shows 20 instead of 20.00 as DoubleValueAccessor does, and takes a comma as decimal separator
-class _NumberValueAccessor extends ControlValueAccessor<double, String> {
-  @override
-  String modelToViewValue(double? modelValue) {
-    if (modelValue == null) {
-      return '';
-    }
-    return modelValue == modelValue.roundToDouble() && modelValue.abs() < 1e15
-        ? modelValue.toInt().toString()
-        : modelValue.toString();
-  }
-
-  @override
-  double? viewToModelValue(String? viewValue) =>
-      viewValue == null || viewValue.trim().isEmpty ? null : double.tryParse(viewValue.trim().replaceAll(',', '.'));
 }
 
 class _PreviewChartPainter extends CustomPainter {

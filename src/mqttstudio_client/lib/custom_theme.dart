@@ -72,4 +72,6 @@ class CustomColors {
   Color running = Colors.green;
   // a running recording: the REC indicator, the RECORD icon and the live row of the recordings
   Color recordingColor = Colors.red.shade800;
+  // a topic group or a documented topic without a subscription of its own, as in the tree viewer
+  Color topicGroup = Colors.grey;
 }
