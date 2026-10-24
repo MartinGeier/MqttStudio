@@ -15,8 +15,11 @@ import 'package:srx_flutter/srx_flutter.dart';
 class RecordDialog extends StatelessWidget {
   final RecorderConfig config;
   final MqttSettings settings;
+  // offered in the dropdown of each filter field: the subscribed topics and the last filters
+  final List<String> suggestions;
 
-  const RecordDialog({Key? key, required this.config, required this.settings}) : super(key: key);
+  const RecordDialog({Key? key, required this.config, required this.settings, this.suggestions = const []})
+      : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -38,12 +41,19 @@ class RecordDialog extends StatelessWidget {
               child: ReactiveForm(
                 formGroup: vm.form,
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                  SrxFormRow(children: [Expanded(child: _buildNameField(vm))]),
+                  SrxFormRow(children: [Expanded(flex: 2, child: _buildNameField(vm)), SizedBox(width: 16), Expanded(child: _buildMode(vm))]),
                   _buildSectionLabel(context, 'recorddialog.filters.label'),
                   _buildFilters(context, vm),
                   _buildHints(context, vm),
-                  _buildSectionLabel(context, 'recorddialog.stop.label'),
-                  _buildStopFields(vm),
+                  if (!vm.isFlightRecorder) ...[
+                    _buildSectionLabel(context, 'recorddialog.startstop.label'),
+                    _buildTriggerFields(vm),
+                    _buildStopFields(vm),
+                  ],
+                  if (vm.isFlightRecorder) ...[
+                    _buildSectionLabel(context, 'recorddialog.flight.label'),
+                    _buildFlightFields(context, vm),
+                  ],
                   _buildSectionLabel(context, 'recorddialog.options.label'),
                   _buildOptions(vm),
                   SizedBox(height: 16),
@@ -78,23 +88,104 @@ class RecordDialog extends StatelessWidget {
     );
   }
 
+  Widget _buildMode(RecordViewmodel vm) {
+    return ReactiveDropdownField<RecorderMode>(
+      formControlName: RecordViewmodel.modeField,
+      decoration: InputDecoration(border: OutlineInputBorder(), labelText: 'recorddialog.mode.label'.tr(), isDense: true),
+      onChanged: (control) => vm.setMode(control.value ?? RecorderMode.normal),
+      items: [
+        DropdownMenuItem(value: RecorderMode.normal, child: Text('recorddialog.mode.normal'.tr())),
+        DropdownMenuItem(value: RecorderMode.flightRecorder, child: Text('recorddialog.mode.flight'.tr())),
+      ],
+    );
+  }
+
+  Widget _conditionField(RecordViewmodel vm, String name, String labelKey) {
+    return ReactiveTextField<String>(
+      formControlName: name,
+      decoration: InputDecoration(
+          border: OutlineInputBorder(),
+          labelText: labelKey.tr(),
+          helperText: 'recorddialog.condition.helper'.tr(),
+          helperMaxLines: 2,
+          isDense: true),
+      validationMessages: {'condition': (_) => 'recorddialog.condition.error'.tr()},
+      onSubmitted: (_) => _onRecordPressed(vm),
+    );
+  }
+
+  Widget _durationField(RecordViewmodel vm, String name, String labelKey, String helperKey) {
+    return ReactiveTextField<String>(
+      formControlName: name,
+      decoration: InputDecoration(
+          border: OutlineInputBorder(), labelText: labelKey.tr(), helperText: helperKey.tr(), isDense: true),
+      validationMessages: {
+        ValidationMessage.required: (_) => 'srx.common.fieldrequired'.tr(),
+        'duration': (_) => 'recorddialog.duration.error'.tr(),
+        'preroll': (_) => 'recorddialog.preroll.error'.tr(),
+      },
+      onSubmitted: (_) => _onRecordPressed(vm),
+    );
+  }
+
+  Widget _buildTriggerFields(RecordViewmodel vm) {
+    return Column(children: [
+      SrxFormRow(children: [
+        Expanded(flex: 3, child: _conditionField(vm, RecordViewmodel.startWhenField, 'recorddialog.startwhen.label')),
+        SizedBox(width: 16),
+        Expanded(child: _durationField(vm, RecordViewmodel.preRollField, 'recorddialog.preroll.label', 'recorddialog.preroll.helper')),
+      ]),
+      SrxFormRow(children: [
+        Expanded(flex: 3, child: _conditionField(vm, RecordViewmodel.stopWhenField, 'recorddialog.stopwhen.label')),
+        SizedBox(width: 16),
+        Expanded(child: _durationField(vm, RecordViewmodel.postRollField, 'recorddialog.postroll.label', 'recorddialog.postroll.helper')),
+      ]),
+    ]);
+  }
+
+  Widget _buildFlightFields(BuildContext context, RecordViewmodel vm) {
+    var theme = Theme.of(context);
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Text('recorddialog.flight.hint'.tr(), style: theme.textTheme.bodyMedium!.copyWith(color: Colors.black87)),
+      ),
+      SrxFormRow(children: [
+        Expanded(child: _durationField(vm, RecordViewmodel.windowField, 'recorddialog.window.label', 'recorddialog.window.helper')),
+        SizedBox(width: 16),
+        Expanded(child: _intField(vm, RecordViewmodel.memoryField, 'recorddialog.memory.label', null)),
+        SizedBox(width: 16),
+        Expanded(
+            child: _durationField(
+                vm, RecordViewmodel.savePostRollField, 'recorddialog.savepostroll.label', 'recorddialog.savepostroll.helper')),
+        SizedBox(width: 16),
+        Expanded(child: _intField(vm, RecordViewmodel.maxSavesField, 'recorddialog.maxsaves.label', null)),
+      ]),
+      SrxFormRow(children: [Expanded(child: _conditionField(vm, RecordViewmodel.saveWhenField, 'recorddialog.savewhen.label'))]),
+    ]);
+  }
+
   Widget _buildFilters(BuildContext context, RecordViewmodel vm) {
     var theme = Theme.of(context);
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       for (var i = 0; i < vm.filters.controls.length; i++) _buildFilterRow(vm, vm.filters.controls[i] as FormGroup, i),
-      Row(children: [
-        TextButton.icon(
-            style: TextButton.styleFrom(minimumSize: Size(0, 48)),
-            onPressed: vm.addFilter,
-            icon: Icon(Icons.add),
-            label: Text('recorddialog.addfilter.button'.tr())),
-        if (vm.filters.hasErrors && vm.filters.errors.containsKey('noinclude'))
-          Padding(
-            padding: const EdgeInsets.only(left: 16),
-            child: Text('recorddialog.noinclude.error'.tr(),
-                style: theme.textTheme.bodySmall!.copyWith(color: theme.colorScheme.error)),
-          ),
-      ]),
+      // the last filter row keeps room for a validation message; the button moves up into it
+      Transform.translate(
+        offset: Offset(0, -12),
+        child: Row(children: [
+          TextButton.icon(
+              style: TextButton.styleFrom(minimumSize: Size(0, 36), tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+              onPressed: vm.addFilter,
+              icon: Icon(Icons.add),
+              label: Text('recorddialog.addfilter.button'.tr())),
+          if (vm.filters.hasErrors && vm.filters.errors.containsKey('noinclude'))
+            Padding(
+              padding: const EdgeInsets.only(left: 16),
+              child: Text('recorddialog.noinclude.error'.tr(),
+                  style: theme.textTheme.bodySmall!.copyWith(color: theme.colorScheme.error)),
+            ),
+        ]),
+      ),
     ]);
   }
 
@@ -104,8 +195,11 @@ class RecordDialog extends StatelessWidget {
         flex: 6,
         child: ReactiveTextField<String>(
           formControl: group.control(RecordViewmodel.filterField) as FormControl<String>,
-          decoration:
-              InputDecoration(border: OutlineInputBorder(), labelText: 'recorddialog.filter.label'.tr(), isDense: true),
+          decoration: InputDecoration(
+              border: OutlineInputBorder(),
+              labelText: 'recorddialog.filter.label'.tr(),
+              isDense: true,
+              suffixIcon: _buildSuggestions(group.control(RecordViewmodel.filterField) as FormControl<String>)),
           validationMessages: {
             ValidationMessage.required: (_) => 'srx.common.fieldrequired'.tr(),
             'filter.shared': (_) => 'recorddialog.filter.shared.error'.tr(),
@@ -145,6 +239,18 @@ class RecordDialog extends StatelessWidget {
           tooltip: 'recorddialog.removefilter.tooltip'.tr(),
           icon: Icon(Icons.close)),
     ]);
+  }
+
+  Widget? _buildSuggestions(FormControl<String> control) {
+    if (suggestions.isEmpty) {
+      return null;
+    }
+    return PopupMenuButton<String>(
+      icon: Icon(Icons.arrow_drop_down),
+      tooltip: 'recorddialog.suggestions.tooltip'.tr(),
+      onSelected: (filter) => control.value = filter,
+      itemBuilder: (_) => [for (var filter in suggestions) PopupMenuItem(value: filter, child: Text(filter))],
+    );
   }
 
   Widget _buildHints(BuildContext context, RecordViewmodel vm) {
@@ -194,8 +300,9 @@ class RecordDialog extends StatelessWidget {
     ]);
   }
 
+  // top aligned: centred, the field's helper line would be cut at the bottom of the row
   Widget _buildOptions(RecordViewmodel vm) {
-    return SrxFormRow(alignment: CrossAxisAlignment.center, children: [
+    return SrxFormRow(children: [
       Expanded(
           child: _intField(
               vm, RecordViewmodel.maxPayloadField, 'recorddialog.maxpayload.label', 'recorddialog.maxpayload.helper')),

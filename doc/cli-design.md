@@ -192,7 +192,8 @@ and errors that happen before the run starts go to stderr as `{"event":"error",�
 {"event":"stopped","time":"…","reason":"duration","sent":9184,"errors":0,"exitCode":0}
 ```
 
-`reason` is one of `duration`, `interrupted`, `terminated`, `connectionLost`. Every later
+`reason` is one of `duration`, `interrupted`, `terminated`, `connectionLost`, and `finished`
+when every device stopped by itself (recorded devices without loop). Every later
 command uses the same envelope (`event`, `time`) and ends with one final event that carries
 `exitCode`.
 
@@ -380,7 +381,7 @@ Events: `plan` (topics, messages, estimated and peak rate), `started`, `stats` (
 
 | Command | Purpose |
 |---|---|
-| `recordings list` | Name, id, start, duration, messages, size, filters |
+| `recordings list [-p <project>]` | Name, id, start, duration, messages, size, filters, project; `-p` lists only the recordings of a project (recorder R25) |
 | `recordings show <recording>` | Metadata and the per-topic summary table (recorder §7.1), plus `--gaps` and `--duplicates` lists |
 | `recordings export <recording> --format <csv\|jsonl\|mqttrec> [--out] [-t …] [--from] [--to] [--column <json path>]…` | Export (recorder §8.3) |
 | `recordings import <file> [--format <jsonl\|csv\|mosquitto>] [--interval <time>] [--name]` | Import into the library. `--interval` for `mosquitto_sub -v` input without times |
@@ -389,7 +390,8 @@ Events: `plan` (topics, messages, estimated and peak rate), `started`, `stats` (
 
 **`simulate` with recorded devices:** recorded devices run like other devices. `--dry-run` shows
 the recording, range and speed of each. A missing recording fails with exit code 3 before
-connecting.
+connecting. The CLI reads recordings from the same folder as the app
+(`LocalStoreData.recordingsFolder`, else the default folder of recorder §15.1).
 
 ## 7.2 Implementation notes (2026-10-24)
 
@@ -421,6 +423,24 @@ What the code does where it differs from the text above:
   `--verbose`, on stderr, so they never mix with text or JSON output.
 - `--project` is checked by the command (exit code 2 when missing) rather than marked mandatory in
   `package:args`.
+- **Recorder commands (recorder phase 9):** `record`, `replay` and `recordings list | show | export |
+  import | edit | compare` are implemented. The broker options of `simulate` moved into the
+  `BrokerOptions` mixin that all three broker commands share; `<recording>` arguments go through
+  `RecordingArguments` (a `.mqttrec` path, else an id, a name, a name ignoring case).
+- `record` runs the app's `RecorderService` without its projects (`withProjects: false`,
+  `reconnect` from `--reconnect`); without `--reconnect` a lost connection stops and saves with
+  exit code 6. Extra options: `--flight-post-roll` (default 30s) and `--stats-every`. `--out`
+  writes into the file's folder and renames the file at the end. Text output names the file.
+- `replay` with one instance uses `RecordingPlayer` and resumes at its position after a
+  reconnect; with several instances it runs a recorded device through `SimulatorRunner`, so
+  `--speed max` needs one instance, and after a reconnect the instances start over.
+  `--clear-retained` is not implemented for `replay`.
+- `recordings edit` applies trim, topics, rename and anonymize in this order; every step writes a
+  recording, the intermediate ones are deleted, `--name` renames the last. `--out` is left out:
+  the result goes into the library, `recordings export --format mqttrec` copies it out.
+- `recordings compare` with recordings in different folders copies B into A's folder for the
+  comparison and deletes the copy afterwards. `recordings import --format mosquitto` tells the
+  `-F "%U %t %p"` and `-v` forms apart by the first line.
 
 ## 8. Decisions
 

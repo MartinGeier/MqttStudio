@@ -3,6 +3,7 @@ import 'package:mqtt5_client/mqtt5_client.dart' show MqttQos;
 import 'package:mqttstudio/cli/duration_parser.dart';
 import 'package:mqttstudio/model/mqtt_settings.dart';
 import 'package:mqttstudio/recorder/engine/recorder_rules.dart';
+import 'package:mqttstudio/recorder/model/message_condition.dart';
 import 'package:mqttstudio/recorder/model/recorder_config.dart';
 import 'package:mqttstudio/recorder/model/recording_header.dart';
 import 'package:reactive_forms/reactive_forms.dart';
@@ -20,12 +21,23 @@ class RecordViewmodel extends SrxChangeNotifier {
   static const String maxSizeField = 'maxSizeMb';
   static const String maxPayloadField = 'maxPayloadKb';
   static const String snapshotField = 'snapshot';
+  static const String modeField = 'mode';
+  static const String startWhenField = 'startWhen';
+  static const String preRollField = 'preRoll';
+  static const String stopWhenField = 'stopWhen';
+  static const String postRollField = 'postRoll';
+  static const String windowField = 'window';
+  static const String memoryField = 'memoryMb';
+  static const String saveWhenField = 'saveWhen';
+  static const String savePostRollField = 'savePostRoll';
+  static const String maxSavesField = 'maxSaves';
 
   final MqttSettings settings;
   late final FormGroup form;
   late final StreamSubscription _subscription;
 
   RecordViewmodel(RecorderConfig config, this.settings) {
+    var flight = config.flightOptions;
     form = FormGroup({
       nameField: FormControl<String>(value: config.name, validators: [Validators.required, Validators.maxLength(100)]),
       filtersField: FormArray<Map<String, Object?>>(
@@ -40,8 +52,51 @@ class RecordViewmodel extends SrxChangeNotifier {
       maxPayloadField: FormControl<int>(
           value: config.maxPayloadBytes == null ? null : config.maxPayloadBytes! ~/ 1024, validators: [Validators.delegate(_positiveOrEmpty)]),
       snapshotField: FormControl<bool>(value: config.recordRetainedSnapshot),
+      modeField: FormControl<RecorderMode>(value: config.mode),
+      startWhenField: FormControl<String>(
+          value: config.startWhen?.toText() ?? '', validators: [Validators.delegate(_validateCondition)]),
+      preRollField: FormControl<String>(
+          value: config.preRollSeconds == 0 ? '' : _compact(config.preRollSeconds),
+          validators: [Validators.delegate(_validatePreRoll)]),
+      stopWhenField: FormControl<String>(
+          value: config.stopWhen?.toText() ?? '', validators: [Validators.delegate(_validateCondition)]),
+      postRollField: FormControl<String>(
+          value: config.postRollSeconds == 0 ? '' : _compact(config.postRollSeconds),
+          validators: [Validators.delegate(_validateOptionalDuration)]),
+      windowField: FormControl<String>(
+          value: _compact(flight.windowSeconds), validators: [Validators.required, Validators.delegate(_validateDuration)]),
+      memoryField: FormControl<int>(
+          value: flight.maxMemoryBytes ~/ RecorderConfig.megabyte, validators: [Validators.required, Validators.min(1)]),
+      saveWhenField: FormControl<String>(
+          value: flight.saveWhen?.toText() ?? '', validators: [Validators.delegate(_validateCondition)]),
+      savePostRollField: FormControl<String>(
+          value: flight.postRollSeconds == 0 ? '' : _compact(flight.postRollSeconds),
+          validators: [Validators.delegate(_validateOptionalDuration)]),
+      maxSavesField: FormControl<int>(value: flight.maxSaves, validators: [Validators.delegate(_positiveOrEmpty)]),
     });
+    _applyMode();
     _subscription = form.valueChanges.listen((_) => notifyListeners());
+  }
+
+  bool get isFlightRecorder => form.control(modeField).value == RecorderMode.flightRecorder;
+
+  void setMode(RecorderMode mode) {
+    form.control(modeField).value = mode;
+    _applyMode();
+    notifyListeners();
+  }
+
+  // the fields of the other mode don't block RECORD
+  void _applyMode() {
+    var normal = [startWhenField, preRollField, stopWhenField, postRollField, durationField, maxMessagesField, maxSizeField];
+    var flight = [windowField, memoryField, saveWhenField, savePostRollField, maxSavesField];
+    for (var name in [...normal, ...flight]) {
+      if (normal.contains(name) != isFlightRecorder) {
+        form.control(name).markAsEnabled();
+      } else {
+        form.control(name).markAsDisabled();
+      }
+    }
   }
 
   @override
@@ -85,17 +140,38 @@ class RecordViewmodel extends SrxChangeNotifier {
     if (!form.valid) {
       return null;
     }
-    var duration = (form.control(durationField).value as String?)?.trim() ?? '';
     var maxPayloadKb = form.control(maxPayloadField).value as int?;
     return RecorderConfig(
       name: (form.control(nameField).value as String).trim(),
       filters: _enteredFilters,
-      durationSeconds: duration.isEmpty ? null : DurationParser.parse(duration).inSeconds,
+      mode: form.control(modeField).value as RecorderMode? ?? RecorderMode.normal,
+      startWhen: _condition(startWhenField),
+      preRollSeconds: _seconds(preRollField) ?? 0,
+      durationSeconds: _seconds(durationField),
       maxMessages: form.control(maxMessagesField).value as int?,
       maxBytes: (form.control(maxSizeField).value as int) * RecorderConfig.megabyte,
+      stopWhen: _condition(stopWhenField),
+      postRollSeconds: _seconds(postRollField) ?? 0,
+      flight: FlightRecorderOptions(
+        windowSeconds: _seconds(windowField) ?? 600,
+        maxMemoryBytes: (form.control(memoryField).value as int) * RecorderConfig.megabyte,
+        saveWhen: _condition(saveWhenField),
+        postRollSeconds: _seconds(savePostRollField) ?? 0,
+        maxSaves: form.control(maxSavesField).value as int?,
+      ),
       maxPayloadBytes: maxPayloadKb == null ? null : maxPayloadKb * 1024,
       recordRetainedSnapshot: form.control(snapshotField).value as bool? ?? true,
     );
+  }
+
+  int? _seconds(String field) {
+    var text = (form.control(field).value as String?)?.trim() ?? '';
+    return text.isEmpty ? null : DurationParser.parse(text).inSeconds;
+  }
+
+  MessageCondition? _condition(String field) {
+    var text = (form.control(field).value as String?)?.trim() ?? '';
+    return text.isEmpty ? null : MessageCondition.parse(text);
   }
 
   FormGroup _filterGroup(String filter, MqttQos qos, bool exclude) => FormGroup({
@@ -135,6 +211,44 @@ class RecordViewmodel extends SrxChangeNotifier {
     } on FormatException {
       return {'duration': true};
     }
+  }
+
+  static Map<String, dynamic>? _validateCondition(AbstractControl<dynamic> control) {
+    var value = ((control.value as String?) ?? '').trim();
+    if (value.isEmpty) {
+      return null;
+    }
+    try {
+      MessageCondition.parse(value);
+      return null;
+    } on FormatException catch (exc) {
+      return {'condition': exc.message};
+    }
+  }
+
+  static Map<String, dynamic>? _validateOptionalDuration(AbstractControl<dynamic> control) {
+    var value = ((control.value as String?) ?? '').trim();
+    if (value.isEmpty) {
+      return null;
+    }
+    try {
+      DurationParser.parse(value);
+      return null;
+    } on FormatException {
+      return {'duration': true};
+    }
+  }
+
+  static Map<String, dynamic>? _validatePreRoll(AbstractControl<dynamic> control) {
+    var invalid = _validateOptionalDuration(control);
+    if (invalid != null) {
+      return invalid;
+    }
+    var value = ((control.value as String?) ?? '').trim();
+    if (value.isNotEmpty && DurationParser.parse(value).inSeconds > RecorderConfig.maxPreRollSeconds) {
+      return {'preroll': true};
+    }
+    return null;
   }
 
   // 8h, 90m or 45s, as typed in the dialog

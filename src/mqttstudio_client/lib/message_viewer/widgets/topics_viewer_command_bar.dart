@@ -9,6 +9,10 @@ import 'package:provider/provider.dart';
 import 'package:easy_localization/easy_localization.dart';
 
 import '../publish_topic_dialog.dart';
+import '../save_buffer_dialog.dart';
+import 'package:mqttstudio/common/widgets/error_snackbar.dart';
+import 'package:mqttstudio/custom_theme.dart';
+import 'package:srx_flutter/srx_flutter.dart';
 
 class TopicsViewCommandBar extends StatefulWidget {
   const TopicsViewCommandBar({Key? key}) : super(key: key);
@@ -43,15 +47,18 @@ class _TopicsViewCommandBarState extends State<TopicsViewCommandBar> {
                     children: [
                       Row(
                         children: [
-                          _buildPlayPauseButtons(projectViewmodel, viewmodel),
-                          SizedBox(height: 40, child: VerticalDivider()),
+                          // play, pause and clear only apply to live messages
+                          if (viewmodel.isLive) ...[
+                            _buildPlayPauseButtons(projectViewmodel, viewmodel),
+                            SizedBox(height: 40, child: VerticalDivider()),
+                          ],
                           _buildViewModeSelectionButtons(viewmodel, projectViewmodel),
                           SizedBox(height: 40, child: VerticalDivider()),
                           _buildGroupingPeriodDropDown(viewmodel, projectViewmodel),
                           _buildFilter(viewmodel, projectViewmodel),
                         ],
                       ),
-                      _buildPublishButton(projectViewmodel, mqttConnectionViewmodel, context),
+                      if (viewmodel.isLive) _buildPublishButton(projectViewmodel, mqttConnectionViewmodel, context),
                     ],
                   ),
                   Divider(height: 4),
@@ -97,7 +104,7 @@ class _TopicsViewCommandBarState extends State<TopicsViewCommandBar> {
                   message: "Choose grouping time period",
                   child: DropdownButton<MessageGroupTimePeriod>(
                       isDense: true,
-                      onChanged: projectViewmodel.isProjectOpen ? (value) => viewmodel.groupTimePeriod = value! : null,
+                      onChanged: _canView(viewmodel, projectViewmodel) ? (value) => viewmodel.groupTimePeriod = value! : null,
                       value: viewmodel.groupTimePeriod,
                       items: [
                         DropdownMenuItem(value: MessageGroupTimePeriod.second, child: Text('1s')),
@@ -139,7 +146,7 @@ class _TopicsViewCommandBarState extends State<TopicsViewCommandBar> {
                     },
                     icon: Icon(Icons.clear),
                   )),
-              enabled: projectViewmodel.isProjectOpen,
+              enabled: _canView(viewmodel, projectViewmodel),
               onChanged: (value) => onFilterChanged(viewmodel, value),
             )),
       ],
@@ -163,7 +170,7 @@ class _TopicsViewCommandBarState extends State<TopicsViewCommandBar> {
           viewmodel.topicViewMode == TopicViewMode.Sequential
         ],
         renderBorder: false,
-        onPressed: projectViewmodel.isProjectOpen
+        onPressed: _canView(viewmodel, projectViewmodel)
             ? (index) {
                 switch (index) {
                   case 0:
@@ -185,26 +192,29 @@ class _TopicsViewCommandBarState extends State<TopicsViewCommandBar> {
         ]);
   }
 
+  // recorded messages can be viewed without a project
+  bool _canView(MessageViewerViewmodel viewmodel, ProjectViewmodel projectViewmodel) =>
+      !viewmodel.isLive || projectViewmodel.isProjectOpen;
+
   Widget _buildPlayPauseButtons(ProjectViewmodel projectViewmodel, MessageViewerViewmodel messageViewerViewmodel) {
+    var live = projectViewmodel.isProjectOpen;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: OverflowBar(
         spacing: 6,
         children: [
           IconButton(
-              onPressed:
-                  projectViewmodel.isProjectOpen && messageViewerViewmodel.paused ? () => messageViewerViewmodel.playAllTopics() : null,
+              onPressed: live && messageViewerViewmodel.paused ? () => messageViewerViewmodel.playAllTopics() : null,
               icon: Icon(Icons.play_arrow),
               color: Colors.green,
               tooltip: 'topicsviewer_commandbar.play.tooltip'.tr()),
           IconButton(
-              onPressed:
-                  projectViewmodel.isProjectOpen && !messageViewerViewmodel.paused ? () => messageViewerViewmodel.pauseAllTopics() : null,
+              onPressed: live && !messageViewerViewmodel.paused ? () => messageViewerViewmodel.pauseAllTopics() : null,
               icon: Icon(Icons.pause),
               color: Colors.blue,
               tooltip: 'topicsviewer_commandbar.pause.tooltip'.tr()),
           IconButton(
-            onPressed: projectViewmodel.isProjectOpen
+            onPressed: live
                 ? () {
                     messageViewerViewmodel.clearMessages();
                     messageViewerViewmodel.selectedMessage = null;
@@ -213,9 +223,38 @@ class _TopicsViewCommandBarState extends State<TopicsViewCommandBar> {
             icon: Icon(Icons.not_interested),
             tooltip: 'topicsviewer_commandbar.clear.tooltip'.tr(),
           ),
+          if (messageViewerViewmodel.isLive)
+            IconButton(
+              onPressed: messageViewerViewmodel.canSaveAsRecording ? () => _saveAsRecording(messageViewerViewmodel) : null,
+              icon: Icon(Icons.save_alt),
+              tooltip: 'topicsviewer_commandbar.saverecording.tooltip'.tr(),
+            ),
         ],
       ),
     );
+  }
+
+  Future<void> _saveAsRecording(MessageViewerViewmodel viewmodel) async {
+    var name = await showDialog<String>(
+        context: context,
+        builder: (_) => SrxTheme(
+            data: CustomTheme.srxTheme,
+            child: SaveBufferDialog(name: viewmodel.defaultRecordingName, messageCount: viewmodel.messageBuffer.length)));
+    if (name == null || !mounted) {
+      return;
+    }
+    try {
+      var info = await viewmodel.saveAsRecording(name);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('topicsviewer_commandbar.saverecording.done'.tr(args: [info.name, '${info.footer.summary.messages}']))));
+      }
+    } catch (exc) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(errorSnackBar('topicsviewer_commandbar.saverecording.error'.tr(args: [exc.toString()]), context));
+      }
+    }
   }
 
   _publishTopicPressed(ProjectViewmodel viewmodel, BuildContext context) async {

@@ -27,6 +27,12 @@ SimulatedDevice _$SimulatedDeviceFromJson(Map<String, dynamic> json) =>
       name: json['name'] as String,
       instanceCount: (json['instanceCount'] as num?)?.toInt() ?? 1,
       firstInstance: (json['firstInstance'] as num?)?.toInt() ?? 1,
+      kind:
+          $enumDecodeNullable(_$DeviceKindEnumMap, json['kind']) ??
+          DeviceKind.generated,
+      recorded: json['recorded'] == null
+          ? null
+          : RecordedSource.fromJson(json['recorded'] as Map<String, dynamic>),
       topics: (json['topics'] as List<dynamic>?)
           ?.map((e) => SimulatedTopic.fromJson(e as Map<String, dynamic>))
           .toList(),
@@ -38,8 +44,43 @@ Map<String, dynamic> _$SimulatedDeviceToJson(SimulatedDevice instance) =>
       'name': instance.name,
       'instanceCount': instance.instanceCount,
       'firstInstance': instance.firstInstance,
+      'kind': _$DeviceKindEnumMap[instance.kind]!,
+      'recorded': instance.recorded?.toJson(),
       'topics': instance.topics.map((e) => e.toJson()).toList(),
     };
+
+const _$DeviceKindEnumMap = {
+  DeviceKind.generated: 'generated',
+  DeviceKind.recorded: 'recorded',
+};
+
+RecordedSource _$RecordedSourceFromJson(Map<String, dynamic> json) =>
+    RecordedSource(
+      recordingId: json['recordingId'] as String,
+      fileName: json['fileName'] as String,
+      recordingName: json['recordingName'] as String,
+      playback: json['playback'] == null
+          ? null
+          : PlaybackOptions.fromJson(json['playback'] as Map<String, dynamic>),
+      instanceStart:
+          $enumDecodeNullable(_$InstanceStartEnumMap, json['instanceStart']) ??
+          InstanceStart.staggered,
+    );
+
+Map<String, dynamic> _$RecordedSourceToJson(RecordedSource instance) =>
+    <String, dynamic>{
+      'recordingId': instance.recordingId,
+      'fileName': instance.fileName,
+      'recordingName': instance.recordingName,
+      'playback': instance.playback.toJson(),
+      'instanceStart': _$InstanceStartEnumMap[instance.instanceStart]!,
+    };
+
+const _$InstanceStartEnumMap = {
+  InstanceStart.staggered: 'staggered',
+  InstanceStart.aligned: 'aligned',
+  InstanceStart.randomPosition: 'randomPosition',
+};
 
 SimulatedTopic _$SimulatedTopicFromJson(
   Map<String, dynamic> json,

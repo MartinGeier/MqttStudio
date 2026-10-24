@@ -1,8 +1,14 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 import 'package:clock/clock.dart';
 import 'package:event/event.dart';
 import 'package:mqttstudio/model/mqtt_message_properties.dart';
+import 'package:mqttstudio/recorder/engine/recording_player.dart';
+import 'package:mqttstudio/recorder/format/recording_reader.dart';
+import 'package:mqttstudio/recorder/model/recorded_message.dart';
+import 'package:mqttstudio/recorder/model/recording_header.dart';
+import 'package:mqttstudio/recorder/storage/recording_storage.dart';
 import 'package:mqttstudio/simulator/engine/generator_instances.dart';
 import 'package:mqttstudio/simulator/engine/placeholders.dart';
 import 'package:mqttstudio/simulator/engine/simulation_rules.dart';
@@ -68,6 +74,29 @@ class _TopicRun {
   }
 }
 
+// opens the file of the recording a recorded device plays; throws when it can't be found
+typedef RecordingOpener = Future<RecordingFile> Function(RecordedSource source);
+
+class _RecordedRun {
+  final SimulatedDevice device;
+  final double rate;
+  final List<RecordingPlayer> players = [];
+  final List<Timer> startTimers = [];
+  int finished = 0;
+
+  _RecordedRun(this.device, this.rate);
+
+  void cancel() {
+    for (var timer in startTimers) {
+      timer.cancel();
+    }
+    for (var player in players) {
+      player.dispose();
+      player.reader.close();
+    }
+  }
+}
+
 // Publishes the messages of the running simulated topics. It only reports a lost connection, the owner decides
 // whether to stop (the app) or to wait for a reconnect (the CLI). While the publisher is not connected, messages are
 // skipped and the timers keep running.
@@ -84,18 +113,45 @@ class SimulatorRunner {
   final connectionLostEvent = Event();
   final topicErrorEvent = Event<TopicErrorEventArgs>();
 
+  // a recording up to this size is loaded once and shared by all instances of a recorded device
+  static const int maxSharedRecordingBytes = 64 * 1024 * 1024;
+  // the longest start delay of a staggered instance of a recorded device
+  static const Duration maxStagger = Duration(seconds: 10);
+
+  final RecordingOpener? openRecording;
   final Map<String, _TopicRun> _runs = {};
+  final Map<String, _RecordedRun> _recordedRuns = {};
+  // the recorded topics a recorded device played last, by device id
+  final Map<String, List<String>> _recordedTopics = {};
   final Map<String, TopicStats> _stats = {};
+  // kept apart from _stats so the messages of a recorded device are not counted twice
+  final Map<String, TopicStats> _deviceStats = {};
   Timer? _statsTimer;
   bool _statsDirty = false;
   bool _connectionLostReported = false;
 
-  SimulatorRunner(this._publisher, {this.seed, this.statsInterval = const Duration(milliseconds: 500)})
+  SimulatorRunner(this._publisher,
+      {this.seed, this.statsInterval = const Duration(milliseconds: 500), this.openRecording})
       : _random = Random(seed);
 
   bool isRunning(String topicId) => _runs.containsKey(topicId);
 
-  bool get isAnyRunning => _runs.isNotEmpty;
+  // a recorded device plays
+  bool isDeviceRunning(String deviceId) => _recordedRuns.containsKey(deviceId);
+
+  bool get isAnyRunning => _runs.isNotEmpty || _recordedRuns.isNotEmpty;
+
+  // statistics of a recorded topic of a recorded device, summed up over its instances
+  TopicStats recordedStatsOf(String deviceId, String recordedTopic) => statsOf('$deviceId|$recordedTopic');
+
+  // why a recorded device stopped or could not start
+  TopicStats deviceStatsOf(String deviceId) => _deviceStats.putIfAbsent(deviceId, () => TopicStats());
+
+  // the recorded topics the device played last, null before its first start
+  List<String>? recordedTopicsOf(String deviceId) => _recordedTopics[deviceId];
+
+  // offset in the recording of the first instance
+  int? positionOf(String deviceId) => _recordedRuns[deviceId]?.players.firstOrNull?.positionMicros;
 
   Iterable<String> get runningTopicIds => _runs.keys;
 
@@ -109,20 +165,34 @@ class SimulatorRunner {
   }
 
   // estimated msg/s of the running topics
-  double get runningRate => _runs.values.fold(0.0, (sum, run) => sum + run.rate);
+  double get runningRate =>
+      _runs.values.fold(0.0, (sum, run) => sum + run.rate) + _recordedRuns.values.fold(0.0, (sum, run) => sum + run.rate);
 
   int get totalSent => _stats.values.fold(0, (sum, stats) => sum + stats.sent);
 
-  int get errorCount => _stats.values.where((stats) => stats.error != null).length;
+  int get errorCount =>
+      _stats.values.where((stats) => stats.error != null).length +
+      _deviceStats.values.where((stats) => stats.error != null).length;
 
+  // recorded devices start once their recording is open, their errors go to deviceStatsOf
   void startAll(Simulation simulation) {
     for (var device in simulation.devices) {
-      _startTopics(device, device.topics);
+      if (device.isRecorded) {
+        startRecorded(device);
+      } else {
+        _startTopics(device, device.topics);
+      }
     }
     runStateChangedEvent.broadcast();
   }
 
-  void startDevice(SimulatedDevice device) => start(device, device.topics);
+  void startDevice(SimulatedDevice device) {
+    if (device.isRecorded) {
+      startRecorded(device);
+    } else {
+      start(device, device.topics);
+    }
+  }
 
   void start(SimulatedDevice device, Iterable<SimulatedTopic> topics) {
     _startTopics(device, topics);
@@ -146,13 +216,170 @@ class SimulatorRunner {
     runStateChangedEvent.broadcast();
   }
 
-  void stopDevice(SimulatedDevice device) => stopTopics(device.topics.map((topic) => topic.id));
+  void stopDevice(SimulatedDevice device) {
+    if (device.isRecorded) {
+      _recordedRuns.remove(device.id)?.cancel();
+      runStateChangedEvent.broadcast();
+    } else {
+      stopTopics(device.topics.map((topic) => topic.id));
+    }
+  }
 
   void stopAll() {
     for (var run in _runs.values) {
       run.cancel();
     }
     _runs.clear();
+    for (var run in _recordedRuns.values) {
+      run.cancel();
+    }
+    _recordedRuns.clear();
+    runStateChangedEvent.broadcast();
+  }
+
+  // Plays the recording of a recorded device, one player per instance (D22, D24). {n} and {device} in the remap
+  // targets are resolved per instance. Problems end up in deviceStatsOf.
+  Future<void> startRecorded(SimulatedDevice device) async {
+    _recordedRuns.remove(device.id)?.cancel();
+    var deviceStats = deviceStatsOf(device.id)
+      ..sent = 0
+      .._clearError();
+    var issues = SimulationRules.validateRecorded(device);
+    if (issues.isNotEmpty) {
+      _setDeviceError(device, issues.first.kind, issues.first.describe(), issues.first.detail);
+      return;
+    }
+    var source = device.recorded!;
+    var readers = await _openReaders(device, source);
+    if (readers == null) {
+      return;
+    }
+    if (_recordedRuns.containsKey(device.id)) {
+      // started twice while the recording was opening
+      for (var reader in readers) {
+        reader.close();
+      }
+      return;
+    }
+    var footer = readers.first.footer!;
+    var options = source.playback;
+    var rate = RecordingPlayer.estimateFooter(footer, options).rate * device.instanceCount;
+    var run = _RecordedRun(device, rate);
+    var topics = footer.topics.where(options.plays).toList();
+    _recordedTopics[device.id] = topics;
+    for (var topic in topics) {
+      recordedStatsOf(device.id, topic)
+        ..sent = 0
+        ..lastPayload = null
+        ..lastInstance = null
+        ..lastPublishedAt = null;
+    }
+    var stagger = _staggerOf(footer, topics);
+    var rangeStart = options.rangeStartMicros ?? 0;
+    var rangeEnd = options.rangeEndMicros ?? footer.durationMicros;
+    var index = 0;
+    for (var n in device.instanceNumbers) {
+      var startPosition = source.instanceStart == InstanceStart.randomPosition && rangeEnd > rangeStart
+          ? rangeStart + _random.nextInt(max(1, min(rangeEnd - rangeStart, 0x7fffffff)))
+          : null;
+      var player = RecordingPlayer(readers[index++], options, _publisher,
+          mapTopic: (topic) => Placeholders.resolve(options.remap(topic), instance: n, deviceName: device.name),
+          onPublished: (message, _) => _recordedPublished(device, n, message),
+          startPositionMicros: startPosition);
+      player.connectionLostEvent.subscribe((_) => _reportConnectionLost());
+      player.finishedEvent.subscribe((_) => _recordedFinished(run));
+      run.players.add(player);
+      if (source.instanceStart == InstanceStart.staggered && stagger > Duration.zero) {
+        run.startTimers.add(Timer(stagger * _random.nextDouble(), player.play));
+      } else {
+        player.play();
+      }
+    }
+    _recordedRuns[device.id] = run;
+    deviceStats.sent = 0;
+    runStateChangedEvent.broadcast();
+  }
+
+  // One reader per instance. A small recording is read once and shared from memory.
+  Future<List<RecordingReader>?> _openReaders(SimulatedDevice device, RecordedSource source) async {
+    var readers = <RecordingReader>[];
+    try {
+      if (openRecording == null) {
+        throw StateError('no recordings');
+      }
+      var file = await openRecording!(source);
+      var length = await file.length();
+      if (length <= maxSharedRecordingBytes) {
+        var shared = BytesRecordingFile(file.name, await file.read(0, length));
+        await file.close();
+        for (var i = 0; i < device.instanceCount; i++) {
+          readers.add(await RecordingReader.open(shared));
+        }
+      } else {
+        readers.add(await RecordingReader.open(file));
+        for (var i = 1; i < device.instanceCount; i++) {
+          readers.add(await RecordingReader.open(await openRecording!(source)));
+        }
+      }
+      if (!readers.first.isComplete) {
+        throw StateError('unfinished recording');
+      }
+      return readers;
+    } catch (_) {
+      for (var reader in readers) {
+        reader.close();
+      }
+      var issue = SimulationIssue(SimulationIssueKind.recordingMissing, device: device.name, detail: source.recordingName);
+      _setDeviceError(device, issue.kind, issue.describe(), issue.detail);
+      return null;
+    }
+  }
+
+  // staggered instances start within the average time between two messages of one played topic
+  static Duration _staggerOf(RecordingFooter footer, List<String> topics) {
+    var count = topics.fold(0, (sum, topic) => sum + (footer.summary.perTopic[topic]?.count ?? 0));
+    if (count == 0 || topics.isEmpty) {
+      return Duration.zero;
+    }
+    var interval = Duration(microseconds: footer.durationMicros * topics.length ~/ count);
+    return interval > maxStagger ? maxStagger : interval;
+  }
+
+  void _recordedPublished(SimulatedDevice device, int instance, RecordedMessage message) {
+    var text = message.payload.length > 200 ? null : _tryUtf8(message.payload);
+    recordedStatsOf(device.id, message.topic)
+      ..sent += 1
+      ..lastPayload = text ?? '<binary ${(message.payloadLength / 1000).toStringAsFixed(1)} KB>'
+      ..lastInstance = instance
+      ..lastPublishedAt = clock.now();
+    deviceStatsOf(device.id).sent += 1;
+    _markStatsDirty();
+  }
+
+  static String? _tryUtf8(List<int> bytes) {
+    try {
+      return utf8.decode(bytes);
+    } on FormatException {
+      return null;
+    }
+  }
+
+  void _recordedFinished(_RecordedRun run) {
+    run.finished++;
+    if (run.finished < run.players.length || _recordedRuns[run.device.id] != run) {
+      return;
+    }
+    _recordedRuns.remove(run.device.id)?.cancel();
+    runStateChangedEvent.broadcast();
+  }
+
+  void _setDeviceError(SimulatedDevice device, SimulationIssueKind kind, String message, String detail) {
+    deviceStatsOf(device.id)
+      ..error = message
+      ..issue = kind
+      ..errorDetail = detail;
+    topicErrorEvent.broadcast(TopicErrorEventArgs(device.name, '', message));
+    _markStatsDirty();
     runStateChangedEvent.broadcast();
   }
 
@@ -160,6 +387,8 @@ class SimulatorRunner {
   void reset() {
     stopAll();
     _stats.clear();
+    _deviceStats.clear();
+    _recordedTopics.clear();
     statsChangedEvent.broadcast();
   }
 

@@ -4,6 +4,7 @@ import 'package:get_it/get_it.dart';
 import 'package:mqtt5_client/mqtt5_client.dart' show MqttQos;
 import 'package:mqttstudio/model/mqtt_settings.dart';
 import 'package:mqttstudio/model/topic_subscription.dart';
+import 'package:mqttstudio/project/project_manager.dart';
 import 'package:mqttstudio/common/localstore.dart';
 import 'package:mqttstudio/recorder/recorder_viewmodel.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
@@ -76,9 +77,9 @@ void main() {
     await tester.tap(find.text('RECORD'));
     await tester.pumpAndSettle();
     expect(find.text('Record'), findsOneWidget);
-    // a project without subscriptions starts with a filter for everything
-    expect(find.widgetWithText(TextField, '#'), findsOneWidget);
-    await tester.enterText(find.widgetWithText(TextField, 'Test project'), 'Line 1');
+    // one empty filter to fill in
+    await tester.enterText(find.widgetWithText(TextField, 'Topic filter'), '#');
+    await tester.enterText(find.widgetWithText(TextField, 'Recording 1'), 'Line 1');
     await tester.ensureVisible(find.text('RECORD').last);
     await tester.tap(find.text('RECORD').last);
     await tester.pumpAndSettle();
@@ -101,8 +102,14 @@ void main() {
     await tester.tap(find.byTooltip('Edit name and notes').first);
     await tester.pumpAndSettle();
     expect(find.text('Edit recording'), findsOneWidget);
-    await tester.tap(find.text('Cancel'));
+    await tester.enterText(find.widgetWithText(TextField, 'Name'), 'Line 1 renamed');
+    await tester.enterText(find.widgetWithText(TextField, 'Notes'), 'checked');
+    await tester.tap(find.text('SAVE').last);
     await tester.pumpAndSettle();
+    var edited = (await GetIt.I.get<RecordingLibrary>().list()).single;
+    expect(edited.name, 'Line 1 renamed');
+    expect(edited.footer.notes, 'checked');
+    expect(find.text('Line 1 renamed'), findsWidgets);
     await tester.tap(find.byTooltip('Delete recording'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Delete').last);
@@ -132,6 +139,49 @@ void main() {
     await tester.pumpAndSettle();
   });
 
+  testPage('the filter dropdown offers the subscribed topics', (tester) async {
+    await pumpPage(tester);
+    GetIt.I.get<ProjectManager>().currentProject!.topicSubscriptions.add(TopicSubscription('plant/#', MqttQos.atMostOnce));
+    await tester.tap(find.text('RECORD'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(find.widgetWithText(TextField, 'Topic filter')).controller!.text, '');
+    await tester.tap(find.byTooltip('Subscribed topics and the last filters'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('plant/#').last);
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(find.widgetWithText(TextField, 'Topic filter')).controller!.text, 'plant/#');
+  });
+
+  testPage('the flight recorder starts from the dialog and SAVE writes a recording', (tester) async {
+    await pumpPage(tester);
+    await tester.tap(find.text('RECORD'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Normal recording'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Flight recorder').last);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'Topic filter'), 'plant/#');
+    expect(find.text('Window'), findsOneWidget);
+    expect(find.text('Start when (empty = right away)'), findsNothing);
+    await tester.ensureVisible(find.text('RECORD').last);
+    await tester.tap(find.text('RECORD').last);
+    await tester.pumpAndSettle();
+
+    var recorder = GetIt.I.get<RecorderService>();
+    expect(recorder.isFlightRecorder, isTrue);
+    recorderConnections.single.receive(incoming('plant/temp', '1'));
+    await tester.pump(Duration(seconds: 1));
+    await tester.tap(find.text('SAVE'));
+    await tester.pump();
+    expect(find.text('SAVING…'), findsOneWidget);
+    // stopping writes the save right away instead of after its post-roll
+    await tester.tap(find.byTooltip('Stop recording'));
+    await tester.pumpAndSettle();
+    var saved = await GetIt.I.get<RecordingLibrary>().list();
+    expect(saved.single.header.origin, RecordingOrigin.flightRecorder);
+    expect(saved.single.footer.summary.messages, 1);
+  });
+
   testPage('the loop button stays pressed while loop is on', (tester) async {
     await pumpPage(tester);
     var recorder = GetIt.I.get<RecorderService>();
@@ -150,7 +200,7 @@ void main() {
     expect(loop().isSelected, [false]);
   });
 
-  test('a recording starts with the subscribed topics and the limits of the last one', () async {
+  test('a recording starts with one empty filter and offers the subscribed topics', () async {
     var project = await openNewProject();
     var plant = TopicSubscription('plant/#', MqttQos.atMostOnce);
     project.topicSubscriptions
@@ -163,13 +213,13 @@ void main() {
     addTearDown(vm.dispose);
 
     var config = await vm.initialConfig();
-    expect(config.filters.map((f) => f.filter), ['plant/#', 'qa/+']);
-    expect(config.filters.first.color, plant.color);
-    expect(config.name, 'Night shift');
+    expect(config.filters.map((f) => f.filter), ['']);
+    expect(config.name, 'Recording 1');
+    await recordInLibrary('Recording 1', ['a']);
+    expect((await vm.initialConfig()).name, 'Recording 2');
     expect(config.durationSeconds, 60);
-
-    project.topicSubscriptions.clear();
-    expect((await vm.initialConfig()).filters.map((f) => f.filter), ['old/#']);
+    // shared subscriptions are offered as their plain filter (R21), then the last recording's filters
+    expect(await vm.filterSuggestions(), ['plant/#', 'qa/+', 'old/#']);
   });
 
   group('RecordViewmodel', () {

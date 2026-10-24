@@ -204,6 +204,36 @@ class _MemoryRecordingFile implements RecordingFile {
   Future<void> close() async {}
 }
 
+// A recording loaded into memory, read only. The instances of a recorded device share one, so 100 instances
+// don't open the file 100 times.
+class BytesRecordingFile implements RecordingFile {
+  @override
+  final String name;
+  final Uint8List bytes;
+
+  BytesRecordingFile(this.name, this.bytes);
+
+  @override
+  Future<int> length() async => bytes.length;
+
+  @override
+  Future<Uint8List> read(int position, int count) async {
+    if (position >= bytes.length) {
+      return Uint8List(0);
+    }
+    return Uint8List.sublistView(bytes, position, position + count > bytes.length ? bytes.length : position + count);
+  }
+
+  @override
+  Future<void> append(Uint8List bytes) => throw UnsupportedError('$name is read only');
+
+  @override
+  Future<void> truncate(int length) => throw UnsupportedError('$name is read only');
+
+  @override
+  Future<void> close() async {}
+}
+
 class RecordingNames {
   static const String extension = '.mqttrec';
 

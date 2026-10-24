@@ -8,6 +8,7 @@ enum CliExitCode {
   connectFailed(5),
   connectionLost(6),
   rateLimit(7),
+  mismatch(8),
   interrupted(130);
 
   final int code;

@@ -218,8 +218,10 @@ normal `@JsonSerializable`. This doesn't depend on `json_serializable`'s union s
 class RecordedSource {
   String recordingId;             // RecordingHeader.id in the recordings library (D23)
   String fileName;                // fallback when the id is not found, e.g. after a copy
+  String recordingName;           // shown while the recording is missing
   PlaybackOptions playback;       // from recorder-design.md §6.2: topics, speed, loop, range,
-                                  // gaps, remaps (with {n}), snapshot, retain, QoS, instanceStart
+                                  // gaps, remaps (with {n}), snapshot, retain, QoS
+  InstanceStart instanceStart;    // staggered (default) | aligned | randomPosition
 }
 ```
 
@@ -582,8 +584,8 @@ Deleted: `lib/simulator/model/simulated_messages_definition.dart` and
 
 ## 11.1 Implementation notes (2026-10-24)
 
-Phases 1 to 5 are implemented; phase 6 (recorded devices) waits for the recorder. Where the code
-differs from the text above:
+Phases 1 to 6 are implemented (phase 6 as recorder phase 4). Where the code differs from the text
+above:
 - **`Simulator` service** (`lib/simulator/simulator.dart`, GetIt singleton): owns the app's
   `SimulatorRunner`, edits the simulation of the current project, applies D8 (stop on disconnect
   and project close) and D19 (restart on edit), and checks the rate limit before a start. The
@@ -598,6 +600,21 @@ differs from the text above:
 - Generators are created through `createGeneratorInstance()` in the engine, so the model has no
   engine dependency. The template field table and its dialog are in
   `widgets/generator_editor.dart` and `widgets/template_field_dialog.dart`.
+- **Recorded devices:** `+ DEVICE` opens a menu, *Generated device* or *Recorded device*. The
+  recorded device dialog (`recorded_device_dialog.dart` with its own viewmodel) picks the
+  recording, the topics to play, instances and instance start, and opens the recorder's playback
+  options dialog without Max speed. `instanceStart` lives in `RecordedSource`, not in
+  `PlaybackOptions`, because it only means something for devices.
+- **Players:** one `RecordingPlayer` per instance. A recording up to 64 MB is read once and the
+  instances share it from memory (`BytesRecordingFile`); a larger one is opened once per instance.
+  The stagger spreads the starts over the first message interval, at most 10 s. A random start
+  position needs loop.
+- **Statistics** of a recorded device are kept per recorded topic (summed over the instances) and
+  per device for start errors such as a missing recording, which show in the device header.
+- **Recordings** of the project's devices are looked up in the library when the project opens
+  and when the library changes, so the page can show *recording not found* before a start.
+- **CLI:** `simulate` ends with reason `finished` when all devices have stopped by themselves,
+  i.e. recorded devices without loop that reached their end.
 
 ## 12. Known limitations
 

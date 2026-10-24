@@ -32,6 +32,19 @@ class RecordedMessage {
   }) : payloadLength = payloadLength ?? payload.length;
 
   Duration get offset => Duration(microseconds: offsetMicros);
+
+  // the same message at another offset, e.g. counted from a start trigger
+  RecordedMessage at(int newOffsetMicros) => RecordedMessage(
+        offsetMicros: newOffsetMicros,
+        topic: topic,
+        payload: payload,
+        payloadLength: payloadLength,
+        qos: qos,
+        retain: retain,
+        snapshot: snapshot,
+        truncated: truncated,
+        properties: properties,
+      );
 }
 
 // A marker in the recording, e.g. where the connection was lost
@@ -39,6 +52,7 @@ class RecordingMarker {
   static const String connectionLost = 'connectionLost';
   static const String reconnected = 'reconnected';
   static const String recovered = 'recovered';
+  static const String triggerFired = 'triggerFired';
 
   final int offsetMicros;
   final String kind;

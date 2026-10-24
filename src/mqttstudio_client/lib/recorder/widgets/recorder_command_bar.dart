@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:mqttstudio/common/widgets/main_appbar.dart';
 import 'package:mqttstudio/custom_theme.dart';
 import 'package:mqttstudio/recorder/engine/recording_player.dart';
 import 'package:mqttstudio/recorder/model/playback_options.dart';
@@ -26,7 +27,7 @@ class RecorderCommandBar extends StatelessWidget {
           SizedBox(height: 40, child: VerticalDivider()),
           _buildSpeedGroup(context, vm),
         ]),
-        _buildMore(context, vm),
+        Row(children: [_buildAddToSimulation(context, vm), _buildMore(context, vm)]),
       ]),
       Divider(height: 4),
     ]);
@@ -53,6 +54,15 @@ class RecorderCommandBar extends StatelessWidget {
             onPressed: vm.isRecording ? vm.addBookmark : null,
             icon: Icon(Icons.bookmark_border),
             tooltip: 'recorder.bookmark.tooltip'.tr()),
+        // the flight recorder writes its window as a recording
+        Tooltip(
+          message: vm.isSaveScheduled ? 'recorder.saveflight.scheduled.tooltip'.tr() : 'recorder.saveflight.tooltip'.tr(),
+          child: TextButton.icon(
+              style: TextButton.styleFrom(minimumSize: Size(0, 48)),
+              onPressed: vm.canSaveFlight ? vm.saveFlightRecording : null,
+              icon: Icon(Icons.save),
+              label: Text(vm.isSaveScheduled ? 'recorder.saveflight.saving'.tr() : 'recorder.saveflight.button'.tr())),
+        ),
       ]),
     );
   }
@@ -114,6 +124,24 @@ class RecorderCommandBar extends StatelessWidget {
             icon: Icon(Icons.tune),
             tooltip: 'recorder.options.tooltip'.tr()),
       ]),
+    );
+  }
+
+  Widget _buildAddToSimulation(BuildContext context, RecorderViewmodel vm) {
+    return Tooltip(
+      message: vm.isProjectOpen ? 'recorder.addtosimulation.tooltip'.tr() : 'recorder.record.noproject.tooltip'.tr(),
+      child: TextButton.icon(
+          style: TextButton.styleFrom(minimumSize: Size(0, 48)),
+          onPressed: vm.canAddToSimulation
+              ? () {
+                  var name = vm.addToSimulation();
+                  DefaultTabController.of(context).animateTo(MainAppBar.simulatorTab);
+                  ScaffoldMessenger.of(context)
+                      .showSnackBar(SnackBar(content: Text('recorder.addedtosimulation.info'.tr(args: [name]))));
+                }
+              : null,
+          icon: Icon(Icons.add),
+          label: Text('recorder.addtosimulation.button'.tr())),
     );
   }
 

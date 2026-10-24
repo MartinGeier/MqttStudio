@@ -17,14 +17,19 @@ class PlaybackOptionsDialog extends StatelessWidget {
   final RecordingInfo recording;
   final PlaybackOptions options;
   final double maxRate;
+  // recorded devices in the simulator can't play at Max speed (D25)
+  final bool allowMaxSpeed;
+  // e.g. how to use {n} for the instances of a recorded device
+  final String? hint;
 
-  const PlaybackOptionsDialog({Key? key, required this.recording, required this.options, required this.maxRate})
+  const PlaybackOptionsDialog(
+      {Key? key, required this.recording, required this.options, required this.maxRate, this.allowMaxSpeed = true, this.hint})
       : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider<PlaybackOptionsViewmodel>(
-      create: (_) => PlaybackOptionsViewmodel(recording, options, maxRate: maxRate),
+      create: (_) => PlaybackOptionsViewmodel(recording, options, maxRate: maxRate, allowMaxSpeed: allowMaxSpeed),
       child: Consumer<PlaybackOptionsViewmodel>(builder: (context, vm, _) {
         var theme = Theme.of(context);
         return SimpleDialog(
@@ -43,6 +48,7 @@ class PlaybackOptionsDialog extends StatelessWidget {
                   _buildSpeedRow(vm),
                   _buildRangeRow(vm),
                   _buildSectionLabel(context, 'playbackoptions.remapping.label'),
+                  if (hint != null) _buildHint(context, hint!),
                   _buildRemaps(context, vm),
                   _buildRetainRow(),
                   CheckboxField(
@@ -58,6 +64,14 @@ class PlaybackOptionsDialog extends StatelessWidget {
           ],
         );
       }),
+    );
+  }
+
+  Widget _buildHint(BuildContext context, String text) {
+    var theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Text(text, style: theme.textTheme.bodySmall!.copyWith(color: theme.hintColor)),
     );
   }
 
@@ -80,7 +94,9 @@ class PlaybackOptionsDialog extends StatelessWidget {
           decoration:
               InputDecoration(border: OutlineInputBorder(), labelText: 'playbackoptions.speed.label'.tr(), isDense: true),
           items: [
-            for (var speed in PlaybackOptions.speeds) DropdownMenuItem(value: speed, child: Text(RecorderFormat.speed(speed)))
+            for (var speed in PlaybackOptions.speeds)
+              if (allowMaxSpeed || speed != PlaybackOptions.maxSpeed)
+                DropdownMenuItem(value: speed, child: Text(RecorderFormat.speed(speed)))
           ],
         ),
       ),

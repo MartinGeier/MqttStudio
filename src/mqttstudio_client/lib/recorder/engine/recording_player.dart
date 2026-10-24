@@ -5,6 +5,7 @@ import 'package:event/event.dart';
 import 'package:mqttstudio/recorder/format/recording_reader.dart';
 import 'package:mqttstudio/recorder/model/playback_options.dart';
 import 'package:mqttstudio/recorder/model/recorded_message.dart';
+import 'package:mqttstudio/recorder/model/recording_header.dart';
 import 'package:mqttstudio/recorder/storage/recording_library.dart';
 import 'package:mqttstudio/simulator/engine/simulator_publisher.dart';
 import 'package:typed_data/typed_buffers.dart';
@@ -63,8 +64,20 @@ class RecordingPlayer {
   int lagMicros = 0;
   int loopCount = 0;
 
+  // where a message is published, by default its remapped topic; recorded devices also resolve {n}
+  final String Function(String recordedTopic)? mapTopic;
+  // called for every published message, e.g. for the simulator's statistics
+  final void Function(RecordedMessage message, String topic)? onPublished;
+  // the first pass starts here instead of at the range start, later loops start at the range start
+  final int? startPositionMicros;
+  int _passStartMicros = 0;
+
   RecordingPlayer(this.reader, PlaybackOptions options, this._publisher,
-      {this.maxRate = 1000, this.progressInterval = const Duration(milliseconds: 250)})
+      {this.maxRate = 1000,
+      this.progressInterval = const Duration(milliseconds: 250),
+      this.mapTopic,
+      this.onPublished,
+      this.startPositionMicros})
       : _options = options.copy();
 
   PlaybackState get state => _state;
@@ -78,10 +91,14 @@ class RecordingPlayer {
   int get rangeEndMicros => _options.rangeEndMicros ?? reader.footer?.durationMicros ?? 0;
 
   // msg/s of the selected topics at the given options, and the busiest second (§6.2)
-  static ({double rate, double peak}) estimate(RecordingInfo info, PlaybackOptions options, {double maxRate = 1000}) {
-    var summary = info.footer.summary;
+  static ({double rate, double peak}) estimate(RecordingInfo info, PlaybackOptions options, {double maxRate = 1000}) =>
+      estimateFooter(info.footer, options, maxRate: maxRate);
+
+  static ({double rate, double peak}) estimateFooter(RecordingFooter footer, PlaybackOptions options,
+      {double maxRate = 1000}) {
+    var summary = footer.summary;
     // a recording shorter than a second counts as one, its messages can't come faster than its peak second
-    var seconds = max(1.0, info.footer.duration.inMicroseconds / Duration.microsecondsPerSecond);
+    var seconds = max(1.0, footer.duration.inMicroseconds / Duration.microsecondsPerSecond);
     var count = 0;
     var peak = 0;
     summary.perTopic.forEach((topic, stats) {
@@ -192,10 +209,11 @@ class RecordingPlayer {
     lagMicros = 0;
     loopCount = 0;
     _firstPass = true;
-    if (_options.snapshot == RetainedSnapshotMode.publish && rangeStartMicros > 0) {
-      await _publishStateAtRangeStart();
+    var start = max(rangeStartMicros, startPositionMicros ?? 0);
+    if (_options.snapshot == RetainedSnapshotMode.publish && start > 0) {
+      await _publishStateAt(start);
     }
-    await _openRange();
+    await _openRange(start);
     _stopwatch
       ..reset()
       ..start();
@@ -204,18 +222,19 @@ class RecordingPlayer {
     _lastPublishWallMicros = 0;
   }
 
-  Future<void> _openRange() async {
-    var seek = reader.seekEntryFor(rangeStartMicros);
+  Future<void> _openRange([int? from]) async {
+    _passStartMicros = from ?? rangeStartMicros;
+    var seek = reader.seekEntryFor(_passStartMicros);
     _cursor = reader.cursor(from: seek?.position);
     _next = null;
     _lastPlayMicros = 0;
     _lastPlayMicrosRead = 0;
-    _lastOriginalMicros = rangeStartMicros;
-    positionMicros = rangeStartMicros;
+    _lastOriginalMicros = _passStartMicros;
+    positionMicros = _passStartMicros;
   }
 
-  // with a range, the state at its start is the last retained message of each topic before it
-  Future<void> _publishStateAtRangeStart() async {
+  // when playback starts later than the recording, the state there is the last retained message of each topic
+  Future<void> _publishStateAt(int position) async {
     var state = <String, RecordedMessage>{};
     var cursor = reader.cursor();
     for (var entry = await cursor.next(); entry != null; entry = await cursor.next()) {
@@ -223,7 +242,7 @@ class RecordingPlayer {
         continue;
       }
       var message = entry.message;
-      if (message.offsetMicros >= rangeStartMicros) {
+      if (message.offsetMicros >= position) {
         break;
       }
       if ((message.retain || message.snapshot) && _options.plays(message.topic)) {
@@ -245,7 +264,7 @@ class RecordingPlayer {
         continue;
       }
       var message = entry.message;
-      if (message.offsetMicros < rangeStartMicros || !_options.plays(message.topic)) {
+      if (message.offsetMicros < _passStartMicros || !_options.plays(message.topic)) {
         continue;
       }
       if (_options.rangeEndMicros != null && message.offsetMicros > _options.rangeEndMicros!) {
@@ -286,7 +305,14 @@ class RecordingPlayer {
         connectionLostEvent.broadcast();
         return;
       }
-      _publish(next, now - due);
+      try {
+        _publish(next, now - due);
+      } on Exception {
+        // the connection broke between the check and the publish
+        await stop();
+        connectionLostEvent.broadcast();
+        return;
+      }
       _lastPublishWallMicros = now;
     }
   }
@@ -345,9 +371,10 @@ class RecordingPlayer {
 
   void _send(RecordedMessage message, {required bool retain}) {
     var properties = _options.republishProperties && _publisher.supportsProperties ? message.properties : null;
-    _publisher.publish(_options.remap(message.topic), Uint8Buffer()..addAll(message.payload), _options.qos ?? message.qos,
-        retain, properties);
+    var topic = mapTopic?.call(message.topic) ?? _options.remap(message.topic);
+    _publisher.publish(topic, Uint8Buffer()..addAll(message.payload), _options.qos ?? message.qos, retain, properties);
     sent++;
+    onPublished?.call(message, topic);
   }
 
   void _setState(PlaybackState state) {

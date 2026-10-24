@@ -1,4 +1,9 @@
 import 'dart:convert';
+import 'dart:typed_data';
+import 'package:mqttstudio/model/mqtt_protocol_version.dart';
+import 'package:mqttstudio/recorder/format/recording_writer.dart';
+import 'package:mqttstudio/recorder/model/recorded_message.dart';
+import 'package:mqttstudio/recorder/model/recording_header.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqtt5_client/mqtt5_client.dart';
@@ -12,6 +17,7 @@ import 'package:mqttstudio/simulator/simulator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:typed_data/typed_buffers.dart';
 import 'package:mqttstudio/recorder/engine/playback_service.dart';
+import 'package:mqttstudio/recorder/analysis/recording_analysis_service.dart';
 import 'package:mqttstudio/recorder/engine/recorder_service.dart';
 import 'package:mqttstudio/recorder/storage/recording_library.dart';
 import 'package:mqttstudio/recorder/storage/recording_storage.dart';
@@ -35,11 +41,12 @@ FakeMqttAdapter setUpServices([FakeMqttAdapter? fakeAdapter]) {
     return closingNotSavedAnswer;
   }));
   GetIt.I.registerSingleton(MessageViewer());
-  GetIt.I.registerSingleton(Simulator());
   var library = RecordingLibrary(MemoryRecordingStore());
   GetIt.I.registerSingleton(library);
+  GetIt.I.registerSingleton(Simulator());
   GetIt.I.registerSingleton(RecorderService(library, connectionFactory: FakeMqttAdapter.new));
   GetIt.I.registerSingleton(PlaybackService(library));
+  GetIt.I.registerSingleton(RecordingAnalysisService(library));
   return adapter;
 }
 
@@ -59,3 +66,63 @@ Uint8Buffer toPayload(String value) => Uint8Buffer()..addAll(utf8.encode(value))
 
 ReceivedMqttMessage message(String topic, String payload, {DateTime? receivedOn, bool retain = false}) =>
     ReceivedMqttMessage(1, topic, toPayload(payload), MqttQos.atLeastOnce, receivedOn ?? DateTime.now(), retain);
+
+// Writes a finished recording with one message per topic, a second apart, into the library of setUpServices
+Future<RecordingInfo> recordInLibrary(String name, List<String> topics) async {
+  var library = GetIt.I.get<RecordingLibrary>();
+  var file = await library.create(name, DateTime(2026, 10, 24));
+  var writer = await RecordingWriter.start(
+      file,
+      RecordingHeader(
+          id: name,
+          startedAt: DateTime.utc(2026, 10, 24),
+          filters: [RecorderFilter('plant/#')],
+          broker: 'test.mosquitto.org:1883',
+          protocol: MqttProtocolVersion.v5,
+          clientId: 'client-1-rec-0001',
+          appVersion: ''));
+  for (var i = 0; i < topics.length; i++) {
+    writer.addMessage(RecordedMessage(
+        offsetMicros: i * 1000000, topic: topics[i], payload: Uint8List.fromList(utf8.encode('$i'))));
+  }
+  await writer.finish(name: name, durationMicros: topics.length * 1000000);
+  library.finishedWriting(file.name);
+  return (await library.list()).firstWhere((info) => info.id == name);
+}
+
+// Writes a finished recording with the given messages and markers (in offset order) into a library. It belongs to
+// the project openNewProject() opens, so the recordings list shows it.
+Future<RecordingInfo> writeRecording(RecordingLibrary library, String name, List<Object> entries,
+    {int durationMicros = 0,
+    List<RecorderFilter>? filters,
+    List<Bookmark>? bookmarks,
+    DateTime? startedAt,
+    String? projectName = 'Test project'}) async {
+  var file = await library.create(name, DateTime(2026, 10, 24));
+  var writer = await RecordingWriter.start(
+      file,
+      RecordingHeader(
+          id: name,
+          startedAt: startedAt ?? DateTime.utc(2026, 10, 24, 8),
+          filters: filters ?? [RecorderFilter('#')],
+          broker: 'test.mosquitto.org:1883',
+          protocol: MqttProtocolVersion.v5,
+          clientId: 'client-1-rec-0001',
+          projectName: projectName,
+          appVersion: ''));
+  for (var entry in entries) {
+    if (entry is RecordedMessage) {
+      writer.addMessage(entry);
+    } else if (entry is RecordingMarker) {
+      writer.addMarker(entry);
+    }
+  }
+  await writer.finish(name: name, durationMicros: durationMicros, bookmarks: bookmarks);
+  library.finishedWriting(file.name);
+  return (await library.list()).firstWhere((info) => info.id == name);
+}
+
+RecordedMessage recorded(double seconds, String topic, String payload) => RecordedMessage(
+    offsetMicros: (seconds * Duration.microsecondsPerSecond).round(),
+    topic: topic,
+    payload: Uint8List.fromList(utf8.encode(payload)));

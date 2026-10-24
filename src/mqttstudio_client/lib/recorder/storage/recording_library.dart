@@ -4,7 +4,10 @@ import 'package:event/event.dart';
 import 'package:flutter/foundation.dart';
 import 'package:mqttstudio/recorder/format/recording_reader.dart';
 import 'package:mqttstudio/recorder/model/recording_header.dart';
+import 'package:mqttstudio/recorder/storage/indexed_db_recording_store.dart';
 import 'package:mqttstudio/recorder/storage/recording_storage.dart';
+import 'package:mqttstudio/recorder/storage/recordings_idb_factory.dart'
+    if (dart.library.js_interop) 'package:mqttstudio/recorder/storage/recordings_idb_factory_web.dart';
 import 'package:path_provider/path_provider.dart';
 
 // A finished recording as the library lists it: header, footer and size, without its messages
@@ -19,9 +22,15 @@ class RecordingInfo {
   String get id => header.id;
 
   String get name => footer.name;
+
+  // the project the recording belongs to: assigned later, else the one it was recorded from; null for none
+  String? get projectName => footer.projectName ?? header.projectName;
+
+  // projects are stored by name, so the name links a recording to its project
+  bool belongsTo(String project) => projectName?.toLowerCase() == project.toLowerCase();
 }
 
-// The recordings outside the projects (doc/recorder-design.md R2, R24): a folder on desktop, memory in the browser
+// The recordings outside the projects (doc/recorder-design.md R2, R24): a folder on desktop, IndexedDB in the browser
 class RecordingLibrary {
   // an unfinished file that was written to more recently than this may still be recording, e.g. from the CLI
   static const Duration activeWriteGrace = Duration(seconds: 15);
@@ -37,11 +46,10 @@ class RecordingLibrary {
   RecordingLibrary(this._store, {this.defaultLocation});
 
   // Desktop: the folder the user chose in the recorder tab, else Documents\MQTT Studio\Recordings. MSIX doesn't
-  // virtualize Documents, so the CLI and Explorer see the same files. The browser keeps recordings in memory for now
-  // (doc/recorder-design.md §4.4 plans IndexedDB).
+  // virtualize Documents, so the CLI and Explorer see the same files. The browser keeps recordings in IndexedDB.
   static Future<RecordingLibrary> forPlatform({String? folder}) async {
     if (kIsWeb) {
-      return RecordingLibrary(MemoryRecordingStore());
+      return RecordingLibrary(IndexedDbRecordingStore(recordingsIdbFactory));
     }
     var documents = await getApplicationDocumentsDirectory();
     var separator = Platform.pathSeparator;
@@ -111,6 +119,12 @@ class RecordingLibrary {
 
   Future<RecordingReader> open(RecordingInfo info) => _openReader(info.fileName);
 
+  // a recording by its id, else by its file name, e.g. after it was copied into another folder (D23)
+  Future<RecordingInfo?> findSource(String id, String fileName) async {
+    var infos = await list();
+    return infos.where((info) => info.id == id).firstOrNull ?? infos.where((info) => info.fileName == fileName).firstOrNull;
+  }
+
   // closes the file again when it is no recording, so no handle is left behind
   Future<RecordingReader> _openReader(String fileName) async {
     var file = await store.open(fileName);
@@ -123,13 +137,16 @@ class RecordingLibrary {
   }
 
   // changes what is kept in the footer; the messages stay untouched (R9)
-  Future<RecordingInfo> updateMetadata(RecordingInfo info, {String? name, String? notes, List<Bookmark>? bookmarks}) async {
+  Future<RecordingInfo> updateMetadata(RecordingInfo info,
+      {String? name, String? notes, List<Bookmark>? bookmarks, String? projectName}) async {
     var reader = await open(info);
     try {
+      // what isn't given stays as the file has it, which may be newer than info
       var footer = reader.footer!
-        ..name = name ?? info.footer.name
-        ..notes = notes ?? info.footer.notes
-        ..bookmarks = bookmarks ?? info.footer.bookmarks;
+        ..name = name ?? reader.footer!.name
+        ..notes = notes ?? reader.footer!.notes
+        ..bookmarks = bookmarks ?? reader.footer!.bookmarks
+        ..projectName = projectName ?? reader.footer!.projectName;
       await reader.rewriteFooter(footer);
       var updated = RecordingInfo(info.fileName, reader.header, footer, await reader.file.length());
       changedEvent.broadcast();
@@ -147,8 +164,12 @@ class RecordingLibrary {
   // copies a .mqttrec file into the library, desktop only
   Future<RecordingInfo> importFile(String path) async {
     var source = File(path);
-    var bytes = await source.readAsBytes();
-    var fileName = source.uri.pathSegments.last;
+    return importBytes(source.uri.pathSegments.last, await source.readAsBytes());
+  }
+
+  // adds the bytes of a .mqttrec file to the library, e.g. picked in the browser
+  Future<RecordingInfo> importBytes(String originalName, Uint8List bytes) async {
+    var fileName = originalName;
     if (!fileName.toLowerCase().endsWith(RecordingNames.extension)) {
       throw FormatException('$fileName is not an MQTT Studio recording');
     }
@@ -167,7 +188,7 @@ class RecordingLibrary {
     var info = await _read(fileName, recoverIfIdle: true);
     if (info == null) {
       await store.delete(fileName);
-      throw FormatException('${source.uri.pathSegments.last} is not an MQTT Studio recording');
+      throw FormatException('$originalName is not an MQTT Studio recording');
     }
     changedEvent.broadcast();
     return info;

@@ -52,9 +52,12 @@ class _MessageDetailViewState extends State<MessageDetailView> {
           decoration: BoxDecoration(border: Border(left: BorderSide(color: Theme.of(context).dividerColor))),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              _buildAutoSelectButton(viewmodel, context),
-              _buildClearRetainedButton(viewmodel),
-              _buildRepublishButton(viewmodel),
+              // a recorded message gets no new ones and is not published from here
+              if (viewmodel.isLive) ...[
+                _buildAutoSelectButton(viewmodel, context),
+                _buildClearRetainedButton(viewmodel),
+                _buildRepublishButton(viewmodel),
+              ],
               Spacer(),
               IconButton(onPressed: () => viewmodel.selectedMessage = null, icon: Icon(Icons.close))
             ]),

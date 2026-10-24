@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:mqttstudio/simulator/model/simulation.dart';
 import 'package:mqttstudio/simulator/simulator_viewmodel.dart';
 import 'package:mqttstudio/simulator/widgets/simulator_dialogs.dart';
 import 'package:mqttstudio/simulator/widgets/simulator_format.dart';
@@ -56,10 +57,12 @@ class SimulatorCommandBar extends StatelessWidget {
     return Row(children: [
       Tooltip(
         message: 'simulator.adddevice.tooltip'.tr(),
-        child: TextButton.icon(
-            onPressed: vm.isProjectOpen ? () => SimulatorDialogs.addDevice(context, vm) : null,
-            icon: Icon(Icons.devices_other),
-            label: Text('simulator.adddevice.button'.tr())),
+        child: Builder(
+          builder: (buttonContext) => TextButton.icon(
+              onPressed: vm.isProjectOpen ? () => _addDevice(buttonContext, vm) : null,
+              icon: Icon(Icons.devices_other),
+              label: Text('simulator.adddevice.button'.tr())),
+        ),
       ),
       Tooltip(
         message: 'simulator.addtopic.tooltip'.tr(),
@@ -69,6 +72,33 @@ class SimulatorCommandBar extends StatelessWidget {
             label: Text('simulator.addtopic.button'.tr())),
       ),
     ]);
+  }
+
+  // a device either generates payloads or plays a recording (D22); the menu opens below the button
+  Future<void> _addDevice(BuildContext buttonContext, SimulatorViewmodel vm) async {
+    var button = buttonContext.findRenderObject() as RenderBox;
+    var overlay = Overlay.of(buttonContext).context.findRenderObject() as RenderBox;
+    var position = RelativeRect.fromRect(
+        Rect.fromPoints(button.localToGlobal(button.size.bottomLeft(Offset.zero), ancestor: overlay),
+            button.localToGlobal(button.size.bottomRight(Offset.zero), ancestor: overlay)),
+        Offset.zero & overlay.size);
+    var kind = await showMenu<DeviceKind>(context: buttonContext, position: position, items: [
+      PopupMenuItem(
+          value: DeviceKind.generated,
+          child: ListTile(
+              leading: Icon(Icons.devices_other), title: Text('simulator.adddevice.generated'.tr()), dense: true)),
+      PopupMenuItem(
+          value: DeviceKind.recorded,
+          child: ListTile(leading: Icon(Icons.history), title: Text('simulator.adddevice.recorded'.tr()), dense: true)),
+    ]);
+    if (!buttonContext.mounted || kind == null) {
+      return;
+    }
+    if (kind == DeviceKind.recorded) {
+      await SimulatorDialogs.addRecordedDevice(buttonContext, vm);
+    } else {
+      await SimulatorDialogs.addDevice(buttonContext, vm);
+    }
   }
 
   Widget _buildClearRetainedButton(BuildContext context, SimulatorViewmodel vm) {

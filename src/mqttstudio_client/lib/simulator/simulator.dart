@@ -5,6 +5,11 @@ import 'package:mqttstudio/model/topic_color.dart';
 import 'package:mqttstudio/model/topic_subscription.dart';
 import 'package:mqttstudio/mqtt/mqtt_adapter.dart';
 import 'package:mqttstudio/project/project_manager.dart';
+import 'package:mqttstudio/recorder/engine/recording_player.dart';
+import 'package:mqttstudio/recorder/model/playback_options.dart';
+import 'package:mqttstudio/recorder/storage/recording_library.dart';
+import 'package:mqtt5_client/mqtt5_client.dart' show MqttQos;
+import 'package:mqttstudio/recorder/storage/recording_storage.dart';
 import 'package:mqttstudio/simulator/engine/placeholders.dart';
 import 'package:mqttstudio/simulator/engine/simulation_rules.dart';
 import 'package:mqttstudio/simulator/engine/simulator_publisher.dart';
@@ -29,19 +34,68 @@ class Simulator {
   // the simulation was running and stopped because the broker disconnected
   final stoppedByDisconnectEvent = Event();
 
+  // the recordings of the recorded devices, by device id; null while it is missing
+  final Map<String, RecordingInfo?> _recordings = {};
+
   Simulator({SimulatorRunner? runner}) {
-    this.runner = runner ?? SimulatorRunner(MqttAdapterPublisher(_mqttAdapter));
+    this.runner = runner ?? SimulatorRunner(MqttAdapterPublisher(_mqttAdapter), openRecording: _openRecording);
     _projectManager.projectClosedEvent.subscribe(_onProjectClosed);
     _projectManager.projectOpenedEvent.subscribe(_onProjectOpened);
     _mqttAdapter.onDisconnectedEvent.subscribe(_onDisconnected);
     this.runner.connectionLostEvent.subscribe(_onDisconnected);
+    _library?.changedEvent.subscribe(_onLibraryChanged);
   }
 
   void dispose() {
     _projectManager.projectClosedEvent.unsubscribe(_onProjectClosed);
     _projectManager.projectOpenedEvent.unsubscribe(_onProjectOpened);
     _mqttAdapter.onDisconnectedEvent.unsubscribe(_onDisconnected);
+    _library?.changedEvent.unsubscribe(_onLibraryChanged);
     runner.dispose();
+  }
+
+  RecordingLibrary? get _library => GetIt.I.isRegistered<RecordingLibrary>() ? GetIt.I.get<RecordingLibrary>() : null;
+
+  // the recording a recorded device plays, null while it is not in the library (D23)
+  RecordingInfo? recordingOf(SimulatedDevice device) => _recordings[device.id];
+
+  // the recorded topics a recorded device plays: from its recording, else from its last run
+  List<String> recordedTopicsOf(SimulatedDevice device) {
+    var info = recordingOf(device);
+    var playback = device.recorded?.playback;
+    if (info != null && playback != null) {
+      return info.footer.topics.where(playback.plays).toList()..sort();
+    }
+    return runner.recordedTopicsOf(device.id) ?? [];
+  }
+
+  // finds the recordings of the recorded devices again, e.g. after the library changed
+  Future<void> refreshRecordings() async {
+    var library = _library;
+    _recordings.clear();
+    if (library != null) {
+      for (var device in devices.where((device) => device.isRecorded && device.recorded != null)) {
+        _recordings[device.id] = await library.findSource(device.recorded!.recordingId, device.recorded!.fileName);
+      }
+    }
+    simulationChangedEvent.broadcast();
+  }
+
+  Future<RecordingFile> _openRecording(RecordedSource source) async {
+    var library = _library;
+    var info = await library?.findSource(source.recordingId, source.fileName);
+    if (library == null || info == null) {
+      throw StateError('Recording ${source.recordingName} not found');
+    }
+    return library.store.open(info.fileName);
+  }
+
+  double _recordedRate(SimulatedDevice device) {
+    var info = recordingOf(device);
+    if (info == null || device.recorded == null) {
+      return 0;
+    }
+    return RecordingPlayer.estimate(info, device.recorded!.playback).rate * device.instanceCount;
   }
 
   Simulation? get simulation => _projectManager.currentProject?.simulation;
@@ -57,12 +111,15 @@ class Simulator {
 
   void startAll() {
     var all = [for (var device in devices) for (var topic in device.topics) (device, topic)];
-    _checkRate(all);
+    _checkRate(all,
+        recorded: devices.where((device) => device.isRecorded && !runner.isDeviceRunning(device.id)).fold(
+            0.0, (sum, device) => sum + _recordedRate(device)));
     runner.startAll(simulation!);
   }
 
   void startDevice(SimulatedDevice device) {
-    _checkRate(device.topics.map((topic) => (device, topic)));
+    _checkRate(device.topics.map((topic) => (device, topic)),
+        recorded: device.isRecorded && !runner.isDeviceRunning(device.id) ? _recordedRate(device) : 0);
     runner.startDevice(device);
   }
 
@@ -79,8 +136,8 @@ class Simulator {
 
   int clearRetained() => runner.clearRetained([for (var device in devices) for (var topic in device.topics) (device, topic)]);
 
-  void _checkRate(Iterable<(SimulatedDevice, SimulatedTopic)> topics) {
-    var rate = rateWith(topics);
+  void _checkRate(Iterable<(SimulatedDevice, SimulatedTopic)> topics, {double recorded = 0}) {
+    var rate = rateWith(topics) + recorded;
     if (rate > SimulationRules.maxRate) {
       throw SimulationRateException(rate);
     }
@@ -89,6 +146,9 @@ class Simulator {
   SimulatedDevice addDevice(SimulatedDevice device) {
     simulation!.devices.add(device);
     _changed();
+    if (device.isRecorded) {
+      refreshRecordings();
+    }
     return device;
   }
 
@@ -98,7 +158,15 @@ class Simulator {
     var index = devices.indexWhere((device) => device.id == edited.id);
     var running = devices[index].topics.where((topic) => runner.isRunning(topic.id)).map((topic) => topic.id).toSet();
     devices[index] = edited;
-    runner.restart(edited, edited.topics.where((topic) => running.contains(topic.id)));
+    if (edited.isRecorded) {
+      // D19: a playing recorded device restarts with its new settings
+      if (runner.isDeviceRunning(edited.id)) {
+        runner.startRecorded(edited);
+      }
+      refreshRecordings();
+    } else {
+      runner.restart(edited, edited.topics.where((topic) => running.contains(topic.id)));
+    }
     _changed();
   }
 
@@ -116,16 +184,43 @@ class Simulator {
     return copy;
   }
 
-  // the device a new topic goes to: the given one, else the first one, else a new Default device
+  // the device a new topic goes to: the given one, else the first generated one, else a new Default device.
+  // Recorded devices have no topics of their own.
   SimulatedDevice deviceForNewTopic(String? deviceId) {
     var device = deviceId == null ? null : simulation!.deviceById(deviceId);
-    if (device != null) {
+    if (device != null && !device.isRecorded) {
       return device;
     }
-    if (devices.isNotEmpty) {
-      return devices.first;
+    var generated = devices.where((device) => !device.isRecorded);
+    if (generated.isNotEmpty) {
+      return generated.first;
     }
-    return addDevice(SimulatedDevice(name: SimulatedDevice.defaultName));
+    return addDevice(SimulatedDevice(name: uniqueNewDeviceName(SimulatedDevice.defaultName)));
+  }
+
+  // the name itself if it is free, else with a number
+  String uniqueNewDeviceName(String name) {
+    var candidate = name;
+    var number = 2;
+    while (SimulationRules.isDuplicateDeviceName(candidate, simulation!)) {
+      candidate = '$name $number';
+      number++;
+    }
+    return candidate;
+  }
+
+  // a recorded device that plays the recording with the given options (the recorder tab's ADD TO SIMULATION)
+  SimulatedDevice addRecordedDevice(RecordingInfo info, PlaybackOptions options) {
+    var playback = options.copy();
+    if (playback.isMaxSpeed) {
+      playback.speed = 1;
+    }
+    return addDevice(SimulatedDevice(
+      name: uniqueNewDeviceName(info.name),
+      kind: DeviceKind.recorded,
+      recorded: RecordedSource(
+          recordingId: info.id, fileName: info.fileName, recordingName: info.name, playback: playback),
+    ));
   }
 
   void addTopic(SimulatedDevice device, SimulatedTopic topic) {
@@ -180,6 +275,24 @@ class Simulator {
 
   bool isSubscribedInViewer(SimulatedDevice device, SimulatedTopic topic) => _viewerSubscription(device, topic) != null;
 
+  // the Topic Viewer subscription that receives a recorded topic of all instances
+  String recordedSubscriptionOf(SimulatedDevice device, String recordedTopic) =>
+      Placeholders.toSubscription(SimulationRules.recordedTarget(device, recordedTopic), deviceName: device.name);
+
+  bool isRecordedSubscribedInViewer(SimulatedDevice device, String recordedTopic) {
+    var subscription = recordedSubscriptionOf(device, recordedTopic);
+    return (_projectManager.currentProject?.topicSubscriptions ?? <TopicSubscription>[])
+        .any((sub) => sub.topic == subscription);
+  }
+
+  void subscribeRecordedInViewer(SimulatedDevice device, String recordedTopic) {
+    if (!isRecordedSubscribedInViewer(device, recordedTopic)) {
+      GetIt.I
+          .get<MessageViewer>()
+          .addTopicSubscription(TopicSubscription(recordedSubscriptionOf(device, recordedTopic), MqttQos.atMostOnce));
+    }
+  }
+
   TopicColor? viewerColorOf(SimulatedDevice device, SimulatedTopic topic) => _viewerSubscription(device, topic)?.color;
 
   void subscribeInViewer(SimulatedDevice device, SimulatedTopic topic) {
@@ -193,7 +306,9 @@ class Simulator {
 
   void _onProjectClosed(EventArgs _) => runner.reset();
 
-  void _onProjectOpened(EventArgs _) => simulationChangedEvent.broadcast();
+  void _onProjectOpened(EventArgs _) => refreshRecordings();
+
+  void _onLibraryChanged(EventArgs? _) => refreshRecordings();
 
   void _onDisconnected(EventArgs _) {
     if (runner.isAnyRunning) {

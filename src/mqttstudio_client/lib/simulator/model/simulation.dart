@@ -1,5 +1,6 @@
 import 'package:json_annotation/json_annotation.dart';
 import 'package:mqtt5_client/mqtt5_client.dart';
+import 'package:mqttstudio/recorder/model/playback_options.dart';
 import 'package:mqttstudio/simulator/model/payload_generators.dart';
 import 'package:uuid/uuid.dart';
 
@@ -58,11 +59,25 @@ class SimulatedDevice {
   int instanceCount;
   // value of {n} for the first instance
   int firstInstance;
+  // devices saved before recorded devices existed are generated ones
+  @JsonKey(defaultValue: DeviceKind.generated)
+  DeviceKind kind;
+  // the recording a recorded device plays; its topics list stays empty
+  RecordedSource? recorded;
   List<SimulatedTopic> topics;
 
-  SimulatedDevice({String? id, required this.name, this.instanceCount = 1, this.firstInstance = 1, List<SimulatedTopic>? topics})
+  SimulatedDevice(
+      {String? id,
+      required this.name,
+      this.instanceCount = 1,
+      this.firstInstance = 1,
+      this.kind = DeviceKind.generated,
+      this.recorded,
+      List<SimulatedTopic>? topics})
       : id = id ?? _uuid.v4(),
         topics = topics ?? [];
+
+  bool get isRecorded => kind == DeviceKind.recorded;
 
   int get lastInstance => firstInstance + instanceCount - 1;
 
@@ -73,11 +88,51 @@ class SimulatedDevice {
         name: name,
         instanceCount: instanceCount,
         firstInstance: firstInstance,
+        kind: kind,
+        recorded: recorded == null ? null : RecordedSource.fromJson(recorded!.toJson()),
         topics: topics.map((topic) => topic.copy(newId: newIds)).toList(),
       );
 
   factory SimulatedDevice.fromJson(Map<String, dynamic> json) => _$SimulatedDeviceFromJson(json);
   Map<String, dynamic> toJson() => _$SimulatedDeviceToJson(this);
+}
+
+// generated devices publish payloads of generators, recorded ones play a recording (doc/simulator-design.md D22)
+enum DeviceKind { generated, recorded }
+
+// When the instances of a recorded device start (D24)
+enum InstanceStart {
+  // each one after a random part of the median interval, like the start of generated topics
+  staggered,
+  // all at the same time
+  aligned,
+  // each one at a random position in the range; needs loop
+  randomPosition,
+}
+
+// The recording a recorded device plays and how (doc/simulator-design.md §4.5)
+@JsonSerializable(explicitToJson: true)
+class RecordedSource {
+  // RecordingHeader.id in the recordings library (D23)
+  String recordingId;
+  // found by this when the id is not, e.g. after a copy
+  String fileName;
+  // the recording's name when it was chosen, shown when it is missing
+  String recordingName;
+  // remap targets may contain {n}, {n:3} and {device}; Max speed is not allowed (D25)
+  PlaybackOptions playback;
+  InstanceStart instanceStart;
+
+  RecordedSource(
+      {required this.recordingId,
+      required this.fileName,
+      required this.recordingName,
+      PlaybackOptions? playback,
+      this.instanceStart = InstanceStart.staggered})
+      : playback = playback ?? PlaybackOptions();
+
+  factory RecordedSource.fromJson(Map<String, dynamic> json) => _$RecordedSourceFromJson(json);
+  Map<String, dynamic> toJson() => _$RecordedSourceToJson(this);
 }
 
 @JsonSerializable(explicitToJson: true)

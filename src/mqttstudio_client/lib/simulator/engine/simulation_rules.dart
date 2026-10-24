@@ -15,6 +15,11 @@ enum SimulationIssueKind {
   templateUnknownField,
   templateFieldNotAllowed,
   routeTooShort,
+  recordingNotChosen,
+  recordingMissing,
+  recordedNeedsInstance,
+  recordedMaxSpeed,
+  recordedRandomNeedsLoop,
 }
 
 // A rule a simulation breaks. The CLI prints describe(), the app shows a localized text per kind.
@@ -51,6 +56,16 @@ class SimulationIssue {
         return '$where: the template field $detail cannot use this generator';
       case SimulationIssueKind.routeTooShort:
         return '$where: a GPS route needs at least 2 waypoints';
+      case SimulationIssueKind.recordingNotChosen:
+        return '$where: no recording is chosen';
+      case SimulationIssueKind.recordingMissing:
+        return '$where: the recording $detail is not in the recordings folder';
+      case SimulationIssueKind.recordedNeedsInstance:
+        return '$where: with more than one instance a topic remapping must contain {n}';
+      case SimulationIssueKind.recordedMaxSpeed:
+        return '$where: a recorded device cannot play at Max speed';
+      case SimulationIssueKind.recordedRandomNeedsLoop:
+        return '$where: instances starting at a random position need loop';
     }
   }
 
@@ -132,11 +147,37 @@ class SimulationRules {
     if (device.instanceCount < 1 || device.instanceCount > maxInstances) {
       issues.add(SimulationIssue(SimulationIssueKind.instanceCount, device: device.name));
     }
+    if (device.isRecorded) {
+      issues.addAll(validateRecorded(device));
+    }
     for (var topic in device.topics) {
       issues.addAll(validateTopic(device, topic));
     }
     return issues;
   }
+
+  // D24, D25: instances need {n} in a remapping so they don't publish to the same topics
+  static List<SimulationIssue> validateRecorded(SimulatedDevice device) {
+    var source = device.recorded;
+    if (source == null || source.recordingId.isEmpty) {
+      return [SimulationIssue(SimulationIssueKind.recordingNotChosen, device: device.name)];
+    }
+    var issues = <SimulationIssue>[];
+    if (device.instanceCount > 1 && !source.playback.remaps.any((remap) => Placeholders.containsInstance(remap.to))) {
+      issues.add(SimulationIssue(SimulationIssueKind.recordedNeedsInstance, device: device.name));
+    }
+    if (source.playback.isMaxSpeed) {
+      issues.add(SimulationIssue(SimulationIssueKind.recordedMaxSpeed, device: device.name));
+    }
+    if (source.instanceStart == InstanceStart.randomPosition && !source.playback.loop) {
+      issues.add(SimulationIssue(SimulationIssueKind.recordedRandomNeedsLoop, device: device.name));
+    }
+    return issues;
+  }
+
+  // the topic a recorded topic is published to, with the placeholders of the remapping still in it
+  static String recordedTarget(SimulatedDevice device, String recordedTopic) =>
+      device.recorded?.playback.remap(recordedTopic) ?? recordedTopic;
 
   static List<SimulationIssue> validateSimulation(Simulation simulation, [Iterable<SimulatedDevice>? devices]) =>
       (devices ?? simulation.devices).expand((device) => validateDevice(device, simulation)).toList();

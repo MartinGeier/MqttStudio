@@ -18,6 +18,7 @@ import 'message_viewer/message_viewer.dart';
 import 'project/project_viewmodel.dart';
 import 'simulator/simulator.dart';
 import 'package:mqttstudio/recorder/engine/playback_service.dart';
+import 'package:mqttstudio/recorder/analysis/recording_analysis_service.dart';
 import 'package:mqttstudio/recorder/engine/recorder_service.dart';
 import 'package:mqttstudio/recorder/storage/recording_library.dart';
 import 'package:mqttstudio/common/localstore.dart';
@@ -75,10 +76,11 @@ void setupServiceLocator(RecordingLibrary recordingLibrary) {
   // features
   GetIt.I.registerSingleton(ProjectManager(onClosingNotSaved));
   GetIt.I.registerSingleton(MessageViewer());
-  GetIt.I.registerSingleton(Simulator());
   GetIt.I.registerSingleton(recordingLibrary);
+  GetIt.I.registerSingleton(Simulator());
   GetIt.I.registerSingleton(RecorderService(recordingLibrary, appVersion: _appVersion)..confirmStopOnClose = onClosingWhileRecording);
   GetIt.I.registerSingleton(PlaybackService(recordingLibrary));
+  GetIt.I.registerSingleton(RecordingAnalysisService(recordingLibrary));
   GetIt.I.registerSingleton(MqttConnectionViewmodel());
 }
 

@@ -6,6 +6,7 @@ import 'package:mqttstudio/recorder/recorder_viewmodel.dart';
 import 'package:mqttstudio/recorder/widgets/recorder_command_bar.dart';
 import 'package:mqttstudio/recorder/widgets/recording_list.dart';
 import 'package:mqttstudio/recorder/widgets/recording_overview.dart';
+import 'package:mqttstudio/recorder/widgets/recording_tabs.dart';
 import 'package:provider/provider.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 
@@ -44,9 +45,33 @@ class _RecorderPageState extends State<RecorderPage> {
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             RecorderCommandBar(),
-            Expanded(child: RecordingOverview()),
+            Consumer<RecorderViewmodel>(builder: (context, vm, _) => _buildBusy(context, vm)),
+            Expanded(
+              child: Consumer<RecorderViewmodel>(
+                // the running recording only has its live overview
+                builder: (context, vm, _) => (vm.liveSelected && vm.isRecording) || vm.selected == null
+                    ? RecordingOverview()
+                    : RecordingTabs(),
+              ),
+            ),
           ]),
         ),
+      ]),
+    );
+  }
+
+  // an edit, export or import that runs
+  Widget _buildBusy(BuildContext context, RecorderViewmodel vm) {
+    if (!vm.isBusy) {
+      return SizedBox.shrink();
+    }
+    var theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(children: [
+        Text(vm.busyLabel!, style: theme.textTheme.bodyMedium!.copyWith(color: theme.hintColor)),
+        SizedBox(width: 12),
+        Expanded(child: LinearProgressIndicator(value: vm.busyProgress)),
       ]),
     );
   }

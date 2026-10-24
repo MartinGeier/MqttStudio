@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/custom_theme.dart';
 import 'package:mqttstudio/project/project_viewmodel.dart';
+import 'package:mqttstudio/mqtt/mqtt_connection_viewmodel.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:srx_flutter/srx_flutter.dart';
@@ -38,8 +39,11 @@ Widget testApp(Widget child) {
     path: 'assets/i18n',
     fallbackLocale: Locale('en'),
     assetLoader: const _MemoryAssetLoader(),
-    child: ChangeNotifierProvider(
-      create: (_) => ProjectViewmodel(),
+    child: MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ProjectViewmodel()),
+        ChangeNotifierProvider(create: (_) => MqttConnectionViewmodel()),
+      ],
       child: Builder(
         builder: (context) => MaterialApp(
           theme: CustomTheme.lightTheme,

@@ -61,6 +61,12 @@ dependencies:
   args: ^2.7.0
   # current time of the simulator, replaceable in tests
   clock: ^1.1.2
+  # salted hashes when anonymizing recordings
+  crypto: ^3.0.7
+  # the recordings library in the browser
+  idb_shim: ^2.10.1+1
+  # the leave-page prompt of the browser while recording
+  web: ^1.1.1
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.

@@ -1,4 +1,5 @@
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:mqttstudio/custom_theme.dart';
 import 'package:mqttstudio/recorder/recorder_viewmodel.dart';
@@ -22,6 +23,7 @@ class RecordingList extends StatelessWidget {
       decoration: BoxDecoration(border: Border(right: BorderSide(color: theme.dividerColor))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         _buildHead(context, vm),
+        _buildFilterLine(context, vm),
         Expanded(child: _buildItems(context, vm)),
         Divider(height: 1),
         _buildFoot(context, vm),
@@ -36,6 +38,7 @@ class RecordingList extends StatelessWidget {
       child: Row(children: [
         Expanded(
             child: Text('recordinglist.title'.tr(), style: theme.textTheme.titleMedium!.copyWith(color: Colors.black87))),
+        _buildFilterToggle(context, vm),
         IconButton(onPressed: vm.loadRecordings, icon: Icon(Icons.refresh), tooltip: 'recordinglist.refresh.tooltip'.tr()),
         IconButton(
             onPressed: vm.canChangeFolder ? () => RecorderDialogs.recordingsFolder(context, vm) : null,
@@ -47,16 +50,50 @@ class RecordingList extends StatelessWidget {
     );
   }
 
+  // pressed: only the open project's recordings
+  Widget _buildFilterToggle(BuildContext context, RecorderViewmodel vm) {
+    var project = vm.projectName;
+    return Tooltip(
+      message: project == null
+          ? 'recordinglist.filter.noproject.tooltip'.tr()
+          : vm.isFiltered
+              ? 'recordinglist.filter.showall.tooltip'.tr(args: [project])
+              : 'recordinglist.filter.project.tooltip'.tr(args: [project]),
+      child: ToggleButtons(
+        renderBorder: false,
+        constraints: BoxConstraints.tight(Size(40, 40)),
+        isSelected: [vm.isFiltered],
+        onPressed: project == null ? null : (_) => vm.toggleAllProjects(),
+        children: [Icon(Icons.filter_alt)],
+      ),
+    );
+  }
+
+  Widget _buildFilterLine(BuildContext context, RecorderViewmodel vm) {
+    var project = vm.projectName;
+    if (project == null) {
+      return SizedBox.shrink();
+    }
+    var theme = Theme.of(context);
+    var text = vm.isFiltered
+        ? 'recordinglist.filter.project.label'.tr(args: [project, '${vm.visibleRecordings.length}', '${vm.recordings.length}'])
+        : 'recordinglist.filter.all.label'.tr(args: ['${vm.recordings.length}']);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+      child: Text(text, style: theme.textTheme.bodySmall!.copyWith(color: theme.hintColor), overflow: TextOverflow.ellipsis),
+    );
+  }
+
   Widget _buildItems(BuildContext context, RecorderViewmodel vm) {
     var theme = Theme.of(context);
-    if (vm.recordings.isEmpty && !vm.isRecording) {
+    if (vm.visibleRecordings.isEmpty && !vm.isRecording) {
       return Center(
           child: Text('recordinglist.watermark'.tr(),
               style: theme.textTheme.headlineMedium!.copyWith(color: theme.dividerColor)));
     }
     return ListView(children: [
       if (vm.isRecording) ...[_buildLiveItem(context, vm), Divider(height: 9)],
-      for (var info in vm.recordings) _buildItem(context, vm, info),
+      for (var info in vm.visibleRecordings) _buildItem(context, vm, info),
     ]);
   }
 
@@ -81,7 +118,8 @@ class RecordingList extends StatelessWidget {
       child: _ItemFrame(
         selected: !vm.liveSelected && vm.selected?.id == info.id,
         onTap: () => vm.select(info),
-        name: info.name,
+        // listing all projects, the project comes first: "Project1 / Night shift"
+        name: vm.isFiltered || info.projectName == null ? info.name : '${info.projectName} / ${info.name}',
         meta: '${RecorderFormat.date(info.header.startedAt)} · ${RecorderFormat.duration(info.footer.duration)} · '
             '${RecorderFormat.bytes(info.size)}',
         metaStyle: theme.textTheme.bodySmall!.copyWith(color: theme.hintColor),
@@ -107,15 +145,28 @@ class RecordingList extends StatelessWidget {
   }
 
   Widget _buildFoot(BuildContext context, RecorderViewmodel vm) {
+    var theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.all(12),
-      child: Row(children: [
+      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        if (kIsWeb)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text('recordinglist.web.hint'.tr(), style: theme.textTheme.bodySmall!.copyWith(color: theme.hintColor)),
+          ),
+        _buildFootButtons(context, vm),
+      ]),
+    );
+  }
+
+  Widget _buildFootButtons(BuildContext context, RecorderViewmodel vm) {
+    return Row(children: [
         Expanded(
             child: Tooltip(
           message: 'recordinglist.import.tooltip'.tr(),
           child: TextButton.icon(
               style: TextButton.styleFrom(minimumSize: Size(0, 48)),
-              onPressed: vm.canImport ? vm.importRecording : null,
+              onPressed: vm.canImport ? () => RecorderDialogs.importRecording(context, vm) : null,
               icon: Icon(Icons.file_upload),
               label: Text('recordinglist.import.button'.tr())),
         )),
@@ -129,8 +180,7 @@ class RecordingList extends StatelessWidget {
               icon: Icon(Icons.folder_open),
               label: Text('recordinglist.folder.button'.tr())),
         )),
-      ]),
-    );
+    ]);
   }
 }
 

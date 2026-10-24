@@ -9,21 +9,33 @@ import 'package:mqttstudio/mqtt/mqtt_adapter.dart';
 import 'package:mqttstudio/model/mqtt_payload_type.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
 import 'package:mqttstudio/message_viewer/message_buffer.dart';
+import 'package:mqttstudio/message_viewer/message_source.dart';
 import 'package:mqttstudio/project/project_manager.dart';
 import 'package:mqttstudio/service/service_error.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 
 // Manages MQTT operations for message viewers. Receives messages from MQTTAdapter and offers events for viewmodels.
 // Stores all received messages using MessageBuffer
-class MessageViewer {
+class MessageViewer implements MessageSource {
   final _mqttAdapter = GetIt.I.get<MqttAdapter>();
+  @override
   bool paused = false;
   late ProjectManager _projectManager;
   bool isBusy = false;
+  @override
   MQTTMessageBuffer messageBuffer = MQTTMessageBuffer();
+  @override
   final topicSubscriptionsChangedEvent = Event();
+  @override
   final messageReceivedEvent = Event<ReceivedMqttMessage>();
+  @override
   final messagesClearedEvent = Event();
+
+  @override
+  bool get isLive => true;
+
+  @override
+  List<TopicSubscription> get topicSubscriptions => _projectManager.currentProject?.topicSubscriptions ?? [];
 
   MessageViewer() {
     _projectManager = GetIt.I.get<ProjectManager>();
@@ -129,6 +141,7 @@ class MessageViewer {
     }
   }
 
+  @override
   TopicColor getTopicColor(String topicName) {
     assert(_projectManager.isProjectOpen);
 

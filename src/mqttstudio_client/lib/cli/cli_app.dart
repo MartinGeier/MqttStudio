@@ -3,6 +3,9 @@ import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
 import 'package:mqttstudio/cli/cli_context.dart';
 import 'package:mqttstudio/cli/commands/projects_command.dart';
+import 'package:mqttstudio/cli/commands/record_command.dart';
+import 'package:mqttstudio/cli/commands/recordings_command.dart';
+import 'package:mqttstudio/cli/commands/replay_command.dart';
 import 'package:mqttstudio/cli/commands/simulate_command.dart';
 import 'package:mqttstudio/cli/exit_codes.dart';
 import 'package:mqttstudio/cli/output.dart';
@@ -30,7 +33,10 @@ class CliApp {
       ..argParser.addFlag('quiet', abbr: 'q', negatable: false, help: 'Only print errors and the final summary.')
       ..argParser.addFlag('verbose', abbr: 'v', negatable: false, help: 'Print per-topic details and MQTT client logs.')
       ..addCommand(ProjectsCommand(context))
-      ..addCommand(SimulateCommand(context));
+      ..addCommand(SimulateCommand(context))
+      ..addCommand(RecordCommand(context))
+      ..addCommand(ReplayCommand(context))
+      ..addCommand(RecordingsCommand(context));
   }
 
   Future<int> run(List<String> args) async {

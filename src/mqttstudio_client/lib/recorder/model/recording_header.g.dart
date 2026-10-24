@@ -112,6 +112,7 @@ RecordingFooter _$RecordingFooterFromJson(Map<String, dynamic> json) =>
       bookmarks: (json['bookmarks'] as List<dynamic>?)
           ?.map((e) => Bookmark.fromJson(e as Map<String, dynamic>))
           .toList(),
+      projectName: json['projectName'] as String?,
       topics: (json['topics'] as List<dynamic>?)
           ?.map((e) => e as String)
           .toList(),
@@ -130,6 +131,7 @@ Map<String, dynamic> _$RecordingFooterToJson(RecordingFooter instance) =>
       'durationMicros': instance.durationMicros,
       'recovered': instance.recovered,
       'bookmarks': instance.bookmarks.map((e) => e.toJson()).toList(),
+      'projectName': instance.projectName,
       'topics': instance.topics,
       'summary': instance.summary.toJson(),
       'seekIndex': instance.seekIndex.map((e) => e.toJson()).toList(),

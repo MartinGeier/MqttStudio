@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:mqttstudio/common/widgets/fast_topic_chip.dart';
 import 'package:mqttstudio/custom_theme.dart';
+import 'package:mqttstudio/recorder/widgets/recorder_format.dart';
 import 'package:mqttstudio/simulator/engine/generator_instances.dart';
 import 'package:mqttstudio/simulator/engine/simulator_runner.dart';
 import 'package:mqttstudio/simulator/model/simulation.dart';
@@ -85,23 +86,33 @@ class SimulationList extends StatelessWidget {
   }
 
   List<Widget> _buildDevice(BuildContext context, SimulatorViewmodel vm, SimulatedDevice device) {
+    if (device.isRecorded) {
+      var topics = vm.recordedTopicsOf(device);
+      return [
+        _DeviceHeader(device: device),
+        if (vm.isExpanded(device)) ...[
+          if (topics.isEmpty) _buildNoTopics(context, 'simulator.recorded.notopics.label'),
+          for (var topic in topics) _RecordedTopicRow(device: device, topic: topic),
+        ],
+      ];
+    }
     return [
       _DeviceHeader(device: device),
       if (vm.isExpanded(device)) ...[
-        if (device.topics.isEmpty) _buildNoTopics(context),
+        if (device.topics.isEmpty) _buildNoTopics(context, 'simulator.notopics.label'),
         for (var topic in device.topics) _TopicRow(device: device, topic: topic),
       ],
     ];
   }
 
-  Widget _buildNoTopics(BuildContext context) {
+  Widget _buildNoTopics(BuildContext context, String key) {
     var theme = Theme.of(context);
     return Container(
       height: 48,
       padding: EdgeInsets.only(left: _Columns.indent + _Columns.status),
       alignment: Alignment.centerLeft,
       decoration: BoxDecoration(border: Border(bottom: BorderSide(color: theme.dividerColor))),
-      child: Text('simulator.notopics.label'.tr(), style: theme.textTheme.bodyMedium!.copyWith(color: theme.hintColor)),
+      child: Text(key.tr(), style: theme.textTheme.bodyMedium!.copyWith(color: theme.hintColor)),
     );
   }
 }
@@ -132,6 +143,13 @@ class _DeviceHeader extends StatelessWidget {
                 icon: Icon(expanded ? Icons.expand_more : Icons.chevron_right),
                 tooltip: (expanded ? 'simulator.collapse.tooltip' : 'simulator.expand.tooltip').tr()),
             SizedBox(width: 8),
+            if (device.isRecorded)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Tooltip(
+                    message: 'simulator.recorded.tooltip'.tr(),
+                    child: Icon(Icons.history, size: 20, color: theme.unselectedWidgetColor)),
+              ),
             Expanded(
               child: Row(children: [
                 Flexible(child: Text(device.name, style: theme.textTheme.titleMedium, overflow: TextOverflow.ellipsis)),
@@ -150,6 +168,9 @@ class _DeviceHeader extends StatelessWidget {
   }
 
   String _caption(SimulatorViewmodel vm, int running) {
+    if (device.isRecorded) {
+      return _recordedCaption(vm);
+    }
     var total = device.topics.length;
     var errors = vm.errorCountOf(device);
     var stopped = total == 1 ? 'simulator.device.stopped.one'.tr() : 'simulator.device.stopped'.tr(args: ['$total']);
@@ -158,15 +179,45 @@ class _DeviceHeader extends StatelessWidget {
     return errors == 0 ? caption : '$caption · ${'simulator.device.errors'.tr(args: ['$errors'])}';
   }
 
+  // Recorded · Line 1 · 2× · loop, or the position while playing, or why it stopped
+  String _recordedCaption(SimulatorViewmodel vm) {
+    var source = device.recorded;
+    var stats = vm.deviceStatsOf(device);
+    if (stats.issue != null) {
+      return 'simulator.issue.${stats.issue!.name}'.tr(args: [stats.errorDetail]);
+    }
+    if (source == null) {
+      return '';
+    }
+    var playback = source.playback;
+    var parts = [
+      'simulator.recorded.caption'.tr(args: [vm.recordingOf(device)?.name ?? source.recordingName]),
+      RecorderFormat.speed(playback.speed),
+      if (playback.loop) 'simulator.recorded.loop'.tr(),
+    ];
+    var position = vm.positionOf(device);
+    var info = vm.recordingOf(device);
+    if (vm.isRecordedRunning(device) && position != null) {
+      parts.add(info == null
+          ? RecorderFormat.clock(position)
+          : '${RecorderFormat.clock(position)} / ${RecorderFormat.clock(info.footer.duration)}');
+    } else if (info == null) {
+      parts.add('simulator.recorded.missing'.tr());
+    }
+    return parts.join(' · ');
+  }
+
   Widget _buildActions(BuildContext context, SimulatorViewmodel vm, int running) {
+    var canStartDevice = device.isRecorded ? !vm.isRecordedRunning(device) : running < device.topics.length;
+    var isRunning = device.isRecorded ? vm.isRecordedRunning(device) : running > 0;
     return Row(children: [
       IconButton(
-          onPressed: vm.canStart && running < device.topics.length ? () => vm.startDevice(device) : null,
+          onPressed: vm.canStart && canStartDevice ? () => vm.startDevice(device) : null,
           icon: Icon(Icons.play_arrow),
           color: Colors.green,
           tooltip: vm.isConnected ? 'simulator.startdevice.tooltip'.tr() : 'simulator.connectfirst.tooltip'.tr()),
       IconButton(
-          onPressed: running > 0 ? () => vm.stopDevice(device) : null,
+          onPressed: isRunning ? () => vm.stopDevice(device) : null,
           icon: Icon(Icons.stop),
           tooltip: 'simulator.stopdevice.tooltip'.tr()),
       IconButton(
@@ -313,6 +364,91 @@ class _TopicRow extends StatelessWidget {
           tooltip: subscribed
               ? 'simulator.subscribed.tooltip'.tr()
               : 'simulator.subscribe.tooltip'.tr(args: [vm.subscriptionOf(device, topic)])),
+    ]);
+  }
+}
+
+// A recorded topic of a recorded device: where it is published, how many were sent and the last payload. It has no
+// actions of its own; the device dialog edits what is played.
+class _RecordedTopicRow extends StatelessWidget {
+  final SimulatedDevice device;
+  final String topic;
+
+  const _RecordedTopicRow({required this.device, required this.topic});
+
+  @override
+  Widget build(BuildContext context) {
+    var vm = context.watch<SimulatorViewmodel>();
+    var theme = Theme.of(context);
+    var running = vm.isRecordedRunning(device);
+    var stats = vm.recordedStatsOf(device, topic);
+    var playback = device.recorded!.playback;
+    return Container(
+      constraints: BoxConstraints(minHeight: 48),
+      padding: EdgeInsets.only(left: _Columns.indent, right: 12),
+      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: theme.dividerColor))),
+      child: Row(children: [
+        SizedBox(
+          width: _Columns.status,
+          child: running
+              ? Tooltip(
+                  message: 'simulator.state.running'.tr(),
+                  child: Icon(Icons.play_arrow, size: 20, color: theme.custom.running))
+              : Tooltip(
+                  message: 'simulator.state.stopped'.tr(),
+                  child: Icon(Icons.stop, size: 20, color: theme.unselectedWidgetColor)),
+        ),
+        Expanded(
+          flex: _Columns.topicFlex,
+          child: Text.rich(
+            TextSpan(children: [
+              TextSpan(text: topic, style: theme.textTheme.titleSmall),
+              TextSpan(text: '  →  ${vm.recordedTargetOf(device, topic)}', style: TextStyle(color: theme.hintColor)),
+            ]),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        SizedBox(width: _Columns.generator, child: Text('simulator.recorded.generator'.tr())),
+        SizedBox(width: _Columns.interval, child: Text(RecorderFormat.speed(playback.speed))),
+        SizedBox(
+            width: _Columns.qos,
+            child: Text(playback.qos == null ? 'simulator.recorded.asrecorded'.tr() : SimulatorFormat.qos(playback.qos!))),
+        SizedBox(
+            width: _Columns.sent,
+            child: Text(SimulatorFormat.count(stats.sent),
+                textAlign: TextAlign.end, style: TextStyle(fontFeatures: [FontFeature.tabularFigures()]))),
+        SizedBox(width: 12),
+        Expanded(flex: _Columns.payloadFlex, child: _buildPayload(context, stats)),
+        SizedBox(width: _Columns.actions, child: _buildActions(vm)),
+      ]),
+    );
+  }
+
+  Widget _buildPayload(BuildContext context, TopicStats stats) {
+    var theme = Theme.of(context);
+    if (stats.lastPayload == null) {
+      return Text('–', style: TextStyle(color: theme.hintColor));
+    }
+    return Row(children: [
+      Flexible(
+          child: Text(stats.lastPayload!,
+              overflow: TextOverflow.ellipsis, maxLines: 1, style: TextStyle(fontWeight: FontWeight.w500))),
+      if (device.instanceCount > 1 && stats.lastInstance != null) ...[
+        SizedBox(width: 6),
+        Text('#${stats.lastInstance}', style: theme.textTheme.bodySmall),
+      ],
+    ]);
+  }
+
+  Widget _buildActions(SimulatorViewmodel vm) {
+    var subscribed = vm.isRecordedSubscribedInViewer(device, topic);
+    return Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+      IconButton(
+          onPressed: subscribed ? null : () => vm.subscribeRecordedInViewer(device, topic),
+          icon: Icon(Icons.visibility),
+          tooltip: subscribed
+              ? 'simulator.subscribed.tooltip'.tr()
+              : 'simulator.subscribe.tooltip'.tr(args: [vm.recordedSubscriptionOf(device, topic)])),
     ]);
   }
 }

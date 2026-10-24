@@ -5,10 +5,14 @@ import 'package:mqtt5_client/mqtt5_client.dart';
 import 'package:mqttstudio/model/mqtt_payload_type.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
 import 'package:mqttstudio/message_viewer/message_viewer.dart';
+import 'package:mqttstudio/message_viewer/message_source.dart';
 import 'package:mqttstudio/model/topic_color.dart';
 import 'package:mqttstudio/model/topic_subscription.dart';
 import 'package:mqttstudio/message_viewer/message_buffer.dart';
 import 'package:mqttstudio/project/project_manager.dart';
+import 'package:mqttstudio/recorder/engine/recorder_service.dart';
+import 'package:mqttstudio/recorder/model/recording_header.dart';
+import 'package:mqttstudio/recorder/storage/recording_library.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 import 'package:mqttstudio/common/utils/payload_utils.dart';
 
@@ -17,7 +21,8 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
   MessageGroupTimePeriod _groupTimePeriod = MessageGroupTimePeriod.tenSeconds;
   ReceivedMqttMessage? _selectedMessage;
   bool _autoSelect = false;
-  late MessageViewer _messageViewer;
+  // the live MessageViewer, or the messages of a recording in the recorder tab
+  late MessageSource _messageViewer;
   String? _filter;
   final _refreshPeriod = 500;
   DateTime _lastRefresh = DateTime.now();
@@ -29,8 +34,8 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
     notifyListeners();
   }
 
-  MessageViewerViewmodel() {
-    _messageViewer = GetIt.I.get<MessageViewer>();
+  MessageViewerViewmodel({MessageSource? source}) {
+    _messageViewer = source ?? GetIt.I.get<MessageViewer>();
     _messageViewer.messageReceivedEvent.subscribe(_onMessageReceived);
     _messageViewer.topicSubscriptionsChangedEvent.subscribe(_topicSubriptionsChanged);
     _messageViewer.messagesClearedEvent.subscribe(_messagesCleared);
@@ -52,6 +57,8 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
   MQTTMessageBuffer get messageBuffer => _messageViewer.messageBuffer;
 
   bool get paused => _messageViewer.paused;
+
+  bool get isLive => _messageViewer.isLive;
 
   int getSelectedMessageCount() {
     return selectedMessage != null ? _messageViewer.messageBuffer.getTopicMessageCount(selectedMessage!.topicName) : 0;
@@ -151,6 +158,22 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
     GetIt.I.get<MessageViewer>().publishTopic(_selectedMessage!.topicName, '', MqttPayloadType.string, true);
   }
 
+  bool get canSaveAsRecording => isLive && GetIt.I.get<ProjectManager>().isProjectOpen && messageBuffer.length > 0;
+
+  String get defaultRecordingName => GetIt.I.get<ProjectManager>().currentProject?.name ?? 'Topic viewer';
+
+  // the messages received so far as a recording, with the subscriptions as its filters (doc/recorder-design.md §5.6)
+  Future<RecordingInfo> saveAsRecording(String name) {
+    var project = GetIt.I.get<ProjectManager>().currentProject!;
+    var filters = <String, RecorderFilter>{};
+    for (var sub in project.topicSubscriptions) {
+      var filter = TopicSubscription.topicFilterOf(sub.topic);
+      filters.putIfAbsent(filter, () => RecorderFilter(filter, qos: sub.qos, color: sub.color));
+    }
+    return GetIt.I.get<RecorderService>().saveMessages(name, messageBuffer.allMessages,
+        filters: filters.values.toList(), settings: project.mqttSettings, projectName: project.name);
+  }
+
   void rePublish() {
     assert(_selectedMessage != null);
 
@@ -169,33 +192,36 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
     return _messageViewer.getTopicColor(topicName);
   }
 
+  MessageViewer get _live => _messageViewer as MessageViewer;
+
   void addTopicSubscription(TopicSubscription subscription) {
-    _messageViewer.addTopicSubscription(subscription);
+    _live.addTopicSubscription(subscription);
   }
 
   void removeTopicSubscription(String topic) {
-    _messageViewer.removeTopicSubscription(topic);
+    _live.removeTopicSubscription(topic);
   }
 
   void tooglePauseTopicSubscription(String topic) {
-    _messageViewer.tooglePauseTopicSubscription(topic);
+    _live.tooglePauseTopicSubscription(topic);
   }
 
   void pauseAllTopics() {
-    _messageViewer.pauseAllTopics();
+    _live.pauseAllTopics();
   }
 
   void playAllTopics() {
-    _messageViewer.playAllTopics();
+    _live.playAllTopics();
   }
 
   void clearMessages() {
-    _messageViewer.clearMessages();
+    _live.clearMessages();
   }
 
+  // recorded messages are published on the main connection too
   void publishTopic(String topic, dynamic payload, MqttPayloadType payloadType, bool retain,
       [MqttQos qos = MqttQos.atMostOnce]) {
-    _messageViewer.publishTopic(topic, payload, payloadType, retain, qos);
+    GetIt.I.get<MessageViewer>().publishTopic(topic, payload, payloadType, retain, qos);
   }
 
   MessageGroupTimePeriod get groupTimePeriod => _groupTimePeriod;

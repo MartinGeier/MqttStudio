@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/model/project.dart';
 import 'package:mqttstudio/simulator/device_edit_dialog.dart';
+import 'package:mqttstudio/simulator/recorded_device_dialog.dart';
 import 'package:mqttstudio/simulator/model/payload_generators.dart';
 import 'package:mqttstudio/simulator/model/simulation.dart';
 import 'package:mqttstudio/simulator/simulator.dart';
@@ -115,6 +116,8 @@ void main() {
     var project = await pumpPage(tester, withTopic: false);
     await tester.tap(find.text('ADD DEVICE'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Generated device'));
+    await tester.pumpAndSettle();
     expect(find.byType(DeviceEditDialog), findsOneWidget);
     await tester.enterText(find.widgetWithText(TextField, 'Instances'), '5');
     await tester.tap(find.text('SAVE'));
@@ -122,6 +125,32 @@ void main() {
     expect(project.simulation.devices.length, 2);
     expect(project.simulation.devices.last.instanceCount, 5);
     expect(find.text('5 instances · {n} = 1–5'), findsOneWidget);
+  });
+
+  testPage('a recorded device is added from a recording and shows its topics', (tester) async {
+    var project = await pumpPage(tester, withTopic: false);
+    await recordInLibrary('Line 1', ['plant/a', 'plant/b']);
+    await tester.tap(find.text('ADD DEVICE'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Recorded device'));
+    await tester.pumpAndSettle();
+    expect(find.byType(RecordedDeviceDialog), findsOneWidget);
+    expect(find.text('plant/a'), findsOneWidget);
+    await tester.enterText(find.widgetWithText(TextField, 'Instances'), '3');
+    await tester.pumpAndSettle();
+    // three instances need {n} in a remapping
+    expect(find.text('With more than one instance a topic remapping must contain {n}'), findsOneWidget);
+    await tester.enterText(find.widgetWithText(TextField, 'Instances'), '1');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('SAVE'));
+    await tester.pumpAndSettle();
+
+    var device = project.simulation.devices.last;
+    expect(device.isRecorded, isTrue);
+    expect(device.name, 'Line 1');
+    expect(device.recorded!.recordingName, 'Line 1');
+    expect(find.textContaining('plant/a  →  plant/a'), findsOneWidget);
+    expect(find.textContaining('Recorded · Line 1'), findsOneWidget);
   });
 
   testPage('a new topic can be added to the selected device', (tester) async {

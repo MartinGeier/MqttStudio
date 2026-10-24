@@ -1,81 +1,19 @@
-import 'dart:async';
 import 'dart:convert';
-import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mqttstudio/cli/cli_app.dart';
-import 'package:mqttstudio/cli/cli_context.dart';
 import 'package:mqttstudio/cli/duration_parser.dart';
 import 'package:mqttstudio/model/mqtt_settings.dart';
 import 'package:mqttstudio/model/project.dart';
-import 'package:mqttstudio/service/service_error.dart';
+import 'package:mqttstudio/model/mqtt_protocol_version.dart';
+import 'package:mqttstudio/recorder/format/recording_writer.dart';
+import 'package:mqttstudio/recorder/model/playback_options.dart';
+import 'package:mqttstudio/recorder/model/recorded_message.dart';
+import 'package:mqttstudio/recorder/model/recording_header.dart';
+import 'package:mqttstudio/recorder/storage/recording_library.dart';
+import 'package:mqttstudio/recorder/storage/recording_storage.dart';
+import 'dart:typed_data';
 import 'package:mqttstudio/simulator/model/payload_generators.dart';
 import 'package:mqttstudio/simulator/model/simulation.dart';
-import 'package:srx_flutter/srx_flutter.dart';
-import '../helpers/fake_mqtt_adapter.dart';
-
-class FakeProjects implements ProjectSource {
-  final List<Project> list;
-  FakeProjects(this.list);
-
-  @override
-  Future<List<Project>> projects() async => list;
-}
-
-class UnreachableBroker extends FakeMqttAdapter {
-  @override
-  Future connect(MqttSettings mqttSettings) async =>
-      throw SrxServiceException('Connection refused', ServiceError.MqttCannotConnect);
-}
-
-class Cli {
-  final out = StringBuffer();
-  final err = StringBuffer();
-  // created inside fakeAsync, a stream of the real zone would complete its futures outside the fake time
-  late StreamController<void> interrupts;
-  final List<FakeMqttAdapter> adapters = [];
-  final List<int> forcedExits = [];
-  late final CliContext context;
-  FakeMqttAdapter Function() newAdapter = () => FakeMqttAdapter();
-
-  Cli(List<Project> projects, {Map<String, String> environment = const {}}) {
-    context = CliContext(
-      version: '9.9.9',
-      stdout: out,
-      stderr: err,
-      projects: FakeProjects(projects),
-      createAdapter: () {
-        var adapter = newAdapter();
-        adapters.add(adapter);
-        return adapter;
-      },
-      interrupts: () => interrupts.stream,
-      environment: environment,
-      forceExit: forcedExits.add,
-    );
-  }
-
-  FakeMqttAdapter get adapter => adapters.single;
-
-  List<Map<String, dynamic>> get events =>
-      out.toString().trim().split('\n').map((line) => jsonDecode(line) as Map<String, dynamic>).toList();
-
-  // runs the command inside fakeAsync, elapsing the given time
-  int run(List<String> args, {Duration elapse = Duration.zero, void Function(FakeAsync async)? during}) {
-    int? exitCode;
-    fakeAsync((async) {
-      interrupts = StreamController<void>.broadcast();
-      CliApp(context).run(args).then((code) => exitCode = code);
-      async.flushMicrotasks();
-      during?.call(async);
-      async.elapse(elapse);
-      // the shutdown waits for the socket to send the last packets
-      async.elapse(Duration(seconds: 2));
-      async.flushMicrotasks();
-    });
-    expect(exitCode, isNotNull, reason: 'the command did not finish');
-    return exitCode!;
-  }
-}
+import '../helpers/cli_harness.dart';
 
 Project demoProject() {
   var project = Project(MqttSettings('broker.local', 'demo-01', 1883), name: 'Demo factory');
@@ -91,6 +29,8 @@ Project demoProject() {
 }
 
 void main() {
+  group('recorded devices', recordedDeviceTests);
+
   group('DurationParser', () {
     test('parses units and plain seconds', () {
       expect(DurationParser.parse('90s'), Duration(seconds: 90));
@@ -303,5 +243,74 @@ void main() {
     }
 
     expect(payloads(), payloads());
+  });
+}
+
+// a recording of plant/temp at 0 s, 1 s and 2 s
+Future<RecordingInfo> recordLine(RecordingLibrary library) async {
+  var file = await library.create('Line', DateTime(2026, 10, 24));
+  var writer = await RecordingWriter.start(
+      file,
+      RecordingHeader(
+          id: 'line',
+          startedAt: DateTime.utc(2026, 10, 24),
+          filters: [RecorderFilter('plant/#')],
+          broker: 'broker.local:1883',
+          protocol: MqttProtocolVersion.v5,
+          clientId: 'c',
+          appVersion: ''));
+  for (var s = 0; s < 3; s++) {
+    writer.addMessage(RecordedMessage(
+        offsetMicros: s * 1000000, topic: 'plant/temp', payload: Uint8List.fromList(utf8.encode('2$s'))));
+  }
+  await writer.finish(name: 'Line', durationMicros: 3000000);
+  library.finishedWriting(file.name);
+  return (await library.list()).single;
+}
+
+Project replayProject(String recordingId, String fileName) {
+  var project = Project(MqttSettings('broker.local', 'demo-01', 1883), name: 'Replay');
+  project.simulation = Simulation(devices: [
+    SimulatedDevice(
+        name: 'Line replay',
+        instanceCount: 2,
+        kind: DeviceKind.recorded,
+        recorded: RecordedSource(
+            recordingId: recordingId,
+            fileName: fileName,
+            recordingName: 'Line',
+            playback: PlaybackOptions(remaps: [TopicRemap('plant/', 'test/{n}/')]),
+            instanceStart: InstanceStart.aligned)),
+  ]);
+  return project;
+}
+
+void recordedDeviceTests() {
+  test('simulate plays recorded devices and ends once they are finished', () async {
+    var library = RecordingLibrary(MemoryRecordingStore());
+    var info = await recordLine(library);
+    var project = replayProject(info.id, info.fileName);
+
+    var dryRun = Cli([project], library: library);
+    expect(dryRun.run(['-o', 'json', 'simulate', '-p', 'Replay', '--dry-run']), 0);
+    var plan = dryRun.events.firstWhere((event) => event['event'] == 'plan');
+    expect(plan['devices'][0]['recording'], 'Line');
+    expect(plan['estimatedRate'], closeTo(2, 0.01));
+    expect(dryRun.events.where((event) => event['event'] == 'topic').single['target'], 'test/{n}/temp');
+
+    var cli = Cli([project], library: library);
+    expect(cli.run(['-o', 'json', 'simulate', '-p', 'Replay'], elapse: Duration(seconds: 5)), 0);
+    expect(cli.adapter.published.map((m) => m.topic).toSet(), {'test/1/temp', 'test/2/temp'});
+    expect(cli.adapter.published.length, 6);
+    var stopped = cli.events.last;
+    expect(stopped['reason'], 'finished');
+    expect(stopped['sent'], 6);
+  });
+
+  test('simulate stops before connecting when a recording is missing', () {
+    var cli = Cli([replayProject('nope', 'nope.mqttrec')]);
+    expect(cli.run(['simulate', '-p', 'Replay']), 3);
+    expect(cli.adapters, isEmpty);
+    expect(cli.err.toString(), contains('The recording "Line" of device "Line replay"'));
   });
 }

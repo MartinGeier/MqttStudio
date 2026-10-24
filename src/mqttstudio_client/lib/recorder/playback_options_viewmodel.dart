@@ -27,12 +27,13 @@ class PlaybackOptionsViewmodel extends SrxChangeNotifier {
   final RecordingInfo recording;
   final PlaybackOptions original;
   final double maxRate;
+  final bool allowMaxSpeed;
   late final FormGroup form;
   late final StreamSubscription _subscription;
 
-  PlaybackOptionsViewmodel(this.recording, this.original, {this.maxRate = 1000}) {
+  PlaybackOptionsViewmodel(this.recording, this.original, {this.maxRate = 1000, this.allowMaxSpeed = true}) {
     form = FormGroup({
-      speedField: FormControl<double>(value: original.speed),
+      speedField: FormControl<double>(value: !allowMaxSpeed && original.isMaxSpeed ? 1 : original.speed),
       loopField: FormControl<bool>(value: original.loop),
       fromField: FormControl<String>(value: _text(original.rangeStartMicros), validators: [Validators.delegate(_validateOffset)]),
       toField: FormControl<String>(value: _text(original.rangeEndMicros), validators: [Validators.delegate(_validateOffset)]),

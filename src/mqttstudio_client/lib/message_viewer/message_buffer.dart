@@ -17,7 +17,20 @@ class MQTTMessageBuffer {
     _updateMessagesTree(msg, _messagesTree, 0);
   }
 
+  // replaces the content with the given messages, oldest first, in one go instead of one insert per message
+  void storeAll(List<ReceivedMqttMessage> messages) {
+    clear();
+    _currentPeriod = null;
+    _buffer = List.of(messages.reversed);
+    for (var msg in messages) {
+      _updateMessagesTree(msg, _messagesTree, 0);
+    }
+  }
+
   int get length => _buffer.length;
+
+  // every stored message, oldest first, without the display limit
+  List<ReceivedMqttMessage> get allMessages => List.of(_buffer.reversed);
 
   MessageNode getMessagesTree(String? filter) {
     if (filter == null || filter.trim().isEmpty) {

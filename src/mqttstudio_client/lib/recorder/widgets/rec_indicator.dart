@@ -47,7 +47,8 @@ class _RecIndicatorState extends State<RecIndicator> {
     }
     var theme = Theme.of(context);
     var onPrimary = theme.colorScheme.onPrimary;
-    var waiting = _recorder.state == RecorderState.connecting;
+    // outlined while nothing is written yet
+    var waiting = _recorder.state == RecorderState.connecting || _recorder.isWaitingForTrigger;
     var reconnecting = _recorder.state == RecorderState.reconnecting;
     var background = waiting
         ? Colors.transparent
@@ -87,7 +88,16 @@ class _RecIndicatorState extends State<RecIndicator> {
         return 'recindicator.connecting.label'.tr();
       case RecorderState.reconnecting:
         return 'recindicator.reconnecting.label'.tr(args: ['${_recorder.reconnectAttempt}']);
+      case RecorderState.waiting:
+        return 'recindicator.waiting.label'.tr(args: [RecorderFormat.count(_recorder.storedMessages)]);
       default:
+        if (_recorder.isFlightRecorder) {
+          return (_recorder.isSaveScheduled ? 'recindicator.flightsaving.label' : 'recindicator.flight.label').tr(args: [
+            RecorderFormat.duration(_recorder.flightSpan),
+            RecorderFormat.duration(Duration(seconds: _recorder.config!.flightOptions.windowSeconds)),
+            RecorderFormat.bytes(_recorder.storedBytes),
+          ]);
+        }
         return 'recindicator.recording.label'.tr(args: [
           RecorderFormat.clock(_recorder.elapsed),
           RecorderFormat.count(_recorder.storedMessages),

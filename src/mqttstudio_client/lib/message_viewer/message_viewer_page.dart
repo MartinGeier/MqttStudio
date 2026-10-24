@@ -22,6 +22,8 @@ import 'package:srx_flutter/srx_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:mqttstudio/common/widgets/navigation_drawer.dart' as navDrawer;
 import 'package:flutter/foundation.dart';
+import 'package:mqttstudio/common/leave_page_guard.dart'
+    if (dart.library.js_interop) 'package:mqttstudio/common/leave_page_guard_web.dart';
 
 class MessageViewerPage extends StatefulWidget {
   const MessageViewerPage();
@@ -37,6 +39,7 @@ class _MessageViewerPageState extends State<MessageViewerPage> {
   void initState() {
     super.initState();
     _lifecycleListener = AppLifecycleListener(onExitRequested: _onExitRequested);
+    installLeavePageGuard(() => GetIt.I.get<RecorderService>().isRecording);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (kIsWeb) {
         _showBrowserPerformanceWarning(context);

@@ -4,6 +4,8 @@ import 'package:mqttstudio/cli/output.dart';
 import 'package:mqttstudio/common/localstore.dart';
 import 'package:mqttstudio/model/project.dart';
 import 'package:mqttstudio/mqtt/mqtt_adapter.dart';
+import 'package:mqttstudio/recorder/storage/recording_library.dart';
+import 'package:mqttstudio/recorder/storage/recording_storage.dart';
 
 // Read-only access to the saved projects. The CLI never writes to the store.
 abstract class ProjectSource {
@@ -27,6 +29,8 @@ class CliContext {
   final Map<String, String> environment;
   // ends the process at once, for a second Ctrl+C during shutdown
   final void Function(int exitCode) forceExit;
+  // the recordings library, in the folder chosen in the app's recorder tab; read only for simulate
+  final Future<RecordingLibrary> Function() recordings;
 
   // set by CliApp from the global options
   late Output out;
@@ -41,7 +45,8 @@ class CliContext {
     required this.interrupts,
     required this.environment,
     required this.forceExit,
-  });
+    Future<RecordingLibrary> Function()? recordings,
+  }) : recordings = recordings ?? (() async => RecordingLibrary(MemoryRecordingStore()));
 
   factory CliContext.standard(String version) => CliContext(
         version: version,
@@ -52,5 +57,6 @@ class CliContext {
         interrupts: () => io.ProcessSignal.sigint.watch().map((_) {}),
         environment: io.Platform.environment,
         forceExit: io.exit,
+        recordings: () async => RecordingLibrary.forPlatform(folder: await LocalStore().getRecordingsFolder()),
       );
 }

@@ -81,7 +81,12 @@ class RecordingWriter {
 
   // writes the footer and the trailer and closes the file
   Future<RecordingFooter> finish(
-      {required String name, required int durationMicros, String notes = '', List<Bookmark>? bookmarks, bool recovered = false}) async {
+      {required String name,
+      required int durationMicros,
+      String notes = '',
+      List<Bookmark>? bookmarks,
+      bool recovered = false,
+      String? projectName}) async {
     _checkOpen();
     var footer = RecordingFooter(
       name: name,
@@ -89,6 +94,7 @@ class RecordingWriter {
       durationMicros: max(durationMicros, _lastOffsetMicros),
       recovered: recovered,
       bookmarks: bookmarks,
+      projectName: projectName,
       topics: List.of(_topics),
       summary: summary,
       seekIndex: _seekIndex,

@@ -24,10 +24,11 @@ class _Columns {
   static const double size = 90;
   static const double duplicates = 96;
   static const double retained = 96;
+  static const double gaps = 64;
   static const double minTopic = 260;
   static const double padding = 16;
   static const double minTable =
-      check + count + rate + interval + range + kind + size + duplicates + retained + minTopic + padding;
+      check + count + rate + interval + range + kind + size + duplicates + gaps + retained + minTopic + padding;
 }
 
 // The topic table keeps its columns in a narrow window and scrolls sideways instead
@@ -50,8 +51,59 @@ class _TableFrame extends StatelessWidget {
   }
 }
 
-// The selected recording: what was recorded, from where, and its topics with their statistics. The checkboxes
-// choose the topics to play. For the running recording it shows the live statistics.
+// Name, time, size, broker and filters of a recording, above its tabs or the live statistics
+class RecordingHead extends StatelessWidget {
+  final String name;
+  final String meta;
+  final String? broker;
+  final List<RecorderFilter> filters;
+
+  const RecordingHead({Key? key, required this.name, required this.meta, this.broker, required this.filters})
+      : super(key: key);
+
+  factory RecordingHead.of(RecordingInfo info) {
+    var footer = info.footer;
+    var header = info.header;
+    return RecordingHead(
+      name: info.name,
+      meta: '${RecorderFormat.date(header.startedAt)} · ${RecorderFormat.duration(footer.duration)} · '
+          '${'recorder.messages.label'.tr(args: [RecorderFormat.count(footer.summary.messages)])} · ${RecorderFormat.bytes(info.size)}',
+      broker: '${header.broker} · ${header.protocol.displayName} · ${header.clientId}'
+          '${header.projectName == null ? '' : ' · ${header.projectName}'}',
+      filters: header.filters,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    var theme = Theme.of(context);
+    var hint = theme.textTheme.bodyMedium!.copyWith(color: theme.hintColor);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Wrap(crossAxisAlignment: WrapCrossAlignment.end, spacing: 16, children: [
+          SelectableText(name, style: theme.textTheme.titleLarge),
+          Text(meta, style: hint),
+        ]),
+        if (broker != null) ...[SizedBox(height: 4), Text(broker!, style: hint)],
+        SizedBox(height: 8),
+        Wrap(spacing: 8, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
+          // FastTopicChip paints its padding outside the width it takes, so it gets the room here
+          for (var filter in filters.where((filter) => !filter.exclude))
+            Padding(
+              padding: const EdgeInsets.only(right: 20),
+              child: FastTopicChip(topic: filter.filter, topicColor: filter.color ?? TopicColor(Colors.black), onPressed: null),
+            ),
+          for (var filter in filters.where((filter) => filter.exclude))
+            Text('recorder.excluding.label'.tr(args: [filter.filter]), style: hint),
+        ]),
+      ]),
+    );
+  }
+}
+
+// The OVERVIEW of the selected recording: its topics with their statistics, below RecordingHead. The checkboxes
+// choose the topics to play. For the running recording it shows the head and the live statistics.
 class RecordingOverview extends StatelessWidget {
   const RecordingOverview({Key? key}) : super(key: key);
 
@@ -75,8 +127,7 @@ class RecordingOverview extends StatelessWidget {
     var summary = vm.liveSummary;
     var topics = summary == null ? <String>[] : (summary.perTopic.keys.toList()..sort());
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      _buildHead(
-        context,
+      RecordingHead(
         name: vm.liveName,
         meta: 'recorder.live.meta'.tr(args: [
           RecorderFormat.clock(vm.liveElapsed),
@@ -107,15 +158,7 @@ class RecordingOverview extends StatelessWidget {
     var header = info.header;
     var topics = List.of(footer.topics)..sort();
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      _buildHead(
-        context,
-        name: info.name,
-        meta: '${RecorderFormat.date(header.startedAt)} · ${RecorderFormat.duration(footer.duration)} · '
-            '${'recorder.messages.label'.tr(args: [RecorderFormat.count(footer.summary.messages)])} · ${RecorderFormat.bytes(info.size)}',
-        broker: '${header.broker} · ${header.protocol.displayName} · ${header.clientId}'
-            '${header.projectName == null ? '' : ' · ${header.projectName}'}',
-        filters: header.filters,
-      ),
+      SizedBox(height: 8),
       _buildFacts(context, vm, info),
       Expanded(
         child: _TableFrame(
@@ -137,33 +180,6 @@ class RecordingOverview extends StatelessWidget {
 
   TopicColor _colorOf(String topic, List<RecorderFilter> filters) =>
       RecorderRules.colorFilterOf(topic, filters)?.color ?? TopicColor(Colors.black);
-
-  Widget _buildHead(BuildContext context,
-      {required String name, required String meta, String? broker, required List<RecorderFilter> filters}) {
-    var theme = Theme.of(context);
-    var hint = theme.textTheme.bodyMedium!.copyWith(color: theme.hintColor);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Wrap(crossAxisAlignment: WrapCrossAlignment.end, spacing: 16, children: [
-          SelectableText(name, style: theme.textTheme.titleLarge),
-          Text(meta, style: hint),
-        ]),
-        if (broker != null) ...[SizedBox(height: 4), Text(broker, style: hint)],
-        SizedBox(height: 8),
-        Wrap(spacing: 8, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
-          // FastTopicChip paints its padding outside the width it takes, so it gets the room here
-          for (var filter in filters.where((filter) => !filter.exclude))
-            Padding(
-              padding: const EdgeInsets.only(right: 20),
-              child: FastTopicChip(topic: filter.filter, topicColor: filter.color ?? TopicColor(Colors.black), onPressed: null),
-            ),
-          for (var filter in filters.where((filter) => filter.exclude))
-            Text('recorder.excluding.label'.tr(args: [filter.filter]), style: hint),
-        ]),
-      ]),
-    );
-  }
 
   Widget _buildFacts(BuildContext context, RecorderViewmodel vm, RecordingInfo info) {
     var theme = Theme.of(context);
@@ -218,6 +234,7 @@ class RecordingOverview extends StatelessWidget {
         _cell(_Columns.kind, Text('recorder.column.payload'.tr(), style: style)),
         _cell(_Columns.size, Text('recorder.column.size'.tr(), style: style), right: true),
         _cell(_Columns.duplicates, Text('recorder.column.duplicates'.tr(), style: style), right: true),
+        _cell(_Columns.gaps, Text('recorder.column.gaps'.tr(), style: style), right: true),
         _cell(_Columns.retained, Text('recorder.column.retained'.tr(), style: style)),
       ]),
     );
@@ -257,6 +274,8 @@ class RecordingOverview extends StatelessWidget {
               child: OverflowBox(
                   alignment: Alignment.centerLeft,
                   maxWidth: double.infinity,
+                  // keeps the chip at its own height instead of the row's
+                  minHeight: 0,
                   child: FastTopicChip(topic: topic, topicColor: color, onPressed: null)),
             ),
           ),
@@ -268,9 +287,20 @@ class RecordingOverview extends StatelessWidget {
         _cell(_Columns.kind, Text(stats.mainKind == null ? '–' : 'recorder.kind.${stats.mainKind}'.tr())),
         _cell(_Columns.size, Text(RecorderFormat.bytes(stats.averagePayload)), right: true),
         _cell(_Columns.duplicates, Text(RecorderFormat.count(stats.consecutiveDuplicates)), right: true),
+        _cell(_Columns.gaps, _buildGaps(context, vm, topic), right: true),
         _cell(_Columns.retained, Text(retained, style: hint)),
       ]),
     );
+  }
+
+  // known once the analysis of the recording is done; the TIMELINE lists them
+  Widget _buildGaps(BuildContext context, RecorderViewmodel? vm, String topic) {
+    var count = vm?.gapCountOf(topic);
+    if (count == null) {
+      return Text('–', style: TextStyle(color: Theme.of(context).hintColor));
+    }
+    return Text(RecorderFormat.count(count),
+        style: count > 0 ? TextStyle(color: Theme.of(context).colorScheme.error, fontWeight: FontWeight.w500) : null);
   }
 
   Widget _buildFoot(BuildContext context, RecorderViewmodel vm) {

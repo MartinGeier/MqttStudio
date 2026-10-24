@@ -5,6 +5,7 @@ import 'package:mqttstudio/custom_theme.dart';
 import 'package:mqttstudio/project/project_manager.dart';
 import 'package:mqttstudio/simulator/device_edit_dialog.dart';
 import 'package:mqttstudio/simulator/model/simulation.dart';
+import 'package:mqttstudio/simulator/recorded_device_dialog.dart';
 import 'package:mqttstudio/simulator/simulator_viewmodel.dart';
 import 'package:mqttstudio/simulator/topic_edit_dialog.dart';
 import 'package:srx_flutter/srx_flutter.dart';
@@ -23,8 +24,19 @@ class SimulatorDialogs {
     }
   }
 
+  static Future addRecordedDevice(BuildContext context, SimulatorViewmodel vm) async {
+    var device = await _show<SimulatedDevice>(context, RecordedDeviceDialog(simulation: _simulation));
+    if (device != null) {
+      vm.addDevice(device);
+    }
+  }
+
   static Future editDevice(BuildContext context, SimulatorViewmodel vm, SimulatedDevice device) async {
-    var edited = await _show<SimulatedDevice>(context, DeviceEditDialog(device: device, simulation: _simulation));
+    var edited = await _show<SimulatedDevice>(
+        context,
+        device.isRecorded
+            ? RecordedDeviceDialog(device: device, simulation: _simulation)
+            : DeviceEditDialog(device: device, simulation: _simulation));
     if (edited != null) {
       vm.updateDevice(edited);
     }

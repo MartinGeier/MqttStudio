@@ -99,6 +99,8 @@ class RecordingFooter {
   int durationMicros;
   bool recovered;
   List<Bookmark> bookmarks;
+  // the project the recording belongs to, when it was assigned after recording; else the header's project
+  String? projectName;
   // all recorded topics, the index of a topic in this list is its topic index in the file
   List<String> topics;
   RecordingSummary summary;
@@ -110,6 +112,7 @@ class RecordingFooter {
     required this.durationMicros,
     this.recovered = false,
     List<Bookmark>? bookmarks,
+    this.projectName,
     List<String>? topics,
     RecordingSummary? summary,
     List<SeekEntry>? seekIndex,

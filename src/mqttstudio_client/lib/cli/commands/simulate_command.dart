@@ -4,6 +4,7 @@ import 'package:clock/clock.dart';
 import 'package:event/event.dart';
 import 'package:intl/intl.dart';
 import 'package:mqttstudio/cli/cli_context.dart';
+import 'package:mqttstudio/cli/commands/broker_options.dart';
 import 'package:mqttstudio/cli/commands/cli_command.dart';
 import 'package:mqttstudio/cli/duration_parser.dart';
 import 'package:mqttstudio/cli/exit_codes.dart';
@@ -11,23 +12,15 @@ import 'package:mqttstudio/cli/output.dart';
 import 'package:mqttstudio/model/mqtt_settings.dart';
 import 'package:mqttstudio/model/project.dart';
 import 'package:mqttstudio/mqtt/mqtt_adapter.dart';
+import 'package:mqttstudio/recorder/engine/recording_player.dart';
+import 'package:mqttstudio/recorder/storage/recording_library.dart';
 import 'package:mqttstudio/simulator/engine/simulation_rules.dart';
 import 'package:mqttstudio/simulator/engine/simulator_publisher.dart';
 import 'package:mqttstudio/simulator/engine/simulator_runner.dart';
 import 'package:mqttstudio/simulator/model/simulation.dart';
-import 'package:srx_flutter/srx_flutter.dart';
 
 // mqttstudio simulate: runs the simulation of a saved project, or some of its devices (doc/cli-design.md §2.4)
-class SimulateCommand extends CliCommand {
-  static const String passwordVariable = 'MQTTSTUDIO_PASSWORD';
-  static const String keyPasswordVariable = 'MQTTSTUDIO_KEY_PASSWORD';
-  static const List<Duration> reconnectDelays = [
-    Duration(seconds: 1),
-    Duration(seconds: 2),
-    Duration(seconds: 5),
-    Duration(seconds: 10),
-    Duration(seconds: 30),
-  ];
+class SimulateCommand extends CliCommand with BrokerOptions {
 
   @override
   final String name = 'simulate';
@@ -43,17 +36,9 @@ class SimulateCommand extends CliCommand {
           help: 'Refuse to start above this estimated rate in msg/s, at most ${SimulationRules.maxCliRate.round()}.',
           defaultsTo: '${SimulationRules.maxRate.round()}')
       ..addOption('seed', help: 'Seed of the generators, two runs with the same seed publish the same payloads.')
-      ..addFlag('dry-run', negatable: false, help: 'Print the plan without connecting.')
-      ..addOption('host', help: 'Broker hostname or ws:// / wss:// URL instead of the one of the project.')
-      ..addOption('port', help: 'Broker port.')
-      ..addOption('client-id', help: 'Client id, by default the one of the project with -cli-<random> appended.')
-      ..addOption('username', help: 'User name. The password is read from $passwordVariable.')
-      ..addFlag('tls', defaultsTo: null, help: 'Use TLS, or --no-tls to turn it off.')
-      ..addOption('ca-cert', help: 'PEM file of a CA to trust in addition to the system ones.')
-      ..addOption('cert', help: 'PEM file of the client certificate.')
-      ..addOption('key',
-          help: 'PEM file of the private key, by default read from the certificate file. '
-              'The key password is read from $keyPasswordVariable.')
+      ..addFlag('dry-run', negatable: false, help: 'Print the plan without connecting.');
+    addBrokerOptions();
+    argParser
       ..addFlag('reconnect', negatable: false, help: 'Reconnect after a lost connection instead of stopping.')
       ..addFlag('clear-retained', negatable: false, help: 'Clear the retained messages of the topics on exit.')
       ..addOption('stats-every', defaultsTo: '10s', help: 'Interval of the progress lines, 0 turns them off.');
@@ -70,31 +55,58 @@ class SimulateCommand extends CliCommand {
     var devices = _selectDevices(project.simulation);
     var topics = [for (var device in devices) for (var topic in device.topics) (device, topic)];
     _validate(project.simulation, devices, topics);
+    var recordings = await _findRecordings(devices);
 
-    var rate = SimulationRules.estimateRate(topics);
-    var settings = _connectionSettings(project.mqttSettings);
-    _printPlan(project, settings, devices, rate);
+    var rate = SimulationRules.estimateRate(topics) +
+        recordings.entries.fold(
+            0.0,
+            (sum, entry) =>
+                sum + RecordingPlayer.estimate(entry.value, entry.key.recorded!.playback).rate * entry.key.instanceCount);
+    var settings = connectionSettings(project.mqttSettings);
+    _printPlan(project, settings, devices, rate, recordings);
     if (rate > options.maxRate) {
       throw CliException(CliExitCode.rateLimit,
           'The estimated rate of ${CliFormat.rate(rate)} is above --max-rate ${options.maxRate.round()}. '
           'Increase the intervals, reduce the instances or raise --max-rate.');
     }
     if (argResults!['dry-run'] as bool) {
-      _printTopics(devices);
+      _printTopics(devices, recordings);
       out.event('done', {'exitCode': 0});
       return CliExitCode.ok.code;
     }
 
     var adapter = context.createAdapter();
-    await _connect(adapter, settings);
-    return _Run(this, adapter, settings, devices, topics, options).execute();
+    await connect(adapter, settings);
+    return _Run(this, adapter, settings, devices, topics, options, recordings).execute();
   }
+
+  // the recordings of the recorded devices, by device; a missing one ends the run before connecting (D23)
+  Future<Map<SimulatedDevice, RecordingInfo>> _findRecordings(List<SimulatedDevice> devices) async {
+    var recorded = devices.where((device) => device.isRecorded).toList();
+    if (recorded.isEmpty) {
+      return {};
+    }
+    library = await context.recordings();
+    var found = <SimulatedDevice, RecordingInfo>{};
+    for (var device in recorded) {
+      var source = device.recorded!;
+      var info = await library!.findSource(source.recordingId, source.fileName);
+      if (info == null) {
+        throw CliException(CliExitCode.notFound,
+            'The recording "${source.recordingName}" of device "${device.name}" is not in ${library!.location ?? 'the recordings'}.');
+      }
+      found[device] = info;
+    }
+    return found;
+  }
+
+  RecordingLibrary? library;
 
   _Options _parseOptions() {
     var results = argResults!;
     Duration? duration;
     if (results['duration'] != null) {
-      duration = _parseDuration(results['duration'] as String, 'duration');
+      duration = parseDuration(results['duration'] as String, 'duration');
     }
     var maxRate = double.tryParse(results['max-rate'] as String);
     if (maxRate == null || maxRate <= 0 || maxRate > SimulationRules.maxCliRate) {
@@ -107,19 +119,9 @@ class SimulateCommand extends CliCommand {
         usageException('--seed must be a whole number.');
       }
     }
-    var statsEvery = _parseDuration(results['stats-every'] as String, 'stats-every');
-    if (results['port'] != null && int.tryParse(results['port'] as String) == null) {
-      usageException('--port must be a number.');
-    }
+    var statsEvery = parseDuration(results['stats-every'] as String, 'stats-every');
+    checkBrokerOptions();
     return _Options(duration, maxRate, seed, statsEvery, results['reconnect'] as bool, results['clear-retained'] as bool);
-  }
-
-  Duration _parseDuration(String text, String option) {
-    try {
-      return DurationParser.parse(text);
-    } on FormatException catch (exc) {
-      usageException('--$option: ${exc.message}');
-    }
   }
 
   List<SimulatedDevice> _selectDevices(Simulation simulation) {
@@ -154,7 +156,7 @@ class SimulateCommand extends CliCommand {
   }
 
   void _validate(Simulation simulation, List<SimulatedDevice> devices, List<(SimulatedDevice, SimulatedTopic)> topics) {
-    if (topics.isEmpty) {
+    if (topics.isEmpty && !devices.any((device) => device.isRecorded)) {
       throw CliException(CliExitCode.invalid, 'The selected devices have no topics.');
     }
     var issues = SimulationRules.validateSimulation(simulation, devices);
@@ -163,66 +165,17 @@ class SimulateCommand extends CliCommand {
     }
   }
 
-  MqttSettings _connectionSettings(MqttSettings projectSettings) {
-    var results = argResults!;
-    var settings = MqttSettings.fromJson(projectSettings.toJson());
-    var host = results['host'] as String?;
-    if (host != null) {
-      var lower = host.toLowerCase();
-      if (lower.startsWith('ws://') || lower.startsWith('wss://')) {
-        settings.useWebSockets = true;
-        settings.useSsl = lower.startsWith('wss://');
-        host = host.substring(lower.startsWith('ws://') ? 5 : 6);
+  void _printPlan(Project project, MqttSettings settings, List<SimulatedDevice> devices, double rate,
+      Map<SimulatedDevice, RecordingInfo> recordings) {
+    var deviceLines = devices.map((device) {
+      var recording = recordings[device];
+      if (recording != null) {
+        return '${device.name}: ${CliFormat.instances(device)}, recording "${recording.name}" at '
+            '${_speed(device.recorded!.playback.speed)}${device.recorded!.playback.loop ? ', loop' : ''}';
       }
-      settings.hostname = host;
-    }
-    if (results['port'] != null) {
-      settings.port = int.parse(results['port'] as String);
-    }
-    if (results['tls'] != null) {
-      settings.useSsl = results['tls'] as bool;
-    }
-    if (results['username'] != null) {
-      settings.username = results['username'] as String;
-    }
-    var password = context.environment[passwordVariable];
-    if (password != null) {
-      settings.password = password;
-    }
-    _applyCertificates(settings);
-    // its own client id, so the broker does not disconnect an app window that uses the project
-    settings.clientId = (results['client-id'] as String?) ??
-        '${projectSettings.clientId}-cli-${Random().nextInt(0x10000).toRadixString(16).padLeft(4, '0')}';
-    return settings;
-  }
-
-  void _applyCertificates(MqttSettings settings) {
-    var results = argResults!;
-    if (results['ca-cert'] != null) {
-      settings.caCertificatePath = results['ca-cert'] as String;
-    }
-    if (results['cert'] != null) {
-      settings.clientCertificatePath = results['cert'] as String;
-      // the key of the project belongs to the certificate of the project
-      settings.clientKeyPath = null;
-    }
-    if (results['key'] != null) {
-      if (settings.clientCertificatePath == null || settings.clientCertificatePath!.isEmpty) {
-        usageException('--key needs a client certificate, from --cert or the project.');
-      }
-      settings.clientKeyPath = results['key'] as String;
-    }
-    var keyPassword = context.environment[keyPasswordVariable];
-    if (keyPassword != null) {
-      settings.clientKeyPassword = keyPassword;
-    }
-  }
-
-  void _printPlan(Project project, MqttSettings settings, List<SimulatedDevice> devices, double rate) {
-    var deviceLines = devices
-        .map((device) => '${device.name}: ${CliFormat.instances(device)}, ${device.topics.length} '
-            '${device.topics.length == 1 ? 'topic' : 'topics'}')
-        .toList();
+      return '${device.name}: ${CliFormat.instances(device)}, ${device.topics.length} '
+          '${device.topics.length == 1 ? 'topic' : 'topics'}';
+    }).toList();
     var text = [
       'MQTT Studio ${context.version} · simulate',
       'Project   ${project.name}${project.lastUsed == null ? '' : ' (as last saved)'}',
@@ -239,15 +192,32 @@ class SimulateCommand extends CliCommand {
           'clientId': settings.clientId,
           'devices': [
             for (var device in devices)
-              {'id': device.id, 'name': device.name, 'instances': device.instanceCount, 'topics': device.topics.length}
+              {
+                'id': device.id,
+                'name': device.name,
+                'instances': device.instanceCount,
+                'topics': recordings[device]?.footer.topics.where(device.recorded!.playback.plays).length ??
+                    device.topics.length,
+                if (recordings[device] != null) 'recording': recordings[device]!.name,
+              }
           ],
           'estimatedRate': rate,
         },
         text: text);
   }
 
-  void _printTopics(List<SimulatedDevice> devices) {
+  static String _speed(double speed) => speed == speed.roundToDouble() ? '${speed.round()}x' : '${speed}x';
+
+  void _printTopics(List<SimulatedDevice> devices, Map<SimulatedDevice, RecordingInfo> recordings) {
     for (var device in devices) {
+      var recording = recordings[device];
+      if (recording != null) {
+        for (var topic in recording.footer.topics.where(device.recorded!.playback.plays)) {
+          var target = SimulationRules.recordedTarget(device, topic);
+          out.event('topic', {'device': device.name, 'topic': topic, 'recorded': true, 'target': target},
+              text: '  ${device.name} / $topic  recorded  → $target');
+        }
+      }
       for (var topic in device.topics) {
         var resolved = SimulationRules.resolvedTopics(device, topic);
         out.event(
@@ -260,18 +230,6 @@ class SimulateCommand extends CliCommand {
     }
   }
 
-  Future _connect(MqttAdapter adapter, MqttSettings settings) async {
-    try {
-      await adapter.connect(settings);
-    } on SrxServiceException catch (exc) {
-      throw CliException(CliExitCode.connectFailed, 'Cannot connect to MQTT broker: ${exc.errorMessage}');
-    } catch (exc) {
-      throw CliException(CliExitCode.connectFailed, 'Cannot connect to MQTT broker: $exc');
-    }
-    if (!adapter.isConnected()) {
-      throw CliException(CliExitCode.connectFailed, 'Cannot connect to MQTT broker');
-    }
-  }
 }
 
 class _Options {
@@ -302,20 +260,27 @@ class _Run {
   bool _reconnecting = false;
   int _lastSent = 0;
 
-  _Run(this.command, this.adapter, this.settings, this.devices, this.topics, this.options);
+  final Map<SimulatedDevice, RecordingInfo> recordings;
+
+  _Run(this.command, this.adapter, this.settings, this.devices, this.topics, this.options, this.recordings);
 
   Output get out => command.out;
 
   Future<int> execute() async {
-    runner = SimulatorRunner(MqttAdapterPublisher(adapter), seed: options.seed);
+    runner = SimulatorRunner(MqttAdapterPublisher(adapter), seed: options.seed, openRecording: (source) async {
+      var info = recordings.entries.firstWhere((entry) => entry.key.recorded == source).value;
+      return command.library!.store.open(info.fileName);
+    });
     runner.topicErrorEvent.subscribe(_onTopicError);
     adapter.onDisconnectedEvent.subscribe(_onDisconnected);
     var interrupts = command.context.interrupts().listen((_) => _onInterrupt());
     var startedAt = clock.now();
 
     for (var device in devices) {
-      runner.start(device, device.topics);
+      runner.startDevice(device);
     }
+    runner.runStateChangedEvent.subscribe(_onRunStateChanged);
+    _wasRunning = runner.isAnyRunning;
     out.event('started', {}, text: 'Started at ${_time.format(startedAt)}. Press Ctrl+C to stop.');
 
     Timer? durationTimer;
@@ -367,9 +332,23 @@ class _Run {
         return 'interrupted';
       case 'connectionLost':
         return 'connection lost';
+      case 'finished':
+        return 'everything finished';
     }
     return reason;
   }
+
+  // Recorded devices without loop end, and topics can fail. Once nothing runs any more, the run ends instead of
+  // waiting for Ctrl+C.
+  void _onRunStateChanged(EventArgs? _) {
+    if (runner.isAnyRunning) {
+      _wasRunning = true;
+    } else if (_wasRunning || runner.errorCount > 0) {
+      _stop('finished');
+    }
+  }
+
+  bool _wasRunning = false;
 
   void _stop(String reason) {
     if (!_stopped.isCompleted) {
@@ -420,7 +399,7 @@ class _Run {
     _reconnecting = true;
     var attempt = 0;
     while (!_stopped.isCompleted && !adapter.isConnected()) {
-      var delay = SimulateCommand.reconnectDelays[min(attempt, SimulateCommand.reconnectDelays.length - 1)];
+      var delay = BrokerOptions.reconnectDelays[min(attempt, BrokerOptions.reconnectDelays.length - 1)];
       attempt++;
       out.event('reconnecting', {'attempt': attempt, 'delaySeconds': delay.inSeconds},
           text: 'Connection lost, reconnecting in ${delay.inSeconds} s (attempt $attempt)');

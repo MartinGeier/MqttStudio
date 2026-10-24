@@ -1,6 +1,6 @@
 # MQTT Recorder – Detailed Design
 
-Status: **Draft**. Scope and the former open questions are decided (R1–R4, R16, R17, R23, R24); the other design decisions are proposed, see §2. Phases 1–3 are implemented, see §15.1 · Branch: `mqtt5` · Last updated: 2026-10-24
+Status: **Draft**. Scope and the former open questions are decided (R1–R4, R16, R17, R23, R24); the other design decisions are proposed, see §2. All phases (1–10) are implemented, see §15.1 · Branch: `mqtt5` · Last updated: 2026-10-24
 
 Related: `simulator-design.md` (recorded devices, D22–D25) and `cli-design.md` (`record`, `replay`,
 `recordings`, §7.1).
@@ -71,6 +71,7 @@ still produces the same output for the same input.
 | R22 | Overlapping filters are normalized before subscribing: a filter covered by another (`a/b/+` under `a/#`) is dropped with a hint, so no message is stored twice | Design |
 | R23 | **All recorder features are free**, including compare, anonymize, the flight recorder and the CLI commands. None of them is a commercial add-on | User |
 | R24 | The library folder defaults to `Documents\MQTT Studio\Recordings` and can be changed in the recorder tab; recordings use the extension `.mqttrec` | User |
+| R25 | **Recordings belong to a project.** The files stay in the shared library folder (R2), but each recording names its project; the list shows the open project's recordings, with a toggle for all. A recording without a project, or of another project, can be assigned to the open one | User |
 
 ## 3. Current state (for reference)
 
@@ -868,7 +869,7 @@ pubspec.yaml                                        crypto (anonymize) and idb_s
 
 ## 15.1 Implementation notes (2026-10-24)
 
-Phases 1 to 3 are implemented. Where the code differs from the text above:
+All phases are implemented. Where the code differs from the text above:
 - **Footer** also holds `topics`, the topic table (index → topic), so reading can start at a seek
   index entry without the topic records before it.
 - **Reading** goes through `RecordingCursor` (`reader.cursor(from:)`, one entry per `next()`);
@@ -877,8 +878,12 @@ Phases 1 to 3 are implemented. Where the code differs from the text above:
 - **Library recovery** only touches an unfinished file that hasn't been written for 15 s, so a
   recording another process (the CLI) is writing is left alone. Files this app writes are not
   listed until they are finished.
-- **Web:** the library keeps recordings in memory until phase 10, so they are gone after a
-  reload.
+- **Web (phase 10):** `IndexedDbRecordingStore` keeps each file in 1 MB chunks in the IndexedDB
+  database `mqttstudio_recordings` (stores `files` and `chunks`) through `idb_shim`; an opened
+  file is held in memory and every append or truncate is written through, in order. The
+  browser's leave-page prompt is armed while a recording runs (`common/leave_page_guard_web.dart`).
+  The recordings list says that recordings stay in the browser, at most 100 MB each; the flight
+  recorder holds at most 50 MB there (R17).
 - **Recordings folder:** the settings icon in the library head opens *Recordings folder*: CHOOSE
   picks another folder, DEFAULT goes back to `Documents\MQTT Studio\Recordings`. The choice is
   `LocalStoreData.recordingsFolder` (null = default), read at startup, so the CLI can use the same
@@ -899,15 +904,98 @@ Phases 1 to 3 are implemented. Where the code differs from the text above:
 - **Rate estimate:** a recording shorter than a second counts as one second.
 - **Close guards (R16):** `ProjectManager.addCloseGuard` / `removeCloseGuard`; `closeProject`
   asks the guards first, and `openProject` returns false when the current project stayed open.
-- **Record dialog defaults:** the filters are the topics subscribed in the topic viewer (paused
-  ones too, `$share/<group>/` removed, each with its subscription's color); without subscriptions
-  the filters of the last recording, else `#`. Name, limits and options come from the last
-  recording.
-- **Record dialog:** one page instead of three tabs (filters, stop conditions, options). The
-  START AND STOP and flight recorder parts come with phase 6.
-- **Recorder tab:** the OVERVIEW is the only view so far (phase 5 adds the others); its table
-  has no gaps column yet. The ⋮ menu and the list's context menu offer *Edit name and notes* and
-  *Delete*. ADD TO SIMULATION and SAVE (flight recorder) are left out until their phases.
+- **Record dialog defaults:** one empty filter row. The dropdown in each filter field offers the
+  topics subscribed in the topic viewer (paused ones too, `$share/<group>/` removed), then the
+  filters of the last recording. A filter that equals a subscription gets its color. Name, limits
+  and options come from the last recording.
+- **Projects (R25):** the project is linked by name, since projects are stored by name and only
+  get an id when saved. `RecordingInfo.projectName` is `footer.projectName` (set when a recording
+  is assigned later, and passed on by edits) else `header.projectName` (where it was recorded).
+  The list head has a filter toggle (`filter_alt`, pressed = the open project only, the default)
+  and a line "Project: 2 of 5 recordings"; showing all, a row is titled "Project / name". The ⋮ menu has
+  *Assign to project …*. Without an open project all recordings are listed. Renaming a project
+  leaves its recordings with the old name until they are assigned again. The simulator's recorded
+  device dialog still lists all recordings.
+- **Record dialog:** one page instead of three tabs. A *Mode* field next to the name switches
+  between *Normal recording* (start and stop: start when + pre-roll, stop when + post-roll,
+  after, messages, size) and *Flight recorder* (window, memory, post-roll, max saves, save
+  when). Conditions are typed in their text form (§10) and checked while typing.
+- **`RecorderConfig`** keeps the stop limits flat (`durationSeconds`, `maxMessages`, `maxBytes`,
+  `stopWhen`, `postRollSeconds`) instead of a `StopConditions` object, and durations as seconds.
+  `MessageCondition` lives in `model/message_condition.dart` with `parse`, `toText` and
+  `matches`.
+- **Start trigger:** the file is only created when the trigger matches, so RECORD with a start
+  condition can't fail on the file before that. While waiting the REC indicator is outlined
+  ("WAITING FOR TRIGGER") and the pre-roll sits in a `RecordingRing` (at most 200 MB). Stopping
+  before the trigger saves nothing and says so. The REC clock counts from the first written
+  message.
+- **Flight recorder:** `RecordingRing` holds the window; markers go there too. The window is
+  cut at the moment of the save. Each save is a new recording named
+  `<name> <yyyy-MM-dd HH:mm:ss>`; when the session stops during a post-roll, that save is
+  written right away. Reaching `maxSaves` stops the session (reason `maxSaves`). The overview
+  shows the statistics of everything received.
+- **Save the topic viewer buffer (§5.6):** `RecorderService.saveMessages`, from the `save_alt`
+  button in the topic viewer's command bar (only for live messages).
+- **Recorder tab:** the head (name, broker, filters) sits above the OVERVIEW, TIMELINE, MESSAGES
+  and CHARTS tabs; COMPARE comes with phase 8. The running recording shows only its live
+  overview. The ⋮ menu and the list's context menu offer *Edit name and notes* and
+  *Delete*.
+- **ADD TO SIMULATION** (phase 4) adds a recorded device for the selected recording with the
+  current playback options (Max speed becomes 1×) and switches to the SIMULATOR tab. The device
+  details are in `simulator-design.md` §11.1.
+- **`MessageSource` (phase 5):** `MessageViewer` implements it; `MessageViewerViewmodel` takes an
+  optional source (`isLive`). For a recording the command bar hides play, pause, clear and
+  PUBLISH, and the detail view hides AUTOSELECT, CLEAR and PUBLISH (only its close button stays):
+  they act on the live connection and make no sense there.
+  `MQTTMessageBuffer.storeAll` fills the buffer in one go instead of one insert per message.
+- **Analysis:** `RecordingAnalysisService` (GetIt) runs one `RecordingAnalyzer` pass per
+  recording when it is selected and keeps the last three results. The pass runs on the main
+  isolate and yields every 2,000 records instead of `compute()`, because a memory or IndexedDB
+  file can't be handed to an isolate; a new selection cancels it. It keeps every message offset
+  (up to 4 million messages, else 2,048 fixed buckets per topic) for the density at any zoom,
+  gap candidates (pauses of at least 1 s and twice the median interval), repeats within 100 ms and
+  the JSON number paths (sampled, at most 50 per topic). The summary format is unchanged:
+  `jsonNumbers` is not stored in the footer.
+- **Gaps:** the threshold is shared by the OVERVIEW's gaps column and the TIMELINE (default per
+  topic, or one of 1 s … 1 h for all). A gap that contains a `connectionLost` marker is labeled.
+- **Range:** dragging across the lanes sets `PlaybackOptions.rangeStartMicros`/`rangeEndMicros`
+  of the recording, so playback, MESSAGES and CHARTS share one range. A playback that runs
+  starts again from the new range.
+- **TIMELINE:** zoom with the wheel over the lanes (over the topic labels the wheel scrolls), pan
+  by dragging the time axis, right-click for *Add bookmark at …* and *Clear range*. The side
+  panel lists bookmarks (rename, delete, click to jump), gaps and duplicates.
+- **MESSAGES:** loads at most 100,000 messages of the range and says so when the range has
+  more. The detail view resets when another recording is selected.
+- **CHARTS:** values are read in one pass over the range; long series keep the lowest and the
+  highest value of each of 1,000 time slices. Min, max and average are dashed lines. The
+  histogram comes from the summary. Positions use `lat,lon` payloads or two chosen JSON paths
+  and draw a polyline with start and end marker.
+- **Edits (phase 7):** `tools/recording_editor.dart` streams from the source file to the new one,
+  so large recordings don't need to fit into memory; merge is a k-way merge over one cursor per
+  recording. The ⋮ menu of the selected recording offers *Trim to the range* (the timeline range),
+  *Keep the selected topics* (the overview checkboxes), *Rename topics…*, *Anonymize…*, *Merge
+  with…*, *Split…* (at the bookmarks, at the playhead, or one recording per topic) and *Export…*.
+  The new recording is selected afterwards; a progress bar under the command bar shows what runs.
+- **Anonymize:** `model/anonymize_rule.dart` has the rules and the `Anonymizer`. A rule has a
+  `jsonPath` or a `level` depending on its target, and a `value` or `percent` depending on its
+  action. JSON values keep their type for *fixed* and *jitter*. `remove` on a topic level drops the
+  level. With the properties option, the whole-payload rules also change user property values and
+  correlation data. Rules load from and save to a JSON list file.
+- **Export:** one file for all exported topics; the per-topic CSV option is left out. JSON lines
+  also hold the markers (`{"t","time","marker"}`) and the bookmarks in the first line, so a
+  round trip keeps them. Offsets start at the beginning of the exported range. In the browser the
+  file is downloaded.
+- **Import:** the IMPORT button opens a dialog that guesses the format from the file name and its
+  first line. Text formats are read in memory. Lines that can't be read are skipped and counted.
+  `.mqttrec` files can be imported in the browser too (`RecordingLibrary.importBytes`).
+- **Compare (phase 8):** `tools/recording_comparer.dart` reads A, keeping its payloads per topic,
+  then compares B message by message, so A has to fit into memory. Payloads are compared by bytes,
+  then as numbers, then as JSON (key order ignored); the first differing JSON path is reported.
+  When B has fewer messages, the first missing one is the difference. `CompareOptions` has the
+  ranges as offsets (`rangeAFromMicros`, …). The COMPARE tab compares the selected recording (A)
+  with one picked from the library; topic maps are typed as `from=to`, and only the range of A
+  can come from the timeline. Clicking a row shows both payloads side by side.
+- **CLI (phase 9):** see `cli-design.md` §7.2.
 - **Closing the app** asks through `AppLifecycleListener.onExitRequested` on desktop; the
   browser's `beforeunload` prompt is not added yet.
 
