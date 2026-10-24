@@ -46,6 +46,14 @@ add_subdirectory(${FLUTTER_MANAGED_DIR})
 # Application build
 add_subdirectory("runner")
 
+# Console front end of the headless CLI, installed next to the app (doc/cli-design.md)
+add_executable(mqttstudio_cli "cli_launcher/main.cpp")
+set_target_properties(mqttstudio_cli PROPERTIES OUTPUT_NAME "mqttstudio-cli")
+apply_standard_settings(mqttstudio_cli)
+target_compile_definitions(mqttstudio_cli PRIVATE "NOMINMAX")
+target_compile_definitions(mqttstudio_cli PRIVATE "FLUTTER_VERSION=\"${FLUTTER_VERSION}\"")
+add_dependencies(${BINARY_NAME} mqttstudio_cli)
+
 # Generated plugin build rules, which manage building the plugins and adding
 # them to the application.
 include(flutter/generated_plugins.cmake)
@@ -66,6 +74,9 @@ set(INSTALL_BUNDLE_DATA_DIR "${CMAKE_INSTALL_PREFIX}/data")
 set(INSTALL_BUNDLE_LIB_DIR "${CMAKE_INSTALL_PREFIX}")
 
 install(TARGETS ${BINARY_NAME} RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}"
+  COMPONENT Runtime)
+
+install(TARGETS mqttstudio_cli RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}"
   COMPONENT Runtime)
 
 install(FILES "${FLUTTER_ICU_DATA_FILE}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"

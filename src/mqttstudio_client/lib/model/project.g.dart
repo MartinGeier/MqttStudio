@@ -27,7 +27,10 @@ Project _$ProjectFromJson(Map<String, dynamic> json) =>
           .toList()
       ..lastUsed = json['lastUsed'] == null
           ? null
-          : DateTime.parse(json['lastUsed'] as String);
+          : DateTime.parse(json['lastUsed'] as String)
+      ..simulation = Simulation.fromJsonOrEmpty(
+        json['simulation'] as Map<String, dynamic>?,
+      );
 
 Map<String, dynamic> _$ProjectToJson(Project instance) => <String, dynamic>{
   'id': SrxBaseModel.setIdIfNull(instance.id),
@@ -43,4 +46,5 @@ Map<String, dynamic> _$ProjectToJson(Project instance) => <String, dynamic>{
   'topicColors': instance.topicColors.map((k, e) => MapEntry(k, e.toJson())),
   'recentTopics': instance.recentTopics,
   'lastUsed': instance.lastUsed?.toIso8601String(),
+  'simulation': instance.simulation.toJson(),
 };

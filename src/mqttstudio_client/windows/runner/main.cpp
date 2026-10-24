@@ -25,15 +25,19 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   std::vector<std::string> command_line_arguments =
       GetCommandLineArguments();
 
+  // Started by the console launcher mqttstudio-cli.exe: the window stays hidden and Dart ends the process with the
+  // exit code of the command.
+  bool headless = !command_line_arguments.empty() && command_line_arguments[0] == "--cli";
+
   project.set_dart_entrypoint_arguments(std::move(command_line_arguments));
 
   FlutterWindow window(&run_loop, project);
   Win32Window::Point origin(10, 10);
   Win32Window::Size size(1280, 720);
-  if (!window.CreateAndShow(L"MQTT Studio", origin, size)) {
+  if (!window.CreateAndShow(L"MQTT Studio", origin, size, !headless)) {
     return EXIT_FAILURE;
   }
-  window.SetQuitOnClose(true);
+  window.SetQuitOnClose(!headless);
 
   run_loop.Run();
 

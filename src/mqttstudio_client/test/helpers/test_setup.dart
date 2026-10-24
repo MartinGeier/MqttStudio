@@ -8,6 +8,7 @@ import 'package:mqttstudio/model/project.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
 import 'package:mqttstudio/mqtt/mqtt_adapter.dart';
 import 'package:mqttstudio/project/project_manager.dart';
+import 'package:mqttstudio/simulator/simulator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:typed_data/typed_buffers.dart';
 import 'fake_mqtt_adapter.dart';
@@ -30,6 +31,7 @@ FakeMqttAdapter setUpServices([FakeMqttAdapter? fakeAdapter]) {
     return closingNotSavedAnswer;
   }));
   GetIt.I.registerSingleton(MessageViewer());
+  GetIt.I.registerSingleton(Simulator());
   return adapter;
 }
 

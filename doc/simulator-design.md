@@ -580,6 +580,25 @@ Deleted: `lib/simulator/model/simulated_messages_definition.dart` and
 | 5 | MQTT 5 properties UI, image generator (desktop), Clear retained, Subscribe in viewer, rate warnings, i18n, web check | Feature complete. Manual test on desktop and web |
 | 6 | Recorded devices (D22–D25). Built in recorder phase 4, after the recorder's player exists | A recording runs as a device with 10 instances |
 
+## 11.1 Implementation notes (2026-10-24)
+
+Phases 1 to 5 are implemented; phase 6 (recorded devices) waits for the recorder. Where the code
+differs from the text above:
+- **`Simulator` service** (`lib/simulator/simulator.dart`, GetIt singleton): owns the app's
+  `SimulatorRunner`, edits the simulation of the current project, applies D8 (stop on disconnect
+  and project close) and D19 (restart on edit), and checks the rate limit before a start. The
+  viewmodel only talks to this service, like `MessageViewer` for the topic viewer. The CLI creates
+  its own runner and does not use the service.
+- **No `publishBytes`:** `MqttAdapter.publish` already takes `MqttMessageProperties` (added with the
+  MQTT 5 work), so the simulator publishes binary payloads through it. Properties are only sent on
+  MQTT 5 connections.
+- **Old projects** load with the "Default" device (D14) instead of an empty device list.
+- The runner skips messages while the connection is down and keeps its timers, so the CLI's
+  `--reconnect` resumes without restarting topics. The app stops on disconnect anyway (D8).
+- Generators are created through `createGeneratorInstance()` in the engine, so the model has no
+  engine dependency. The template field table and its dialog are in
+  `widgets/generator_editor.dart` and `widgets/template_field_dialog.dart`.
+
 ## 12. Known limitations
 
 - **Background browser tabs (web):** browsers throttle timers in background tabs, often to one

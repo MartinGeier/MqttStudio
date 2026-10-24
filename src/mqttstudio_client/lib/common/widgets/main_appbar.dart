@@ -35,18 +35,16 @@ class _MainAppBarState extends State<MainAppBar> {
                 isScrollable: true,
                 labelPadding: EdgeInsets.symmetric(vertical: 6),
                 indicatorWeight: 3,
-                indicatorColor: Theme.of(context).colorScheme.primary,
+                // the app bar is primary, so the indicator of the selected tab uses the color of its text
+                indicatorColor: Theme.of(context).colorScheme.onPrimary,
                 tabs: [
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 36),
                     child: Text('topicviewerpage.menuitem.topicviewer'.tr()),
                   ),
-                  Visibility(
-                    visible: false,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 48),
-                      child: Text('topicviewerpage.menuitem.simulator'.tr()),
-                    ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 36),
+                    child: Text('topicviewerpage.menuitem.simulator'.tr()),
                   ),
                   Visibility(
                     visible: false,

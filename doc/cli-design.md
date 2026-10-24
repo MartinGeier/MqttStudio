@@ -387,6 +387,28 @@ Events: `plan` (topics, messages, estimated and peak rate), `started`, `stats` (
 the recording, range and speed of each. A missing recording fails with exit code 3 before
 connecting.
 
+## 7.2 Implementation notes (2026-10-24)
+
+What the code does where it differs from the text above:
+- **Launcher name:** the app binary is already called `mqttstudio.exe` (CMake `BINARY_NAME`), so the
+  console launcher is `mqttstudio-cli.exe` next to it (`windows/cli_launcher/main.cpp`, CMake
+  target `mqttstudio_cli`). It starts `mqttstudio.exe --cli …` with its own standard handles, so
+  output can also be redirected to a file, ignores Ctrl+C itself and returns the app's exit code.
+- **MSIX execution alias: not set up yet.** The `msix` package's `execution_alias` always points at
+  the main executable, the GUI. An alias for the launcher needs a second `<Application>` (or an
+  alias with `desktop4:Subsystem="console"`) in the AppxManifest, which `msix_config` can't
+  express. Open point, see the end of §8.
+- **Version:** the launcher is built with the `pubspec.yaml` version and passes it as
+  `--app-version=…` right after `--cli`; `runCli()` takes it off, and `--version` prints it without
+  the build number. The runner can't add it itself, because the Flutter engine reads the real
+  command line of the process, and an environment variable set in `wWinMain` comes too late for
+  the engine's C runtime. The runner's CMake file now also passes the version to `Runner.rc`, so
+  `mqttstudio.exe` carries the right file version.
+- **Output of the app:** `print` lines of the app (MQTT client logging) are only shown with
+  `--verbose`, on stderr, so they never mix with text or JSON output.
+- `--project` is checked by the command (exit code 2 when missing) rather than marked mandatory in
+  `package:args`.
+
 ## 8. Decisions
 
 | # | Decision | Source |

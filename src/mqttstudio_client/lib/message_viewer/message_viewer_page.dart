@@ -11,6 +11,7 @@ import 'package:mqttstudio/message_viewer/widgets/sequential_messages_viewer.dar
 import 'package:mqttstudio/message_viewer/widgets/topic_subscription_panel.dart';
 import 'package:mqttstudio/message_viewer/widgets/topics_viewer_command_bar.dart';
 import 'package:mqttstudio/message_viewer/widgets/tree_messages_viewer.dart';
+import 'package:mqttstudio/simulator/simulator_page.dart';
 import 'package:provider/provider.dart';
 import 'package:mqttstudio/common/widgets/navigation_drawer.dart' as navDrawer;
 import 'package:flutter/foundation.dart';
@@ -44,40 +45,50 @@ class _MessageViewerPageState extends State<MessageViewerPage> {
             builder: (context, child) {
               return Consumer<MessageViewerViewmodel>(builder: (context, viewmodel, child) {
                 return Consumer<ProjectViewmodel>(builder: (context, projectViewmodel, child) {
+                  var tabController = DefaultTabController.of(context);
                   return Scaffold(
                     appBar: MainAppBar(viewmodel: projectViewmodel),
                     drawer: navDrawer.NavigationDrawer(),
-                    body: Container(
-                      child: Column(
-                        children: [
-                          TopicSubscriptionPanel(),
-                          TopicsViewCommandBar(),
-                          Expanded(
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                projectViewmodel.isProjectOpen
-                                    ? viewmodel.topicViewMode == TopicViewMode.Grouped
-                                        ? GroupedMessagesViewer()
-                                        : viewmodel.topicViewMode == TopicViewMode.Tree
-                                            ? TreeMessagesViewer()
-                                            : SequentialMessagesViewer()
-                                    : Container(),
-                                projectViewmodel.isProjectOpen
-                                    ? viewmodel.selectedMessage != null
-                                        ? MessageDetailView()
-                                        : Container()
-                                    : Container(),
-                              ],
-                            ),
-                          )
-                        ],
-                      ),
+                    // IndexedStack keeps the state of the topic viewer while the simulator tab is shown
+                    body: AnimatedBuilder(
+                      animation: tabController,
+                      builder: (context, _) => IndexedStack(index: tabController.index.clamp(0, 1), children: [
+                        _buildTopicViewer(viewmodel, projectViewmodel),
+                        SimulatorPage(),
+                      ]),
                     ),
                   );
                 });
               });
             }));
+  }
+
+  Widget _buildTopicViewer(MessageViewerViewmodel viewmodel, ProjectViewmodel projectViewmodel) {
+    return Column(
+      children: [
+        TopicSubscriptionPanel(),
+        TopicsViewCommandBar(),
+        Expanded(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              projectViewmodel.isProjectOpen
+                  ? viewmodel.topicViewMode == TopicViewMode.Grouped
+                      ? GroupedMessagesViewer()
+                      : viewmodel.topicViewMode == TopicViewMode.Tree
+                          ? TreeMessagesViewer()
+                          : SequentialMessagesViewer()
+                  : Container(),
+              projectViewmodel.isProjectOpen
+                  ? viewmodel.selectedMessage != null
+                      ? MessageDetailView()
+                      : Container()
+                  : Container(),
+            ],
+          ),
+        )
+      ],
+    );
   }
 
   void _showBrowserPerformanceWarning(BuildContext context) async {

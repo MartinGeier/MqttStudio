@@ -104,7 +104,8 @@ Win32Window::~Win32Window() {
 
 bool Win32Window::CreateAndShow(const std::wstring& title,
                                 const Point& origin,
-                                const Size& size) {
+                                const Size& size,
+                                bool show) {
   Destroy();
 
   const wchar_t* window_class =
@@ -117,7 +118,7 @@ bool Win32Window::CreateAndShow(const std::wstring& title,
   double scale_factor = dpi / 96.0;
 
   HWND window = CreateWindow(
-      window_class, title.c_str(), WS_OVERLAPPEDWINDOW | WS_VISIBLE,
+      window_class, title.c_str(), WS_OVERLAPPEDWINDOW | (show ? WS_VISIBLE : 0),
       Scale(origin.x, scale_factor), Scale(origin.y, scale_factor),
       Scale(size.width, scale_factor), Scale(size.height, scale_factor),
       nullptr, nullptr, GetModuleHandle(nullptr), this);

@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:mqttstudio/cli/run_cli.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/mqtt/mqtt_adapter.dart';
@@ -14,13 +16,22 @@ import 'common/login_page.dart';
 import 'repository/local/local_project_repository.dart';
 import 'message_viewer/message_viewer.dart';
 import 'project/project_viewmodel.dart';
+import 'simulator/simulator.dart';
 
 //final String baseUrlRelease = 'to be defined';
 //final String baseUrlDebug = 'http://192.168.10.100:5001';
 //final String baseUrlDebug = 'http://192.168.5.118:5001';
 //final String versionPath = 'v1';
 
-void main() async {
+void main(List<String> args) async {
+  // started by the console launcher mqttstudio-cli.exe, see doc/cli-design.md
+  if (args.isNotEmpty && args.first == '--cli') {
+    var exitCode = await runCli(args.sublist(1));
+    await stdout.flush();
+    await stderr.flush();
+    exit(exitCode);
+  }
+
   WidgetsFlutterBinding.ensureInitialized();
   await EasyLocalization.ensureInitialized();
 
@@ -59,6 +70,7 @@ void setupServiceLocator() {
   // features
   GetIt.I.registerSingleton(ProjectManager(onClosingNotSaved));
   GetIt.I.registerSingleton(MessageViewer());
+  GetIt.I.registerSingleton(Simulator());
   GetIt.I.registerSingleton(MqttConnectionViewmodel());
 }
 
