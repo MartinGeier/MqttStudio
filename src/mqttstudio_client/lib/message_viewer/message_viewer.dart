@@ -1,30 +1,41 @@
 import 'package:event/event.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
-import 'package:mqtt_client/mqtt_client.dart';
+import 'package:mqtt5_client/mqtt5_client.dart';
+import 'package:mqttstudio/model/mqtt_message_properties.dart';
 import 'package:mqttstudio/model/topic_color.dart';
 import 'package:mqttstudio/model/topic_subscription.dart';
 import 'package:mqttstudio/mqtt/mqtt_adapter.dart';
 import 'package:mqttstudio/model/mqtt_payload_type.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
 import 'package:mqttstudio/message_viewer/message_buffer.dart';
+import 'package:mqttstudio/message_viewer/message_source.dart';
 import 'package:mqttstudio/project/project_manager.dart';
 import 'package:mqttstudio/service/service_error.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 
-import '../model/project.dart';
-
 // Manages MQTT operations for message viewers. Receives messages from MQTTAdapter and offers events for viewmodels.
 // Stores all received messages using MessageBuffer
-class MessageViewer {
+class MessageViewer implements MessageSource {
   final _mqttAdapter = GetIt.I.get<MqttAdapter>();
+  @override
   bool paused = false;
   late ProjectManager _projectManager;
   bool isBusy = false;
+  @override
   MQTTMessageBuffer messageBuffer = MQTTMessageBuffer();
+  @override
   final topicSubscriptionsChangedEvent = Event();
+  @override
   final messageReceivedEvent = Event<ReceivedMqttMessage>();
+  @override
   final messagesClearedEvent = Event();
+
+  @override
+  bool get isLive => true;
+
+  @override
+  List<TopicSubscription> get topicSubscriptions => _projectManager.currentProject?.topicSubscriptions ?? [];
 
   MessageViewer() {
     _projectManager = GetIt.I.get<ProjectManager>();
@@ -54,7 +65,7 @@ class MessageViewer {
     _addRecentTopic(subscription.topic);
 
     if (_mqttAdapter.isConnected() && !paused) {
-      _subscribeToTopic(subscription.topic, subscription.qos);
+      _subscribeToTopic(subscription);
     }
 
     topicSubscriptionsChangedEvent.broadcast();
@@ -89,7 +100,7 @@ class MessageViewer {
     if (sub.paused) {
       _unSubscribeFromTopic(topic);
     } else if (!paused) {
-      _subscribeToTopic(topic, sub.qos);
+      _subscribeToTopic(sub);
     }
 
     topicSubscriptionsChangedEvent.broadcast();
@@ -108,7 +119,7 @@ class MessageViewer {
     paused = false;
     for (var sub in _projectManager.currentProject!.topicSubscriptions) {
       if (!sub.paused) {
-        _subscribeToTopic(sub.topic, sub.qos);
+        _subscribeToTopic(sub);
       }
     }
 
@@ -121,7 +132,8 @@ class MessageViewer {
     messageBuffer.storeMessage(msg);
     messageReceivedEvent.broadcast(msg);
 
-    var sub = TopicSubscription.getTopicSubscriptionMatch(msg.topicName, _projectManager.currentProject!.topicSubscriptions);
+    var sub =
+        TopicSubscription.getTopicSubscriptionMatch(msg.topicName, _projectManager.currentProject!.topicSubscriptions);
     if (sub != null) {
       _projectManager.currentProject!.topicColors[msg.topicName] = sub.color;
     } else {
@@ -129,6 +141,7 @@ class MessageViewer {
     }
   }
 
+  @override
   TopicColor getTopicColor(String topicName) {
     assert(_projectManager.isProjectOpen);
 
@@ -140,15 +153,15 @@ class MessageViewer {
     if (_projectManager.currentProject != null) {
       for (var sub in _projectManager.currentProject!.topicSubscriptions) {
         if (!sub.paused) {
-          _subscribeToTopic(sub.topic, sub.qos);
+          _subscribeToTopic(sub);
         }
       }
     }
   }
 
-  void _subscribeToTopic(String topic, MqttQos qos) {
+  void _subscribeToTopic(TopicSubscription subscription) {
     if (_mqttAdapter.isConnected()) {
-      _mqttAdapter.subscribeToTopic(topic, qos);
+      _mqttAdapter.subscribeToTopic(subscription);
     }
   }
 
@@ -158,9 +171,10 @@ class MessageViewer {
     }
   }
 
-  void publishTopic(String topic, dynamic payload, MqttPayloadType payloadType, bool retain, [MqttQos qos = MqttQos.atLeastOnce]) {
+  void publishTopic(String topic, dynamic payload, MqttPayloadType payloadType, bool retain,
+      [MqttQos qos = MqttQos.atLeastOnce, MqttMessageProperties? properties]) {
     if (_mqttAdapter.isConnected()) {
-      _mqttAdapter.publish(topic, payload, payloadType, retain, qos);
+      _mqttAdapter.publish(topic, payload, payloadType, retain, qos, properties);
     }
     _addRecentTopic(topic);
   }

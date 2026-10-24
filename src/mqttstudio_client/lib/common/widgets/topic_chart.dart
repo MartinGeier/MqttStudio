@@ -40,7 +40,7 @@ class _TopicChartState extends State<TopicChart> {
           domainFn: (x, _) => x.item0,
           measureFn: (x, _) => x.item1,
           strokeWidthPxFn: (_, __) => 2,
-          seriesColor: chart.Color.fromHex(code: "#" + seriesColor.color.value.toRadixString(16).substring(2, 8)),
+          seriesColor: chart.Color.fromHex(code: "#" + seriesColor.color.toARGB32().toRadixString(16).substring(2, 8)),
         )
       ],
       selectionModels: [

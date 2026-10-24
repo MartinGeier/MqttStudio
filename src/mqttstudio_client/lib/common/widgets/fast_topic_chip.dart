@@ -8,6 +8,7 @@ class FastTopicChip extends StatelessWidget {
   final DateTime? receivedTime;
   final bool dense;
   final bool selected;
+  final double height;
   final void Function()? onPressed;
 
   const FastTopicChip({
@@ -16,6 +17,7 @@ class FastTopicChip extends StatelessWidget {
     required this.topicColor,
     required this.onPressed,
     this.selected = false,
+    this.height = 28,
     this.dense = true,
     this.receivedTime,
   }) : super(key: key);
@@ -29,7 +31,7 @@ class FastTopicChip extends StatelessWidget {
     return InkWell(
       onTap: onPressed != null ? () => onPressed!() : null,
       child: SizedBox(
-          height: 28,
+          height: height,
           width: width,
           child: CustomPaint(
             painter: ChipPainter(topic, bgColor, textStyle, width),

@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
+import 'package:mqttstudio/model/mqtt_protocol_version.dart';
 import 'package:mqttstudio/model/mqtt_settings.dart';
 import 'package:mqttstudio/model/project.dart';
 import 'package:reactive_forms/reactive_forms.dart';
@@ -14,10 +16,22 @@ class ProjectEditViewmodel extends SrxChangeNotifier {
   static String passwordField = 'password';
   static String useSslField = 'useSsl';
   static String useWebSocketField = 'useWebSocket';
+  static String protocolVersionField = 'protocolVersion';
+  static String cleanStartField = 'cleanStart';
+  static String sessionExpiryIntervalField = 'sessionExpiryInterval';
+  static String caCertificateField = 'caCertificate';
+  static String clientCertificateField = 'clientCertificate';
+  static String clientKeyField = 'clientKey';
+  static String clientKeyPasswordField = 'clientKeyPassword';
+
+  // largest session expiry interval MQTT 5 allows, it means the session never expires
+  static const int maxSessionExpiryInterval = 4294967295;
 
   bool _isPasswordObscureText = true;
+  bool _isKeyPasswordObscureText = true;
   Project? project;
   late FormGroup form;
+  List<StreamSubscription> _subscriptions = [];
 
   bool get isPasswordObscureText => _isPasswordObscureText;
 
@@ -26,15 +40,55 @@ class ProjectEditViewmodel extends SrxChangeNotifier {
     notifyListeners();
   }
 
+  bool get isKeyPasswordObscureText => _isKeyPasswordObscureText;
+
+  set isKeyPasswordObscureText(bool isKeyPasswordObscureText) {
+    _isKeyPasswordObscureText = isKeyPasswordObscureText;
+    notifyListeners();
+  }
+
+  bool get isMqtt5 => form.control(protocolVersionField).value == MqttProtocolVersion.v5;
+
+  // client certificates are used for TLS over TCP, in the browser the browser makes the TLS connection
+  bool get isCertificateEnabled =>
+      !kIsWeb && form.control(useSslField).value == true && form.control(useWebSocketField).value != true;
+
   ProjectEditViewmodel(this.project) {
     form = buildFormGroup();
     fromProject();
+    _updateMqtt5Controls();
+    _updateCertificateControls();
+    _subscriptions = [
+      form.control(protocolVersionField).valueChanges.listen((_) {
+        _updateMqtt5Controls();
+        notifyListeners();
+      }),
+      for (var name in [useSslField, useWebSocketField])
+        form.control(name).valueChanges.listen((_) {
+          _updateCertificateControls();
+          notifyListeners();
+        }),
+      form
+          .control(clientCertificateField)
+          .valueChanges
+          .listen((_) => form.control(clientKeyField).updateValueAndValidity()),
+    ];
+  }
+
+  @override
+  void dispose() {
+    for (var subscription in _subscriptions) {
+      subscription.cancel();
+    }
+    super.dispose();
   }
 
   FormGroup buildFormGroup() {
     return FormGroup({
-      projectNameField: FormControl<String>(validators: [Validators.required, Validators.maxLength(30), Validators.minLength(3)]),
-      mqttHostnameField: FormControl<String>(validators: [Validators.required, Validators.maxLength(100), Validators.minLength(5)]),
+      projectNameField:
+          FormControl<String>(validators: [Validators.required, Validators.maxLength(30), Validators.minLength(3)]),
+      mqttHostnameField:
+          FormControl<String>(validators: [Validators.required, Validators.maxLength(100), Validators.minLength(5)]),
       clientIdField: FormControl<String>(
           validators: [Validators.required, Validators.maxLength(100), Validators.minLength(3)],
           value: project == null ? Random().nextInt(999999).toString() : null),
@@ -43,6 +97,16 @@ class ProjectEditViewmodel extends SrxChangeNotifier {
       passwordField: FormControl<String>(validators: [Validators.maxLength(100)]),
       useSslField: FormControl<bool>(value: kIsWeb, disabled: kIsWeb),
       useWebSocketField: FormControl<bool>(value: kIsWeb, disabled: kIsWeb),
+      // new projects use MQTT 5, existing ones keep the version they were saved with
+      protocolVersionField:
+          FormControl<MqttProtocolVersion>(validators: [Validators.required], value: MqttProtocolVersion.v5),
+      cleanStartField: FormControl<bool>(value: true),
+      sessionExpiryIntervalField: FormControl<int>(
+          validators: [Validators.required, Validators.min(0), Validators.max(maxSessionExpiryInterval)], value: 0),
+      caCertificateField: FormControl<String>(),
+      clientCertificateField: FormControl<String>(),
+      clientKeyField: FormControl<String>(validators: [Validators.delegate(_requireClientCertificate)]),
+      clientKeyPasswordField: FormControl<String>(),
     });
   }
 
@@ -56,13 +120,21 @@ class ProjectEditViewmodel extends SrxChangeNotifier {
       form.control(passwordField).value = project!.mqttSettings.password;
       form.control(useSslField).value = project!.mqttSettings.useSsl;
       form.control(useWebSocketField).value = project!.mqttSettings.useWebSockets;
+      form.control(protocolVersionField).value = project!.mqttSettings.protocolVersion;
+      form.control(cleanStartField).value = project!.mqttSettings.cleanStart;
+      form.control(sessionExpiryIntervalField).value = project!.mqttSettings.sessionExpiryInterval;
+      form.control(caCertificateField).value = project!.mqttSettings.caCertificatePath;
+      form.control(clientCertificateField).value = project!.mqttSettings.clientCertificatePath;
+      form.control(clientKeyField).value = project!.mqttSettings.clientKeyPath;
+      form.control(clientKeyPasswordField).value = project!.mqttSettings.clientKeyPassword;
     }
   }
 
   void toProject() {
     if (project == null) {
       project = Project(
-        MqttSettings(form.control(mqttHostnameField).value, form.control(clientIdField).value, form.control(portField).value,
+        MqttSettings(
+            form.control(mqttHostnameField).value, form.control(clientIdField).value, form.control(portField).value,
             username: form.control(usernameField).value, password: form.control(passwordField).value),
         name: form.control(projectNameField).value,
       );
@@ -78,6 +150,13 @@ class ProjectEditViewmodel extends SrxChangeNotifier {
       project!.mqttSettings.useSsl = form.control(useSslField).value;
       project!.mqttSettings.useWebSockets = form.control(useWebSocketField).value;
     }
+    project!.mqttSettings.protocolVersion = form.control(protocolVersionField).value;
+    project!.mqttSettings.cleanStart = form.control(cleanStartField).value ?? true;
+    project!.mqttSettings.sessionExpiryInterval = form.control(sessionExpiryIntervalField).value ?? 0;
+    project!.mqttSettings.caCertificatePath = _trimmedOrNull(caCertificateField);
+    project!.mqttSettings.clientCertificatePath = _trimmedOrNull(clientCertificateField);
+    project!.mqttSettings.clientKeyPath = _trimmedOrNull(clientKeyField);
+    project!.mqttSettings.clientKeyPassword = form.control(clientKeyPasswordField).value;
   }
 
   bool saveModel({bool validateForm = true}) {
@@ -90,5 +169,43 @@ class ProjectEditViewmodel extends SrxChangeNotifier {
 
     toProject();
     return true;
+  }
+
+  // the session settings only exist in MQTT 5, they are kept but not editable for MQTT 3.1.1
+  void _updateMqtt5Controls() {
+    for (var name in [cleanStartField, sessionExpiryIntervalField]) {
+      var control = form.control(name);
+      if (isMqtt5) {
+        control.markAsEnabled(emitEvent: false);
+      } else {
+        control.markAsDisabled(emitEvent: false);
+      }
+    }
+  }
+
+  // the certificate fields are kept but not editable without TLS over TCP
+  void _updateCertificateControls() {
+    for (var name in [caCertificateField, clientCertificateField, clientKeyField, clientKeyPasswordField]) {
+      var control = form.control(name);
+      if (isCertificateEnabled) {
+        control.markAsEnabled(emitEvent: false);
+      } else {
+        control.markAsDisabled(emitEvent: false);
+      }
+    }
+  }
+
+  Map<String, dynamic>? _requireClientCertificate(AbstractControl<dynamic> control) {
+    var key = control.value as String?;
+    if (key == null || key.trim().isEmpty) {
+      return null;
+    }
+    var certificate = form.control(clientCertificateField).value as String?;
+    return certificate == null || certificate.trim().isEmpty ? {'certificateRequired': true} : null;
+  }
+
+  String? _trimmedOrNull(String name) {
+    var value = (form.control(name).value as String?)?.trim();
+    return value == null || value.isEmpty ? null : value;
   }
 }

@@ -1,5 +1,6 @@
 import 'package:json_annotation/json_annotation.dart';
 import 'package:mqttstudio/model/topic_subscription.dart';
+import 'package:mqttstudio/simulator/model/simulation.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 import 'mqtt_settings.dart';
 import 'topic_color.dart';
@@ -16,11 +17,16 @@ class Project extends SrxBaseModel {
   Map<String, TopicColor> topicColors = Map();
   List<String> recentTopics = [];
   DateTime? lastUsed;
+  @JsonKey(fromJson: Simulation.fromJsonOrEmpty)
+  Simulation simulation = Simulation.withDefaultDevice();
 
   Project(this.mqttSettings, {this.name = 'New Project'});
 
   int getHash() {
-    return json.encode(_$ProjectToJson(this)).hashCode;
+    var projectJson = _$ProjectToJson(this);
+    // while id is null, SrxBaseModel generates a new id on every serialization, so it must not be part of the hash
+    projectJson.remove('id');
+    return json.encode(projectJson).hashCode;
   }
 
   factory Project.fromJson(Map<String, dynamic> json) => _$ProjectFromJson(json);

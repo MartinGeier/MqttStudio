@@ -13,6 +13,8 @@ class ProjectManager {
   final projectClosedEvent = Event();
   int? lastSavedProjectHash;
   final Future Function() _onClosingNotSaved;
+  // asked before a project closes; one that returns false keeps it open, e.g. the recorder while recording
+  final List<Future<bool> Function()> _closeGuards = [];
 
   ProjectManager(this._onClosingNotSaved) {
     _mqttAdapter = GetIt.I.get<MqttAdapter>();
@@ -26,17 +28,15 @@ class ProjectManager {
 
   bool get isProjectOpen => _currentProject != null;
 
-  Future openProject(Project? newProject) async {
-    await closeProject(true);
+  void addCloseGuard(Future<bool> Function() guard) => _closeGuards.add(guard);
 
-    if (_mqttAdapter.isConnected()) {
-      if (newProject == null) {
-        _mqttAdapter.disconnect();
-      } else if (_currentProject != null) {
-        // if connection setting have been changed than reconnect
-        _mqttAdapter.disconnect();
-        _mqttAdapter.connect(newProject.mqttSettings);
-      }
+  void removeCloseGuard(Future<bool> Function() guard) => _closeGuards.remove(guard);
+
+  // false when a close guard kept the current project open
+  Future<bool> openProject(Project? newProject) async {
+    // also disconnects from the broker, callers that want to stay connected reconnect after opening
+    if (!await closeProject(true)) {
+      return false;
     }
 
     _currentProject = newProject;
@@ -51,9 +51,17 @@ class ProjectManager {
     lastSavedProjectHash = _currentProject?.getHash();
 
     projectOpenedEvent.broadcast();
+    return true;
   }
 
   Future<bool> closeProject([bool forceSave = false]) async {
+    if (isProjectOpen) {
+      for (var guard in List.of(_closeGuards)) {
+        if (!await guard()) {
+          return false;
+        }
+      }
+    }
     if (forceSave) {
       await saveProject();
     } else if (hasProjectChanged()) {
@@ -77,6 +85,8 @@ class ProjectManager {
   Future saveProject() async {
     if (currentProject != null) {
       await LocalStore().saveProject(currentProject!);
+      // the saved state is the new reference to check for changes
+      lastSavedProjectHash = currentProject!.getHash();
     }
   }
 

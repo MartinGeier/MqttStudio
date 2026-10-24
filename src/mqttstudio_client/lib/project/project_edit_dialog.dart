@@ -1,6 +1,8 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/common/widgets/checkbox_field.dart';
+import 'package:mqttstudio/model/mqtt_protocol_version.dart';
 import 'package:mqttstudio/project/project_viewmodel.dart';
 import 'package:mqttstudio/project/project_edit_viewmodel.dart';
 import 'package:provider/provider.dart';
@@ -14,6 +16,9 @@ class ProjectEditDialog extends StatelessWidget {
   static const String MosquittoHostUrl = 'test.mosquitto.org';
   static const String HiveMqHostUrl = 'broker.hivemq.com';
   static const String EmqxHostUrl = 'broker.emqx.io';
+  static const String MosquittoWsHostUrl = 'test.mosquitto.org/mqtt';
+  static const String HiveMqWsHostUrl = 'broker.hivemq.com/mqtt';
+  static const String EmqxWsHostUrl = 'broker.emqx.io/mqtt';
 
   static const int MosquittoPort = 1883;
   static const int MosquittoSslPort = 8883;
@@ -55,14 +60,15 @@ class ProjectEditDialog extends StatelessWidget {
               alignment: CrossAxisAlignment.center,
               children: [
                 Spacer(),
-                SrxFormExpandedPadded.end(
+                Expanded(
                   child: OutlinedButton(
                       onPressed: () {
                         GetIt.I.get<SrxNavigationService>().pop(null);
                       },
                       child: Text('srx.common.cancel'.tr())),
                 ),
-                SrxFormExpandedPadded.start(
+                SizedBox(width: 16),
+                Expanded(
                     child: ElevatedButton(onPressed: () => _onOkPressed(viewmodel), child: Text('srx.common.ok'.tr())))
               ],
             )
@@ -84,24 +90,149 @@ class ProjectEditDialog extends StatelessWidget {
       ),
       SrxFormRow(
         children: [
-          SrxFormExpandedPadded.end(child: _buildMqttHostnameField(viewmodel, context), flex: 3),
-          SrxFormExpandedPadded.start(flex: 1, child: _buildPortField(viewmodel)),
-        ],
-      ),
-      SrxFormRow(children: [Expanded(child: _buildClientIdField(viewmodel))]),
-      SrxFormRow(
-        children: [
-          SrxFormExpandedPadded.end(flex: 2, child: _buildUsernameField(viewmodel)),
-          SrxFormExpandedPadded.start(flex: 2, child: _buildPasswordField(viewmodel)),
+          Expanded(child: _buildMqttHostnameField(viewmodel, context), flex: 3),
+          SizedBox(width: 16),
+          Expanded(flex: 1, child: _buildPortField(viewmodel)),
         ],
       ),
       SrxFormRow(
         children: [
-          SrxFormExpandedPadded.end(child: _buildSslCheckbox(viewmodel)),
-          SrxFormExpandedPadded.start(child: _buildWebSocketCheckbox(viewmodel))
+          Expanded(flex: 3, child: _buildClientIdField(viewmodel)),
+          SizedBox(width: 16),
+          Expanded(flex: 2, child: _buildProtocolVersionField(viewmodel)),
         ],
-      )
+      ),
+      SrxFormRow(
+        children: [
+          Expanded(flex: 2, child: _buildUsernameField(viewmodel)),
+          SizedBox(width: 16),
+          Expanded(flex: 2, child: _buildPasswordField(viewmodel)),
+        ],
+      ),
+      SrxFormRow(
+        children: [
+          Expanded(child: _buildSslCheckbox(viewmodel)),
+          SizedBox(width: 16),
+          Expanded(child: _buildWebSocketCheckbox(viewmodel))
+        ],
+      ),
+      SrxFormRow(
+        children: [
+          Expanded(child: _buildCleanStartCheckbox(viewmodel)),
+          SizedBox(width: 16),
+          Expanded(child: _buildSessionExpiryIntervalField(viewmodel))
+        ],
+      ),
+      ..._buildCertificateSection(viewmodel, context),
     ]);
+  }
+
+  List<Widget> _buildCertificateSection(ProjectEditViewmodel viewmodel, BuildContext context) {
+    return [
+      Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: Text('projectedit.certificates.label'.tr(), style: Theme.of(context).textTheme.titleSmall),
+      ),
+      SrxFormRow(children: [
+        Expanded(
+            child: _buildFileField(
+                viewmodel, ProjectEditViewmodel.caCertificateField, 'projectedit.cacertificate.label'))
+      ]),
+      SrxFormRow(children: [
+        Expanded(
+            child: _buildFileField(
+                viewmodel, ProjectEditViewmodel.clientCertificateField, 'projectedit.clientcertificate.label'))
+      ]),
+      SrxFormRow(children: [
+        Expanded(
+            flex: 3,
+            child: _buildFileField(viewmodel, ProjectEditViewmodel.clientKeyField, 'projectedit.clientkey.label',
+                validationMessages: {'certificateRequired': (error) => 'projectedit.clientkey.error'.tr()})),
+        SizedBox(width: 16),
+        Expanded(flex: 2, child: _buildKeyPasswordField(viewmodel)),
+      ]),
+    ];
+  }
+
+  ReactiveTextField<String> _buildFileField(ProjectEditViewmodel viewmodel, String formControlName, String labelKey,
+      {Map<String, ValidationMessageFunction>? validationMessages}) {
+    return ReactiveTextField(
+      textInputAction: TextInputAction.next,
+      maxLines: 1,
+      decoration: InputDecoration(
+          border: OutlineInputBorder(),
+          labelText: labelKey.tr(),
+          isDense: true,
+          suffixIcon: IconButton(
+              icon: Icon(Icons.folder_open),
+              tooltip: 'projectedit.selectfile.tooltip'.tr(),
+              onPressed: viewmodel.isCertificateEnabled
+                  ? () => _selectFile(viewmodel, formControlName, labelKey.tr())
+                  : null)),
+      formControlName: formControlName,
+      validationMessages: validationMessages,
+    );
+  }
+
+  ReactiveTextField<String?> _buildKeyPasswordField(ProjectEditViewmodel viewmodel) {
+    return ReactiveTextField(
+      textInputAction: TextInputAction.next,
+      obscureText: viewmodel.isKeyPasswordObscureText,
+      maxLines: 1,
+      decoration: InputDecoration(
+          border: OutlineInputBorder(),
+          labelText: 'projectedit.clientkeypassword.label'.tr(),
+          isDense: true,
+          suffixIcon: IconButton(
+              icon: Icon(Icons.visibility_rounded),
+              tooltip: 'projectedit.showpassword.tooltip'.tr(),
+              onPressed: () => viewmodel.isKeyPasswordObscureText = !viewmodel.isKeyPasswordObscureText)),
+      formControlName: ProjectEditViewmodel.clientKeyPasswordField,
+    );
+  }
+
+  Future _selectFile(ProjectEditViewmodel viewmodel, String formControlName, String title) async {
+    var result = await FilePicker.pickFiles(dialogTitle: title);
+    var path = result?.files.single.path;
+    if (path != null) {
+      viewmodel.form.control(formControlName).value = path;
+    }
+  }
+
+  Widget _buildProtocolVersionField(ProjectEditViewmodel viewmodel) {
+    var items = MqttProtocolVersion.values
+        .map((version) => DropdownMenuItem(value: version, child: Text(version.displayName)))
+        .toList();
+    return ReactiveDropdownField<MqttProtocolVersion>(
+      items: items,
+      decoration: InputDecoration(
+          border: OutlineInputBorder(), labelText: 'projectedit.protocolversion.label'.tr(), isDense: true),
+      formControlName: ProjectEditViewmodel.protocolVersionField,
+      validationMessages: {'required': (error) => 'srx.common.fieldrequired'.tr()},
+    );
+  }
+
+  Widget _buildCleanStartCheckbox(ProjectEditViewmodel viewmodel) {
+    return CheckboxField(
+        formControlName: ProjectEditViewmodel.cleanStartField,
+        form: viewmodel.form,
+        label: 'projectedit.cleanstart'.tr());
+  }
+
+  ReactiveTextField<int> _buildSessionExpiryIntervalField(ProjectEditViewmodel viewmodel) {
+    return ReactiveTextField(
+      textInputAction: TextInputAction.next,
+      maxLines: 1,
+      decoration: InputDecoration(
+          border: OutlineInputBorder(), labelText: 'projectedit.sessionexpiry.label'.tr(), isDense: true),
+      formControlName: ProjectEditViewmodel.sessionExpiryIntervalField,
+      validationMessages: {
+        'required': (error) => 'srx.common.fieldrequired'.tr(),
+        'min': (error) => 'projectedit.sessionexpiry.error'.tr(),
+        'max': (error) => 'projectedit.sessionexpiry.error'.tr(),
+        'number': (error) => 'projectedit.sessionexpiry.error'.tr(),
+      },
+    );
   }
 
   Widget _buildSslCheckbox(ProjectEditViewmodel viewmodel) {
@@ -117,7 +248,10 @@ class ProjectEditDialog extends StatelessWidget {
         formControlName: ProjectEditViewmodel.useWebSocketField,
         form: viewmodel.form,
         label: 'projectedit.usewebsockets'.tr(),
-        onChanged: () => _setPortNumber(viewmodel));
+        onChanged: () {
+          _setHostname(viewmodel);
+          _setPortNumber(viewmodel);
+        });
   }
 
   ReactiveTextField<String> _buildProjectNameField(ProjectEditViewmodel viewmodel) {
@@ -125,7 +259,8 @@ class ProjectEditDialog extends StatelessWidget {
       autofocus: true,
       textInputAction: TextInputAction.next,
       maxLines: 1,
-      decoration: InputDecoration(border: OutlineInputBorder(), labelText: 'projectedit.projectname.label'.tr(), isDense: true),
+      decoration:
+          InputDecoration(border: OutlineInputBorder(), labelText: 'projectedit.projectname.label'.tr(), isDense: true),
       formControlName: ProjectEditViewmodel.projectNameField,
       validationMessages: {
         'minLength': (error) => 'common.fieldcontenttoshort.error'.tr(),
@@ -179,7 +314,8 @@ class ProjectEditDialog extends StatelessWidget {
     return ReactiveTextField(
       textInputAction: TextInputAction.next,
       maxLines: 1,
-      decoration: InputDecoration(border: OutlineInputBorder(), labelText: 'projectedit.clientid.label'.tr(), isDense: true),
+      decoration:
+          InputDecoration(border: OutlineInputBorder(), labelText: 'projectedit.clientid.label'.tr(), isDense: true),
       formControlName: ProjectEditViewmodel.clientIdField,
       validationMessages: {
         'minLength': (error) => 'fieldcontenttoshort.error'.tr(),
@@ -193,7 +329,8 @@ class ProjectEditDialog extends StatelessWidget {
     return ReactiveTextField(
       textInputAction: TextInputAction.next,
       maxLines: 1,
-      decoration: InputDecoration(border: OutlineInputBorder(), labelText: 'projectedit.port.label'.tr(), isDense: true),
+      decoration:
+          InputDecoration(border: OutlineInputBorder(), labelText: 'projectedit.port.label'.tr(), isDense: true),
       formControlName: ProjectEditViewmodel.portField,
       validationMessages: {
         'min': (error) => 'projectedit.port.error'.tr(),
@@ -206,7 +343,8 @@ class ProjectEditDialog extends StatelessWidget {
     return ReactiveTextField(
       textInputAction: TextInputAction.next,
       maxLines: 1,
-      decoration: InputDecoration(border: OutlineInputBorder(), labelText: 'projectedit.username.label'.tr(), isDense: true),
+      decoration:
+          InputDecoration(border: OutlineInputBorder(), labelText: 'projectedit.username.label'.tr(), isDense: true),
       formControlName: ProjectEditViewmodel.usernameField,
       validationMessages: {
         'maxLength': (error) => 'common.fieldcontenttolong.error'.tr(),
@@ -224,7 +362,8 @@ class ProjectEditDialog extends StatelessWidget {
           labelText: 'projectedit.password.label'.tr(),
           isDense: true,
           suffixIcon: IconButton(
-              icon: Icon(Icons.visibility_rounded), onPressed: () => viewmodel.isPasswordObscureText = !viewmodel.isPasswordObscureText)),
+              icon: Icon(Icons.visibility_rounded),
+              onPressed: () => viewmodel.isPasswordObscureText = !viewmodel.isPasswordObscureText)),
       formControlName: ProjectEditViewmodel.passwordField,
       validationMessages: {
         'maxLength': (error) => 'common.fieldcontenttolong.error'.tr(),
@@ -240,7 +379,45 @@ class ProjectEditDialog extends StatelessWidget {
 
   _hostnameFieldChanged(ProjectEditViewmodel viewmodel, String hostname) {
     viewmodel.form.control(ProjectEditViewmodel.mqttHostnameField).value = hostname;
+    _setHostname(viewmodel);
     _setPortNumber(viewmodel);
+  }
+
+  void _setHostname(ProjectEditViewmodel viewmodel) {
+    bool ws = viewmodel.form.control(ProjectEditViewmodel.useWebSocketField).value;
+    String hostname = '';
+    switch (viewmodel.form.control(ProjectEditViewmodel.mqttHostnameField).value) {
+      case MosquittoHostUrl:
+      case MosquittoWsHostUrl:
+        if (ws) {
+          hostname = MosquittoWsHostUrl;
+        } else {
+          hostname = MosquittoHostUrl;
+        }
+        break;
+
+      case HiveMqHostUrl:
+      case HiveMqWsHostUrl:
+        if (ws) {
+          hostname = HiveMqWsHostUrl;
+        } else {
+          hostname = HiveMqHostUrl;
+        }
+        break;
+
+      case EmqxHostUrl:
+      case EmqxWsHostUrl:
+        if (ws) {
+          hostname = EmqxWsHostUrl;
+        } else {
+          hostname = EmqxHostUrl;
+        }
+        break;
+    }
+
+    if (hostname.isNotEmpty) {
+      viewmodel.form.control(ProjectEditViewmodel.mqttHostnameField).value = hostname;
+    }
   }
 
   void _setPortNumber(ProjectEditViewmodel viewmodel) {
@@ -249,6 +426,7 @@ class ProjectEditDialog extends StatelessWidget {
     int port = 0;
     switch (viewmodel.form.control(ProjectEditViewmodel.mqttHostnameField).value) {
       case MosquittoHostUrl:
+      case MosquittoWsHostUrl:
         if (ws && ssl) {
           port = MosquittoWsSslPort;
         } else if (ws) {
@@ -261,6 +439,7 @@ class ProjectEditDialog extends StatelessWidget {
         break;
 
       case HiveMqHostUrl:
+      case HiveMqWsHostUrl:
         if (ws && ssl) {
           port = HiveMqWsSslPort;
         } else if (ws) {
@@ -273,6 +452,7 @@ class ProjectEditDialog extends StatelessWidget {
         break;
 
       case EmqxHostUrl:
+      case EmqxWsHostUrl:
         if (ws && ssl) {
           port = EmqxWsSslPort;
         } else if (ws) {

@@ -12,6 +12,7 @@ class CustomTheme {
       //toggleableActiveColor: _primaryPalette,
       inputDecorationTheme: InputDecorationTheme(
         errorStyle: TextStyle(height: 0.6),
+        helperStyle: TextStyle(height: 0.6),
       ),
       //popupMenuTheme: PopupMenuThemeData(textStyle: TextStyle(fontSize: 12)),
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -50,7 +51,7 @@ class CustomTheme {
   });
 
   static SrxThemeData srxTheme = SrxThemeData(
-      dialogsThemeData: SrxDialogsThemeData(
+      dialogThemeData: SrxDialogThemeData(
     actionsPadding: EdgeInsets.all(16),
   ));
 }
@@ -67,4 +68,8 @@ class CustomColors {
   Color connectedColor = Colors.green;
   Color disconnectedColor = Colors.red;
   Color watermark = Color(0xffe9e9e9);
+  // a running simulated topic, the same green as the play buttons
+  Color running = Colors.green;
+  // a running recording: the REC indicator, the RECORD icon and the live row of the recordings
+  Color recordingColor = Colors.red.shade800;
 }

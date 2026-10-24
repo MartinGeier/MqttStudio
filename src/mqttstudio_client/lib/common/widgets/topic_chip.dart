@@ -1,4 +1,3 @@
-import 'package:auto_size_text/auto_size_text.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:mqttstudio/model/topic_color.dart';
@@ -87,7 +86,8 @@ class _TopicChipState extends State<TopicChip> with SingleTickerProviderStateMix
             child: InputChip(
               showCheckmark: false,
               selected: widget.paused || widget.selected,
-              selectedColor: widget.selected ? widget.topicColor.color.lighten(0.3) : Theme.of(context).custom.watermark,
+              selectedColor:
+                  widget.selected ? widget.topicColor.color.lighten(0.3) : Theme.of(context).custom.watermark,
               onPressed: widget.onPressed,
               label: widget.unlimitedWidth
                   ? Padding(

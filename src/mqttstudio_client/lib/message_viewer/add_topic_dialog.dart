@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
-import 'package:mqtt_client/mqtt_client.dart';
+import 'package:mqtt5_client/mqtt5_client.dart';
+import 'package:mqttstudio/common/widgets/checkbox_field.dart';
+import 'package:mqttstudio/common/widgets/mqtt5_section.dart';
 import 'package:mqttstudio/model/topic_color.dart';
+import 'package:mqttstudio/model/topic_subscription.dart';
 import 'package:mqttstudio/project/project_viewmodel.dart';
 import 'package:mqttstudio/service/service_error.dart';
 import 'package:mqttstudio/message_viewer/add_topic_viewmodel.dart';
@@ -27,8 +30,8 @@ class AddTopicDialog extends StatelessWidget {
                 SrxFormRow(
                   alignment: CrossAxisAlignment.center,
                   children: [
-                    SrxFormExpandedPadded(flex: 1, child: Spacer()),
-                    SrxFormExpandedPadded(
+                    Spacer(flex: 1),
+                    Expanded(
                       flex: 5,
                       child: OutlinedButton(
                           onPressed: () {
@@ -36,13 +39,18 @@ class AddTopicDialog extends StatelessWidget {
                           },
                           child: Text('srx.common.cancel'.tr())),
                     ),
-                    SrxFormExpandedPadded(
-                        flex: 5,
-                        child: ElevatedButton(onPressed: () => _onOkPressed(context), child: Text('addtopicdialog.subscribe.button'.tr()))),
-                    SrxFormExpandedPadded.start(
+                    SizedBox(width: 16),
+                    Expanded(
                         flex: 5,
                         child: ElevatedButton(
-                            onPressed: () => _onOkPressed(context, true), child: Text('addtopicdialog.subscribenew.button'.tr())))
+                            onPressed: () => _onOkPressed(context),
+                            child: Text('addtopicdialog.subscribe.button'.tr()))),
+                    SizedBox(width: 16),
+                    Expanded(
+                        flex: 5,
+                        child: ElevatedButton(
+                            onPressed: () => _onOkPressed(context, true),
+                            child: Text('addtopicdialog.subscribenew.button'.tr())))
                   ],
                 )
               ],
@@ -68,7 +76,8 @@ class AddTopicDialog extends StatelessWidget {
     } on SrxServiceException catch (exc) {
       if (exc.serviceError == ServiceError.DuplicateTopic) {
         await showDialog(
-            builder: (context) => SrxDialogs.srxErrorDialog('addtopicdialog.duplicatetopic.error'.tr(), context), context: context);
+            builder: (context) => SrxDialog.error(bodyText: 'addtopicdialog.duplicatetopic.error'.tr()),
+            context: context);
       } else {
         throw exc;
       }
@@ -82,11 +91,46 @@ class AddTopicDialog extends StatelessWidget {
         children: [
           SrxFormRow(children: [Expanded(child: _buildTopicNameField(context))]),
           SrxFormRow(children: [
-            SrxFormExpandedPadded.end(flex: 5, child: _buildQosField(context)),
-            SrxFormExpandedPadded.start(flex: 2, child: _buildColorField(context))
+            Expanded(flex: 5, child: _buildQosField(context)),
+            SizedBox(width: 16),
+            Expanded(flex: 2, child: _buildColorField(context))
           ]),
+          _buildMqtt5Options(context),
         ],
       ),
+    );
+  }
+
+  Widget _buildMqtt5Options(BuildContext context) {
+    var vm = context.read<AddTopicViewmodel>();
+    return Mqtt5Section(title: 'addtopicdialog.mqtt5options.label'.tr(), enabled: vm.isMqtt5, children: [
+      SrxFormRow(children: [
+        Expanded(
+            child: CheckboxField(
+                formControlName: AddTopicViewmodel.noLocalField,
+                form: vm.form,
+                label: 'addtopicdialog.nolocal.label'.tr())),
+        SizedBox(width: 16),
+        Expanded(
+            child: CheckboxField(
+                formControlName: AddTopicViewmodel.retainAsPublishedField,
+                form: vm.form,
+                label: 'addtopicdialog.retainaspublished.label'.tr())),
+      ]),
+      SrxFormRow(children: [Expanded(child: _buildRetainHandlingField(context))]),
+    ]);
+  }
+
+  Widget _buildRetainHandlingField(BuildContext context) {
+    var items = SubscriptionRetainHandling.values
+        .map((handling) => DropdownMenuItem(value: handling, child: Text('addtopicdialog.retainhandling.${handling.name}'.tr())))
+        .toList();
+    return ReactiveDropdownField<SubscriptionRetainHandling>(
+      items: items,
+      decoration: InputDecoration(
+          border: OutlineInputBorder(), labelText: 'addtopicdialog.retainhandling.label'.tr(), isDense: true),
+      formControlName: AddTopicViewmodel.retainHandlingField,
+      validationMessages: {'required': (error) => 'srx.common.fieldrequired'.tr()},
     );
   }
 
@@ -125,11 +169,12 @@ class AddTopicDialog extends StatelessWidget {
   }
 
   Widget _buildQosField(BuildContext context) {
-    var items = List<DropdownMenuItem>.generate(
-        3, (index) => DropdownMenuItem(value: MqttQos.values[index], child: Text(MqttQos.values[index].toString().tr())));
+    var items = List<DropdownMenuItem>.generate(3,
+        (index) => DropdownMenuItem(value: MqttQos.values[index], child: Text(MqttQos.values[index].toString().tr())));
     return ReactiveDropdownField(
       items: items,
-      decoration: InputDecoration(border: OutlineInputBorder(), labelText: 'addtopicdialog.qos.label'.tr(), isDense: true),
+      decoration:
+          InputDecoration(border: OutlineInputBorder(), labelText: 'addtopicdialog.qos.label'.tr(), isDense: true),
       formControlName: AddTopicViewmodel.qosField,
       validationMessages: {'required': (error) => 'srx.common.fieldrequired'.tr()},
     );
@@ -146,7 +191,8 @@ class AddTopicDialog extends StatelessWidget {
             )));
     return ReactiveDropdownField(
       items: items,
-      decoration: InputDecoration(border: OutlineInputBorder(), labelText: 'addtopicdialog.color.label'.tr(), isDense: true),
+      decoration:
+          InputDecoration(border: OutlineInputBorder(), labelText: 'addtopicdialog.color.label'.tr(), isDense: true),
       formControlName: AddTopicViewmodel.colorField,
       validationMessages: {'required': (error) => 'srx.common.fieldrequired'.tr()},
     );

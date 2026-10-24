@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/common/widgets/checkbox_field.dart';
+import 'package:mqttstudio/common/widgets/mqtt5_section.dart';
 import 'package:mqttstudio/project/project_viewmodel.dart';
 import 'package:mqttstudio/service/piwik_tracking_service.dart';
 import 'package:provider/provider.dart';
@@ -28,19 +29,20 @@ class PublishTopicDialog extends StatelessWidget {
                 SrxFormRow(
                   alignment: CrossAxisAlignment.center,
                   children: [
-                    SrxFormExpandedPadded.end(
+                    Expanded(
                       child: OutlinedButton(
                           onPressed: () => _publishFile(context), child: Text('publishtopicdialog.publishfilebutton.label'.tr())),
                     ),
                     Spacer(),
-                    SrxFormExpandedPadded(
+                    Expanded(
                       child: OutlinedButton(
                           onPressed: () {
                             GetIt.I.get<SrxNavigationService>().pop(null);
                           },
                           child: Text('srx.common.cancel'.tr())),
                     ),
-                    SrxFormExpandedPadded.start(
+                    SizedBox(width: 16),
+                    Expanded(
                         child:
                             ElevatedButton(onPressed: () => _onOkPressed(context), child: Text('publishtopicdialog.publish.button'.tr()))),
                   ],
@@ -67,12 +69,102 @@ class PublishTopicDialog extends StatelessWidget {
       child: Column(
         children: [
           SrxFormRow(children: [
-            SrxFormExpandedPadded.end(flex: 4, child: _buildTopicNameField(context)),
-            SrxFormExpandedPadded.start(flex: 1, child: _buildRetainField(context)),
+            Expanded(flex: 4, child: _buildTopicNameField(context)),
+            SizedBox(width: 16),
+            Expanded(flex: 1, child: _buildRetainField(context)),
           ]),
           SrxFormRow(multipleLineHeight: 3, children: [Flexible(flex: 1, child: _buildPayloadField(context))]),
+          _buildMqtt5Properties(context),
         ],
       ),
+    );
+  }
+
+  Widget _buildMqtt5Properties(BuildContext context) {
+    var vm = context.read<PublishTopicViewmodel>();
+    return Mqtt5Section(title: 'publishtopicdialog.mqtt5properties.label'.tr(), enabled: vm.isMqtt5, children: [
+      SrxFormRow(children: [
+        Expanded(flex: 2, child: _buildTextField(PublishTopicViewmodel.contentTypeField, 'publishtopicdialog.contenttype.label')),
+        SizedBox(width: 16),
+        Expanded(
+            flex: 2,
+            child: _buildTextField(PublishTopicViewmodel.messageExpiryIntervalField, 'publishtopicdialog.messageexpiry.label')),
+        SizedBox(width: 16),
+        Expanded(
+            flex: 2,
+            child: CheckboxField(
+                formControlName: PublishTopicViewmodel.payloadFormatUtf8Field,
+                form: vm.form,
+                label: 'publishtopicdialog.payloadformatutf8.label'.tr())),
+      ]),
+      SrxFormRow(children: [
+        Expanded(child: _buildTextField(PublishTopicViewmodel.responseTopicField, 'publishtopicdialog.responsetopic.label')),
+        SizedBox(width: 16),
+        Expanded(
+            child: _buildTextField(PublishTopicViewmodel.correlationDataField, 'publishtopicdialog.correlationdata.label')),
+      ]),
+      _buildUserProperties(context),
+    ]);
+  }
+
+  Widget _buildUserProperties(BuildContext context) {
+    var vm = context.watch<PublishTopicViewmodel>();
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      for (var i = 0; i < vm.userProperties.controls.length; i++)
+        _buildUserPropertyRow(context, vm.userProperties.controls[i] as FormGroup, i),
+      Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: TextButton.icon(
+            onPressed: vm.addUserProperty,
+            icon: Icon(Icons.playlist_add),
+            label: Text('publishtopicdialog.adduserproperty.button'.tr())),
+      ),
+    ]);
+  }
+
+  Widget _buildUserPropertyRow(BuildContext context, FormGroup group, int index) {
+    var vm = context.read<PublishTopicViewmodel>();
+    return SrxFormRow(children: [
+      Expanded(
+          flex: 2,
+          child: ReactiveTextField<String>(
+            formControl: group.control(PublishTopicViewmodel.userPropertyKeyField) as FormControl<String>,
+            maxLines: 1,
+            decoration: InputDecoration(
+                border: OutlineInputBorder(), labelText: 'publishtopicdialog.userpropertykey.label'.tr(), isDense: true),
+            validationMessages: {
+              'required': (error) => 'srx.common.fieldrequired'.tr(),
+              'maxLength': (error) => 'common.fieldcontenttolong.error'.tr(),
+            },
+          )),
+      SizedBox(width: 16),
+      Expanded(
+          flex: 3,
+          child: ReactiveTextField<String>(
+            formControl: group.control(PublishTopicViewmodel.userPropertyValueField) as FormControl<String>,
+            maxLines: 1,
+            decoration: InputDecoration(
+                border: OutlineInputBorder(), labelText: 'publishtopicdialog.userpropertyvalue.label'.tr(), isDense: true),
+            validationMessages: {'maxLength': (error) => 'common.fieldcontenttolong.error'.tr()},
+          )),
+      IconButton(
+          onPressed: () => vm.removeUserProperty(index),
+          tooltip: 'publishtopicdialog.removeuserproperty.tooltip'.tr(),
+          icon: Icon(Icons.remove_circle_outline)),
+    ]);
+  }
+
+  Widget _buildTextField(String formControlName, String labelKey) {
+    return ReactiveTextField(
+      maxLines: 1,
+      decoration: InputDecoration(border: OutlineInputBorder(), labelText: labelKey.tr(), isDense: true),
+      formControlName: formControlName,
+      validationMessages: {
+        'maxLength': (error) => 'common.fieldcontenttolong.error'.tr(),
+        'min': (error) => 'publishtopicdialog.messageexpiry.error'.tr(),
+        'max': (error) => 'publishtopicdialog.messageexpiry.error'.tr(),
+        'number': (error) => 'publishtopicdialog.messageexpiry.error'.tr(),
+      },
     );
   }
 
@@ -131,7 +223,7 @@ class PublishTopicDialog extends StatelessWidget {
       return false;
     }
 
-    var filePickerResult = await FilePicker.platform.pickFiles();
+    var filePickerResult = await FilePicker.pickFiles();
     if (filePickerResult == null || filePickerResult.count != 1) {
       return;
     }
@@ -141,7 +233,7 @@ class PublishTopicDialog extends StatelessWidget {
         GetIt.I.get<SrxNavigationService>().pop();
       }
     } on Exception {
-      showDialog(context: context, builder: (_) => SrxDialogs.srxErrorDialog('publishtopicdialog.maxfilesize.error'.tr(), context));
+      showDialog(context: context, builder: (_) => SrxDialog.error(bodyText: 'publishtopicdialog.maxfilesize.error'.tr()));
     }
   }
 }

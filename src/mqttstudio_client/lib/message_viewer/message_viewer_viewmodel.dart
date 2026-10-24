@@ -1,21 +1,28 @@
 import 'package:darq/darq.dart';
+import 'package:event/event.dart';
 import 'package:get_it/get_it.dart';
-import 'package:mqtt_client/mqtt_client.dart';
+import 'package:mqtt5_client/mqtt5_client.dart';
 import 'package:mqttstudio/model/mqtt_payload_type.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
 import 'package:mqttstudio/message_viewer/message_viewer.dart';
+import 'package:mqttstudio/message_viewer/message_source.dart';
 import 'package:mqttstudio/model/topic_color.dart';
 import 'package:mqttstudio/model/topic_subscription.dart';
 import 'package:mqttstudio/message_viewer/message_buffer.dart';
 import 'package:mqttstudio/project/project_manager.dart';
+import 'package:mqttstudio/recorder/engine/recorder_service.dart';
+import 'package:mqttstudio/recorder/model/recording_header.dart';
+import 'package:mqttstudio/recorder/storage/recording_library.dart';
 import 'package:srx_flutter/srx_flutter.dart';
+import 'package:mqttstudio/common/utils/payload_utils.dart';
 
 class MessageViewerViewmodel extends SrxChangeNotifier {
   TopicViewMode _topicViewMode = TopicViewMode.Grouped;
   MessageGroupTimePeriod _groupTimePeriod = MessageGroupTimePeriod.tenSeconds;
   ReceivedMqttMessage? _selectedMessage;
   bool _autoSelect = false;
-  late MessageViewer _messageViewer;
+  // the live MessageViewer, or the messages of a recording in the recorder tab
+  late MessageSource _messageViewer;
   String? _filter;
   final _refreshPeriod = 500;
   DateTime _lastRefresh = DateTime.now();
@@ -27,20 +34,21 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
     notifyListeners();
   }
 
-  MessageViewerViewmodel() {
-    _messageViewer = GetIt.I.get<MessageViewer>();
-    _messageViewer.messageReceivedEvent.subscribe((args) => _onMessageReceived(args));
-    _messageViewer.topicSubscriptionsChangedEvent.subscribe((_) => _topicSubriptionsChanged());
-    _messageViewer.messagesClearedEvent.subscribe((_) => notifyListeners());
-    GetIt.I.get<ProjectManager>().projectClosedEvent.subscribe((_) => selectedMessage = null);
+  MessageViewerViewmodel({MessageSource? source}) {
+    _messageViewer = source ?? GetIt.I.get<MessageViewer>();
+    _messageViewer.messageReceivedEvent.subscribe(_onMessageReceived);
+    _messageViewer.topicSubscriptionsChangedEvent.subscribe(_topicSubriptionsChanged);
+    _messageViewer.messagesClearedEvent.subscribe(_messagesCleared);
+    GetIt.I.get<ProjectManager>().projectClosedEvent.subscribe(_projectClosed);
   }
 
   @override
   void dispose() {
-    GetIt.I.get<ProjectManager>().projectClosedEvent.unsubscribeAll();
-    _messageViewer.topicSubscriptionsChangedEvent.unsubscribeAll();
-    _messageViewer.messageReceivedEvent.unsubscribeAll();
-    _messageViewer.messagesClearedEvent.unsubscribeAll();
+    // only remove our own handlers, the events are shared with other services and viewmodels
+    GetIt.I.get<ProjectManager>().projectClosedEvent.unsubscribe(_projectClosed);
+    _messageViewer.topicSubscriptionsChangedEvent.unsubscribe(_topicSubriptionsChanged);
+    _messageViewer.messageReceivedEvent.unsubscribe(_onMessageReceived);
+    _messageViewer.messagesClearedEvent.unsubscribe(_messagesCleared);
     super.dispose();
   }
 
@@ -49,6 +57,8 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
   MQTTMessageBuffer get messageBuffer => _messageViewer.messageBuffer;
 
   bool get paused => _messageViewer.paused;
+
+  bool get isLive => _messageViewer.isLive;
 
   int getSelectedMessageCount() {
     return selectedMessage != null ? _messageViewer.messageBuffer.getTopicMessageCount(selectedMessage!.topicName) : 0;
@@ -65,10 +75,11 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
         ? _messageViewer.messageBuffer.getTopicMessages(selectedMessage!.topicName)
         : List<ReceivedMqttMessage>.empty();
     return messages
-        .where((x) => double.tryParse(MqttPublishPayload.bytesToStringAsString(x.payload)) != null)
+        .where((x) => double.tryParse(PayloadUtils.safePayloadToString(x.payload)) != null)
         .orderByDescending((x) => x.receivedOn)
         .take(100)
-        .select((x, index) => Tuple2<DateTime, double>(x.receivedOn, double.parse(MqttPublishPayload.bytesToStringAsString(x.payload))))
+        .select((x, index) =>
+            Tuple2<DateTime, double>(x.receivedOn, double.parse(PayloadUtils.safePayloadToString(x.payload))))
         .toList();
   }
 
@@ -79,7 +90,7 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
     return messages
         .orderByDescending((x) => x.receivedOn)
         .take(1000)
-        .select((x, index) => MqttPublishPayload.bytesToStringAsString(x.payload))
+        .select((x, index) => PayloadUtils.safePayloadToString(x.payload))
         .toList();
   }
 
@@ -88,12 +99,15 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
         ? _messageViewer.messageBuffer.getTopicMessages(selectedMessage!.topicName)
         : List<ReceivedMqttMessage>.empty();
 
-    var numMessages = messages.select((x, _) => double.tryParse(MqttPublishPayload.bytesToStringAsString(x.payload))).where((x) => x != null).toList().cast<double>();
-    if(numMessages.isEmpty) {
+    var numMessages = messages
+        .select((x, _) => double.tryParse(PayloadUtils.safePayloadToString(x.payload)))
+        .where((x) => x != null)
+        .toList()
+        .cast<double>();
+    if (numMessages.isEmpty) {
       return null;
     }
     return numMessages.reduce((a, b) => a < b ? a : b);
-    
   }
 
   num? getMaxValue() {
@@ -101,11 +115,15 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
         ? _messageViewer.messageBuffer.getTopicMessages(selectedMessage!.topicName)
         : List<ReceivedMqttMessage>.empty();
 
-    var numMessages = messages.select((x, _) => double.tryParse(MqttPublishPayload.bytesToStringAsString(x.payload))).where((x) => x != null).toList().cast<double>();
-    if(numMessages.isEmpty) {
+    var numMessages = messages
+        .select((x, _) => double.tryParse(PayloadUtils.safePayloadToString(x.payload)))
+        .where((x) => x != null)
+        .toList()
+        .cast<double>();
+    if (numMessages.isEmpty) {
       return null;
     }
-    return numMessages.reduce((a, b) => a > b ? a : b);    
+    return numMessages.reduce((a, b) => a > b ? a : b);
   }
 
   num? getAvgValue() {
@@ -113,11 +131,15 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
         ? _messageViewer.messageBuffer.getTopicMessages(selectedMessage!.topicName)
         : List<ReceivedMqttMessage>.empty();
 
-    var numMessages = messages.select((x, _) => double.tryParse(MqttPublishPayload.bytesToStringAsString(x.payload))).where((x) => x != null).toList().cast<double>();
-    if(numMessages.isEmpty) {
+    var numMessages = messages
+        .select((x, _) => double.tryParse(PayloadUtils.safePayloadToString(x.payload)))
+        .where((x) => x != null)
+        .toList()
+        .cast<double>();
+    if (numMessages.isEmpty) {
       return null;
     }
-    return numMessages.average(((x) => x));    
+    return numMessages.average(((x) => x));
   }
 
   set selectedMessage(ReceivedMqttMessage? selectedMessage) {
@@ -136,11 +158,27 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
     GetIt.I.get<MessageViewer>().publishTopic(_selectedMessage!.topicName, '', MqttPayloadType.string, true);
   }
 
+  bool get canSaveAsRecording => isLive && GetIt.I.get<ProjectManager>().isProjectOpen && messageBuffer.length > 0;
+
+  String get defaultRecordingName => GetIt.I.get<ProjectManager>().currentProject?.name ?? 'Topic viewer';
+
+  // the messages received so far as a recording, with the subscriptions as its filters (doc/recorder-design.md §5.6)
+  Future<RecordingInfo> saveAsRecording(String name) {
+    var project = GetIt.I.get<ProjectManager>().currentProject!;
+    var filters = <String, RecorderFilter>{};
+    for (var sub in project.topicSubscriptions) {
+      var filter = TopicSubscription.topicFilterOf(sub.topic);
+      filters.putIfAbsent(filter, () => RecorderFilter(filter, qos: sub.qos, color: sub.color));
+    }
+    return GetIt.I.get<RecorderService>().saveMessages(name, messageBuffer.allMessages,
+        filters: filters.values.toList(), settings: project.mqttSettings, projectName: project.name);
+  }
+
   void rePublish() {
     assert(_selectedMessage != null);
 
-    GetIt.I.get<MessageViewer>().publishTopic(
-        _selectedMessage!.topicName, _selectedMessage!.payload, MqttPayloadType.binary, _selectedMessage!.retain, _selectedMessage!.qos);
+    GetIt.I.get<MessageViewer>().publishTopic(_selectedMessage!.topicName, _selectedMessage!.payload,
+        MqttPayloadType.binary, _selectedMessage!.retain, _selectedMessage!.qos, _selectedMessage!.properties);
   }
 
   TopicViewMode get topicViewMode => _topicViewMode;
@@ -154,32 +192,36 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
     return _messageViewer.getTopicColor(topicName);
   }
 
+  MessageViewer get _live => _messageViewer as MessageViewer;
+
   void addTopicSubscription(TopicSubscription subscription) {
-    _messageViewer.addTopicSubscription(subscription);
+    _live.addTopicSubscription(subscription);
   }
 
   void removeTopicSubscription(String topic) {
-    _messageViewer.removeTopicSubscription(topic);
+    _live.removeTopicSubscription(topic);
   }
 
   void tooglePauseTopicSubscription(String topic) {
-    _messageViewer.tooglePauseTopicSubscription(topic);
+    _live.tooglePauseTopicSubscription(topic);
   }
 
   void pauseAllTopics() {
-    _messageViewer.pauseAllTopics();
+    _live.pauseAllTopics();
   }
 
   void playAllTopics() {
-    _messageViewer.playAllTopics();
+    _live.playAllTopics();
   }
 
   void clearMessages() {
-    _messageViewer.clearMessages();
+    _live.clearMessages();
   }
 
-  void publishTopic(String topic, dynamic payload, MqttPayloadType payloadType, bool retain, [MqttQos qos = MqttQos.atMostOnce]) {
-    _messageViewer.publishTopic(topic, payload, payloadType, retain, qos);
+  // recorded messages are published on the main connection too
+  void publishTopic(String topic, dynamic payload, MqttPayloadType payloadType, bool retain,
+      [MqttQos qos = MqttQos.atMostOnce]) {
+    GetIt.I.get<MessageViewer>().publishTopic(topic, payload, payloadType, retain, qos);
   }
 
   MessageGroupTimePeriod get groupTimePeriod => _groupTimePeriod;
@@ -203,8 +245,16 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
     _lastRefresh = DateTime.now();
   }
 
-  _topicSubriptionsChanged() {
+  void _topicSubriptionsChanged(EventArgs _) {
     notifyListeners();
+  }
+
+  void _messagesCleared(EventArgs _) {
+    notifyListeners();
+  }
+
+  void _projectClosed(EventArgs _) {
+    selectedMessage = null;
   }
 }
 

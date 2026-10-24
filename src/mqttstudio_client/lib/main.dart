@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:mqttstudio/cli/run_cli.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/mqtt/mqtt_adapter.dart';
@@ -14,19 +16,34 @@ import 'common/login_page.dart';
 import 'repository/local/local_project_repository.dart';
 import 'message_viewer/message_viewer.dart';
 import 'project/project_viewmodel.dart';
+import 'simulator/simulator.dart';
+import 'package:mqttstudio/recorder/engine/playback_service.dart';
+import 'package:mqttstudio/recorder/analysis/recording_analysis_service.dart';
+import 'package:mqttstudio/recorder/engine/recorder_service.dart';
+import 'package:mqttstudio/recorder/storage/recording_library.dart';
+import 'package:mqttstudio/common/localstore.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 //final String baseUrlRelease = 'to be defined';
 //final String baseUrlDebug = 'http://192.168.10.100:5001';
 //final String baseUrlDebug = 'http://192.168.5.118:5001';
 //final String versionPath = 'v1';
 
-void main() async {
+void main(List<String> args) async {
+  // started by the console launcher mqttstudio-cli.exe, see doc/cli-design.md
+  if (args.isNotEmpty && args.first == '--cli') {
+    var exitCode = await runCli(args.sublist(1));
+    await stdout.flush();
+    await stderr.flush();
+    exit(exitCode);
+  }
+
   WidgetsFlutterBinding.ensureInitialized();
   await EasyLocalization.ensureInitialized();
 
   await openLocalDatabase();
 
-  setupServiceLocator();
+  setupServiceLocator(await RecordingLibrary.forPlatform(folder: await LocalStore().getRecordingsFolder()));
   await GetIt.instance.get<SrxSessionController>().restoreSession(); // TODO: eventually do during splash screen
 
   PiwikTrackingService().trackAction('App started');
@@ -46,7 +63,7 @@ Future openLocalDatabase() async {
   await GetIt.instance.get<SrxLocalDatabaseController>().openDatabase(); // TODO: eventually do during splash screen
 }
 
-void setupServiceLocator() {
+void setupServiceLocator(RecordingLibrary recordingLibrary) {
   // repositories
   GetIt.I.registerSingleton<SrxCrudRepository<Project>>(LocalProjectRepository());
 
@@ -59,6 +76,11 @@ void setupServiceLocator() {
   // features
   GetIt.I.registerSingleton(ProjectManager(onClosingNotSaved));
   GetIt.I.registerSingleton(MessageViewer());
+  GetIt.I.registerSingleton(recordingLibrary);
+  GetIt.I.registerSingleton(Simulator());
+  GetIt.I.registerSingleton(RecorderService(recordingLibrary, appVersion: _appVersion)..confirmStopOnClose = onClosingWhileRecording);
+  GetIt.I.registerSingleton(PlaybackService(recordingLibrary));
+  GetIt.I.registerSingleton(RecordingAnalysisService(recordingLibrary));
   GetIt.I.registerSingleton(MqttConnectionViewmodel());
 }
 
@@ -86,6 +108,24 @@ class MyApp extends StatelessWidget {
 Future<bool?> onClosingNotSaved() async {
   return await showDialog<bool>(
       context: GetIt.instance.get<SrxNavigationService>().navigatorKey.currentContext!,
-      builder: (context) =>
-          SrxDialogs.srxYesNoDialog('navigator.confirmsaving_message'.tr(), context, showCancel: true));
+      builder: (outerContext) => SrxTheme(
+          data: CustomTheme.srxTheme, child: SrxDialog.yesNo(bodyText: 'navigator.confirmsaving_message'.tr())));
+}
+
+// asked when the project closes while a recording runs (doc/recorder-design.md R16)
+Future<bool> onClosingWhileRecording() async {
+  var name = GetIt.I.get<RecorderService>().config?.name ?? '';
+  return await showDialog<bool>(
+          context: GetIt.instance.get<SrxNavigationService>().navigatorKey.currentContext!,
+          builder: (_) => SrxTheme(
+              data: CustomTheme.srxTheme, child: SrxDialog.yesNo(bodyText: 'recorder.closeproject.confirm'.tr(args: [name])))) ==
+      true;
+}
+
+Future<String> _appVersion() async {
+  try {
+    return (await PackageInfo.fromPlatform()).version;
+  } catch (_) {
+    return '';
+  }
 }

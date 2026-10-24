@@ -3,6 +3,8 @@ import 'dart:convert';
 
 import 'package:mqttstudio/model/localstore_data.dart';
 import 'package:mqttstudio/model/project.dart';
+import 'package:mqttstudio/recorder/model/playback_options.dart';
+import 'package:mqttstudio/recorder/model/recorder_config.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class LocalStore {
@@ -62,6 +64,40 @@ class LocalStore {
     await _readLocalStore();
     data.coachingCompleted = value;
 
+    await _saveLocalStore();
+  }
+
+  Future<String?> getRecordingsFolder() async {
+    await _readLocalStore();
+    return data.recordingsFolder;
+  }
+
+  // null goes back to the default folder
+  Future saveRecordingsFolder(String? folder) async {
+    await _readLocalStore();
+    data.recordingsFolder = folder;
+    await _saveLocalStore();
+  }
+
+  Future<RecorderConfig?> getLastRecorderConfig() async {
+    await _readLocalStore();
+    return data.lastRecorderConfig;
+  }
+
+  Future saveLastRecorderConfig(RecorderConfig config) async {
+    await _readLocalStore();
+    data.lastRecorderConfig = config;
+    await _saveLocalStore();
+  }
+
+  Future<PlaybackOptions?> getPlaybackOptions(String recordingId) async {
+    await _readLocalStore();
+    return data.playbackOptions?[recordingId];
+  }
+
+  Future savePlaybackOptions(String recordingId, PlaybackOptions options) async {
+    await _readLocalStore();
+    (data.playbackOptions ??= {})[recordingId] = options;
     await _saveLocalStore();
   }
 

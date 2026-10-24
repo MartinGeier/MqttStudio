@@ -1,20 +1,22 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:mqtt_client/mqtt_client.dart';
+import 'package:mqtt5_client/mqtt5_client.dart';
 import 'package:typed_data/typed_buffers.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_json_viewer/flutter_json_viewer.dart';
 import 'package:mqttstudio/common/widgets/topic_chip.dart';
+import 'package:mqttstudio/model/mqtt_message_properties.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
 import 'package:mqttstudio/message_viewer/message_viewer_viewmodel.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/services.dart';
 import 'package:mqttstudio/custom_theme.dart';
 import '../../common/widgets/topic_chart.dart';
-import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../common/utils/payload_utils.dart';
 
 class MessageDetailView extends StatefulWidget {
   MessageDetailView({Key? key}) : super(key: key);
@@ -25,7 +27,15 @@ class MessageDetailView extends StatefulWidget {
 
 class _MessageDetailViewState extends State<MessageDetailView> {
   final _scrollController = ScrollController();
+  final _mapController = MapController();
+  ReceivedMqttMessage? _centeredMessage;
   bool showLast1000Markers = false;
+
+  @override
+  void dispose() {
+    _mapController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,9 +52,12 @@ class _MessageDetailViewState extends State<MessageDetailView> {
           decoration: BoxDecoration(border: Border(left: BorderSide(color: Theme.of(context).dividerColor))),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              _buildAutoSelectButton(viewmodel, context),
-              _buildClearRetainedButton(viewmodel),
-              _buildRepublishButton(viewmodel),
+              // a recorded message gets no new ones and is not published from here
+              if (viewmodel.isLive) ...[
+                _buildAutoSelectButton(viewmodel, context),
+                _buildClearRetainedButton(viewmodel),
+                _buildRepublishButton(viewmodel),
+              ],
               Spacer(),
               IconButton(onPressed: () => viewmodel.selectedMessage = null, icon: Icon(Icons.close))
             ]),
@@ -58,9 +71,15 @@ class _MessageDetailViewState extends State<MessageDetailView> {
               children: [_buildReceivedOn(context, topic, nf), _buildMessageCount(context, viewmodel, nf), Spacer()],
             ),
             SizedBox(height: 24),
+            if (topic.properties != null && !topic.properties!.isEmpty) ...[
+              _buildMqtt5Properties(context, topic.properties!),
+              SizedBox(height: 24),
+            ],
             _buildPayload(context, topic, viewmodel),
             SizedBox(height: 12),
-            chartValues.length > 1 ? Container(height: 300, child: TopicChart(values: chartValues, topic: topic)) : SizedBox(),
+            chartValues.length > 1
+                ? Container(height: 300, child: TopicChart(values: chartValues, topic: topic))
+                : SizedBox(),
           ]));
     });
   }
@@ -112,7 +131,11 @@ class _MessageDetailViewState extends State<MessageDetailView> {
           onPressed: () => viewmodel.rePublish(),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(children: [Icon(Icons.send), SizedBox(width: 12), Text('messagedetailview.republishbutton.label'.tr())]),
+            child: Row(children: [
+              Icon(Icons.send),
+              SizedBox(width: 12),
+              Text('messagedetailview.republishbutton.label'.tr())
+            ]),
           )),
     );
   }
@@ -147,7 +170,8 @@ class _MessageDetailViewState extends State<MessageDetailView> {
           width: 160,
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('messagedetailview.receivedon.label'.tr(), style: Theme.of(context).textTheme.titleMedium),
-            SelectableText(DateFormat('HH:mm:ss').format(topic.receivedOn) + nf.format(topic.receivedOn.millisecond / 1000),
+            SelectableText(
+                DateFormat('HH:mm:ss').format(topic.receivedOn) + nf.format(topic.receivedOn.millisecond / 1000),
                 style: Theme.of(context).textTheme.headlineSmall)
           ]),
         ),
@@ -181,7 +205,8 @@ class _MessageDetailViewState extends State<MessageDetailView> {
             width: 160,
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('messagedetailview.qos.label'.tr(), style: Theme.of(context).textTheme.titleMedium),
-              SelectableText(MqttQos.values[topic.qos.index].toString().tr(), style: Theme.of(context).textTheme.headlineSmall)
+              SelectableText(MqttQos.values[topic.qos.index].toString().tr(),
+                  style: Theme.of(context).textTheme.headlineSmall)
             ]),
           ),
           SizedBox(
@@ -210,9 +235,56 @@ class _MessageDetailViewState extends State<MessageDetailView> {
     );
   }
 
+  Widget _buildMqtt5Properties(BuildContext context, MqttMessageProperties properties) {
+    var rows = <TableRow>[
+      if (properties.contentType != null)
+        _buildPropertyRow(context, 'messagedetailview.contenttype.label'.tr(), properties.contentType!),
+      if (properties.responseTopic != null)
+        _buildPropertyRow(context, 'messagedetailview.responsetopic.label'.tr(), properties.responseTopic!),
+      if (properties.correlationData != null)
+        _buildPropertyRow(context, 'messagedetailview.correlationdata.label'.tr(),
+            PayloadUtils.toUtf8OrHex(properties.correlationData!)),
+      if (properties.messageExpiryInterval != null)
+        _buildPropertyRow(
+            context, 'messagedetailview.messageexpiry.label'.tr(), '${properties.messageExpiryInterval} s'),
+      if (properties.payloadFormatUtf8)
+        _buildPropertyRow(context, 'messagedetailview.payloadformat.label'.tr(), 'UTF-8'),
+      if (properties.subscriptionIdentifiers.isNotEmpty)
+        _buildPropertyRow(context, 'messagedetailview.subscriptionids.label'.tr(),
+            properties.subscriptionIdentifiers.join(', ')),
+      for (var userProperty in properties.userProperties)
+        _buildPropertyRow(context, userProperty.key, userProperty.value),
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('messagedetailview.mqtt5properties.label'.tr(), style: Theme.of(context).textTheme.titleMedium),
+        SizedBox(height: 6),
+        Table(
+            columnWidths: {0: FixedColumnWidth(160), 1: FlexColumnWidth()},
+            defaultVerticalAlignment: TableCellVerticalAlignment.top,
+            children: rows),
+      ]),
+    );
+  }
+
+  TableRow _buildPropertyRow(BuildContext context, String name, String value) {
+    return TableRow(children: [
+      Padding(
+        padding: const EdgeInsets.only(bottom: 4, right: 12),
+        child: Text(name, style: Theme.of(context).textTheme.titleSmall, overflow: TextOverflow.ellipsis),
+      ),
+      Padding(
+        padding: const EdgeInsets.only(bottom: 4),
+        child: SelectableText(value, style: Theme.of(context).textTheme.bodyMedium),
+      ),
+    ]);
+  }
+
   Widget _buildPayload(BuildContext context, ReceivedMqttMessage topic, MessageViewerViewmodel viewmodel) {
-    var payLoadType = detectPayloadType(topic.payload);
-    String payloadString = MqttPublishPayload.bytesToStringAsString(topic.payload);
+    var payLoadType = PayloadUtils.detectPayloadType(topic.payload);
+    String payloadString = PayloadUtils.safePayloadToString(topic.payload);
 
     Widget viewer;
     switch (payLoadType) {
@@ -225,7 +297,7 @@ class _MessageDetailViewState extends State<MessageDetailView> {
         break;
 
       case PayloadType.GnssCoordinates:
-        viewer = _buildMapViewer(payloadString, context, viewmodel);
+        viewer = _buildMapViewer(topic, payloadString, context, viewmodel);
         break;
 
       case PayloadType.Number:
@@ -260,7 +332,8 @@ class _MessageDetailViewState extends State<MessageDetailView> {
                 maintainState: true,
                 child: IconButton(
                     tooltip: 'messagedetailview.copypayload.label'.tr(),
-                    onPressed: () => Clipboard.setData(ClipboardData(text: MqttPublishPayload.bytesToStringAsString(topic.payload))),
+                    onPressed: () =>
+                        Clipboard.setData(ClipboardData(text: PayloadUtils.safePayloadToString(topic.payload))),
                     icon: Icon(Icons.copy)),
               ),
             ],
@@ -283,52 +356,62 @@ class _MessageDetailViewState extends State<MessageDetailView> {
 
   Widget _buildNumberViewer(String payload, MessageViewerViewmodel viewmodel, BuildContext context) {
     return Expanded(
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [SelectableText(payload,
-                style: payload.length < 25
-                    ? Theme.of(context).textTheme.headlineMedium
-                    : Theme.of(context).textTheme.bodyLarge!.copyWith(height: 1.7)),
-                    Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            SizedBox(width: 36, child: Text('messagedetailview.min.label'.tr(), style: Theme.of(context).textTheme.labelLarge)),
-                            SelectableText(viewmodel.getMinValue()?.toStringAsPrecision(10) ?? ''),
-                          ],
-                        ),
-                        Row(
-                          children: [
-                            SizedBox(width: 36, child: Text('messagedetailview.max.label'.tr(), style: Theme.of(context).textTheme.labelLarge)),
-                            SelectableText(viewmodel.getMaxValue()?.toStringAsPrecision(10) ?? '', maxLines: 1),
-                          ],
-                        ),
-                      ],
-                    ),
-                  Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            SizedBox(width: 36, child: Text('messagedetailview.avg.label'.tr(), style: Theme.of(context).textTheme.labelLarge)),
-                            SelectableText(viewmodel.getAvgValue()?.toStringAsPrecision(10) ?? '', maxLines: 1),
-                          ],
-                        ),
-                        Row(children: [Text('')],)
-                      ],
-                    )]));
+        child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+      SelectableText(payload,
+          style: payload.length < 25
+              ? Theme.of(context).textTheme.headlineMedium
+              : Theme.of(context).textTheme.bodyLarge!.copyWith(height: 1.7)),
+      Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              SizedBox(
+                  width: 36,
+                  child: Text('messagedetailview.min.label'.tr(), style: Theme.of(context).textTheme.labelLarge)),
+              SelectableText(viewmodel.getMinValue()?.toStringAsPrecision(10) ?? ''),
+            ],
+          ),
+          Row(
+            children: [
+              SizedBox(
+                  width: 36,
+                  child: Text('messagedetailview.max.label'.tr(), style: Theme.of(context).textTheme.labelLarge)),
+              SelectableText(viewmodel.getMaxValue()?.toStringAsPrecision(10) ?? '', maxLines: 1),
+            ],
+          ),
+        ],
+      ),
+      Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              SizedBox(
+                  width: 36,
+                  child: Text('messagedetailview.avg.label'.tr(), style: Theme.of(context).textTheme.labelLarge)),
+              SelectableText(viewmodel.getAvgValue()?.toStringAsPrecision(10) ?? '', maxLines: 1),
+            ],
+          ),
+          Row(
+            children: [Text('')],
+          )
+        ],
+      )
+    ]));
   }
 
   Widget _buildJsonViewer(String payload, BuildContext context) {
-    return Expanded(child: SingleChildScrollView(controller: _scrollController, child: JsonViewer(jsonDecode(payload))));
+    return Expanded(
+        child: SingleChildScrollView(controller: _scrollController, child: JsonViewer(jsonDecode(payload))));
   }
 
-  Widget _buildMapViewer(String payload, BuildContext context, MessageViewerViewmodel viewmodel) {
-    var lat = double.parse(payload.split(',')[0]);
-    var lon = double.parse(payload.split(',')[1]);
+  Widget _buildMapViewer(
+      ReceivedMqttMessage message, String payload, BuildContext context, MessageViewerViewmodel viewmodel) {
+    var position = PayloadUtils.tryParseCoordinates(payload)!;
+    _centerMapOnMessage(message, position);
     return Expanded(
         child: Column(
       crossAxisAlignment: CrossAxisAlignment.end,
@@ -340,9 +423,12 @@ class _MessageDetailViewState extends State<MessageDetailView> {
             children: [
               Row(
                 children: [
-                  Checkbox(value: showLast1000Markers, onChanged: (value) => setState(() => showLast1000Markers = value ?? false)),
+                  Checkbox(
+                      value: showLast1000Markers,
+                      onChanged: (value) => setState(() => showLast1000Markers = value ?? false)),
                   InkWell(
-                      child: Text("messagedetailview.showlast1000.label".tr(), style: Theme.of(context).textTheme.labelLarge),
+                      child: Text("messagedetailview.showlast1000.label".tr(),
+                          style: Theme.of(context).textTheme.labelLarge),
                       onTap: () => setState(() => showLast1000Markers = !showLast1000Markers)),
                 ],
               ),
@@ -352,25 +438,23 @@ class _MessageDetailViewState extends State<MessageDetailView> {
         ),
         Expanded(
           child: FlutterMap(
-            options: MapOptions(initialCenter: LatLng(lat, lon), initialZoom: 18),
+            mapController: _mapController,
+            options: MapOptions(initialCenter: position, initialZoom: 18),
             children: [
               openStreetMapTileLayer,
               MarkerLayer(markers: [
-                // add a marker for each message
+                // add a marker for each message, skipping messages that are no coordinates
                 if (showLast1000Markers)
-                  ...viewmodel.getValues().map((value) {
-                    var lat = double.parse(value.split(',')[0]);
-                    var lon = double.parse(value.split(',')[1]);
-                    return Marker(
-                      point: LatLng(lat, lon),
-                      child: Icon(Icons.location_on, size: 24, color: Theme.of(context).colorScheme.primary),
-                    );
-                  }),
+                  ...viewmodel.getValues().map(PayloadUtils.tryParseCoordinates).nonNulls.map((point) => Marker(
+                        point: point,
+                        child: Icon(Icons.location_on, size: 24, color: Theme.of(context).colorScheme.primary),
+                      )),
                 Marker(
-                  point: LatLng(lat, lon),
+                  point: position,
                   child: Icon(Icons.location_on, size: 32, color: Theme.of(context).colorScheme.secondary),
                 ),
-              ])
+              ]),
+              openStreetMapAttribution,
             ],
           ),
         ),
@@ -378,53 +462,42 @@ class _MessageDetailViewState extends State<MessageDetailView> {
     ));
   }
 
-  Widget _buildImageViewer(Uint8Buffer payload, BuildContext context) {
-    return Expanded(child: SingleChildScrollView(controller: _scrollController, child: Image.memory(Uint8List.view(payload.buffer))));
+  // initialCenter only applies to the first map, afterwards the map controller keeps its camera.
+  // So move the map to the pin of a newly selected message, keeping the current zoom.
+  void _centerMapOnMessage(ReceivedMqttMessage message, LatLng position) {
+    if (identical(message, _centeredMessage)) {
+      return;
+    }
+
+    var isFirstMap = _centeredMessage == null;
+    _centeredMessage = message;
+    if (isFirstMap) {
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _mapController.move(position, _mapController.camera.zoom);
+      }
+    });
   }
 
-  PayloadType detectPayloadType(Uint8Buffer payload) {
-    String payloadString = MqttPublishPayload.bytesToStringAsString(payload);
-
-    if (double.tryParse(payloadString) != null) {
-      return PayloadType.Number;
-    }
-
-    try {
-      if (payloadString.trim().startsWith('{')) {
-        jsonDecode(payloadString);
-        return PayloadType.Json;
-      }
-    } catch (error) {
-      // ignore errors
-    }
-
-    // PNG
-    if (payload.isNotEmpty && payload[0] == 137 && payload[1] == 80 && payload[2] == 78 && payload[3] == 71) {
-      return PayloadType.Image;
-    }
-
-    // JPG
-    if (payload.isNotEmpty && payload[0] == 255 && payload[1] == 216 && payload[2] == 255) {
-      return PayloadType.Image;
-    }
-
-    // Gnss coordinates: if the payload contains two double numbers separated by a comma
-    if (payloadString.contains(',') && payloadString.split(',').length == 2) {
-      if (double.tryParse(payloadString.split(',')[0]) != null && double.tryParse(payloadString.split(',')[1]) != null) {
-        return PayloadType.GnssCoordinates;
-      }
-    }
-
-    return PayloadType.Text;
+  Widget _buildImageViewer(Uint8Buffer payload, BuildContext context) {
+    return Expanded(
+        child:
+            SingleChildScrollView(controller: _scrollController, child: Image.memory(Uint8List.view(payload.buffer))));
   }
 
   TileLayer get openStreetMapTileLayer => TileLayer(
         urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-        userAgentPackageName: 'dev.fleaflet.flutter_map.example',
-        // Use the recommended flutter_map_cancellable_tile_provider package to
-        // support the cancellation of loading tiles.
-        tileProvider: CancellableNetworkTileProvider(),
+        // OpenStreetMap blocks requests without a user agent identifying the app
+        userAgentPackageName: 'eu.redpin.mqttstudio',
+        // The default NetworkTileProvider of flutter_map 8 cancels obsolete tile requests itself.
+      );
+
+  // Attribution required by the OpenStreetMap tile usage policy
+  Widget get openStreetMapAttribution => SimpleAttributionWidget(
+        source: Text('OpenStreetMap contributors'),
+        onTap: () => launchUrl(Uri.parse('https://www.openstreetmap.org/copyright')),
       );
 }
-
-enum PayloadType { Text, Number, Json, Image, GnssCoordinates }
