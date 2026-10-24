@@ -214,6 +214,7 @@
     "simulator.topicdialog.payload.tab": "PAYLOAD",
     "simulator.topicdialog.mqtt.tab": "MQTT",
     "simulator.topicdialog.topic.label": "Topic",
+    "simulator.topicdialog.topic.tooltip": "Placeholders, resolved for each instance:\n{n}  instance number, e.g. 7\n{n:3}  instance number with 3 digits, e.g. 007\n{device}  device name, with / + # replaced by _",
     "simulator.topicdialog.interval.label": "Interval (ms)",
     "simulator.topicdialog.upto.label": "Up to (ms)",
     "simulator.topicdialog.upto.hint": "fixed",

@@ -12,6 +12,7 @@ class CustomTheme {
       //toggleableActiveColor: _primaryPalette,
       inputDecorationTheme: InputDecorationTheme(
         errorStyle: TextStyle(height: 0.6),
+        helperStyle: TextStyle(height: 0.6),
       ),
       //popupMenuTheme: PopupMenuThemeData(textStyle: TextStyle(fontSize: 12)),
       elevatedButtonTheme: ElevatedButtonThemeData(

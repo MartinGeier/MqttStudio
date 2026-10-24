@@ -113,6 +113,7 @@ class _TopicEditDialogState extends State<TopicEditDialog> with SingleTickerProv
         SizedBox(width: 16),
         Expanded(flex: 5, child: _buildGeneratorTypeField(vm)),
       ]),
+      SizedBox(height: 8),
       GeneratorEditor(
         model: vm.generator,
         previewInstance: widget.device.firstInstance,
@@ -131,6 +132,10 @@ class _TopicEditDialogState extends State<TopicEditDialog> with SingleTickerProv
           border: OutlineInputBorder(),
           labelText: 'simulator.topicdialog.topic.label'.tr(),
           helperText: vm.resolvedRange,
+          suffixIcon: Tooltip(
+              message: 'simulator.topicdialog.topic.tooltip'.tr(),
+              child: Icon(Icons.help_outline, size: 20)),
+          suffixIconConstraints: BoxConstraints(minWidth: 40),
           isDense: true),
       validationMessages: {
         ValidationMessage.required: (_) => 'srx.common.fieldrequired'.tr(),

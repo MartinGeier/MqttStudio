@@ -175,7 +175,7 @@ class _DeviceHeader extends StatelessWidget {
           tooltip: 'simulator.editdevice.tooltip'.tr()),
       IconButton(
           onPressed: () => vm.duplicateDevice(device),
-          icon: Icon(Icons.control_point_duplicate),
+          icon: Icon(Icons.copy),
           tooltip: 'simulator.duplicatedevice.tooltip'.tr()),
       IconButton(
           onPressed: () => SimulatorDialogs.deleteDevice(context, vm, device),
@@ -301,7 +301,7 @@ class _TopicRow extends StatelessWidget {
           tooltip: 'simulator.edittopic.tooltip'.tr()),
       IconButton(
           onPressed: () => vm.duplicateTopic(device, topic),
-          icon: Icon(Icons.control_point_duplicate),
+          icon: Icon(Icons.copy),
           tooltip: 'simulator.duplicatetopic.tooltip'.tr()),
       IconButton(
           onPressed: () => SimulatorDialogs.deleteTopic(context, vm, device, topic),

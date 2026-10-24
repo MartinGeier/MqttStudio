@@ -77,7 +77,7 @@ class GeneratorEditor extends StatelessWidget {
       case GeneratorType.valueList:
         return [
           SrxFormRow(multipleLineHeight: 2, children: [
-            Expanded(flex: 3, child: _multiline(M.values, 'values', 3, helper: 'simulator.field.values.helper')),
+            Expanded(flex: 3, child: _multiline(M.values, 'values', helper: 'simulator.field.values.helper')),
             SizedBox(width: 16),
             Expanded(flex: 1, child: _dropdown<PickOrder>(M.order, 'order', PickOrder.values, (o) => 'simulator.pickorder.${o.name}')),
           ]),
@@ -120,7 +120,7 @@ class GeneratorEditor extends StatelessWidget {
             _dropdown<GpsFormat>(M.gpsFormat, 'gpsformat', GpsFormat.values, (f) => 'simulator.gpsformat.${f.name}'),
           ]),
           SrxFormRow(multipleLineHeight: 2, children: [
-            Expanded(child: _multiline(M.waypoints, 'waypoints', 3, helper: 'simulator.field.waypoints.helper')),
+            Expanded(child: _multiline(M.waypoints, 'waypoints', helper: 'simulator.field.waypoints.helper')),
           ]),
         ];
       case GeneratorType.randomImage:
@@ -181,10 +181,13 @@ class GeneratorEditor extends StatelessWidget {
         validationMessages: M.validationMessages,
       );
 
-  Widget _multiline(String name, String label, int lines, {String? helper}) => ReactiveTextField<String>(
+  // fills the height of its row
+  Widget _multiline(String name, String label, {String? helper}) => ReactiveTextField<String>(
         formControlName: name,
-        minLines: lines,
-        maxLines: lines,
+        minLines: null,
+        maxLines: null,
+        expands: true,
+        textAlignVertical: TextAlignVertical.top,
         decoration: _decoration(label, helper: helper),
         validationMessages: M.validationMessages,
       );
@@ -352,6 +355,8 @@ class _TemplateFields extends StatelessWidget {
                 labelText: 'simulator.field.template.label'.tr(),
                 helperText: 'simulator.field.template.helper'.tr(),
                 helperMaxLines: 2,
+                // the theme's compact helper height would overlap two lines
+                helperStyle: TextStyle(height: 1.2),
                 isDense: true),
             validationMessages: M.validationMessages,
           ),
