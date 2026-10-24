@@ -40,6 +40,32 @@ void main() {
       expect(settings().connectionSettingsChanged(settings()..password = 'other'), isTrue);
       expect(settings().connectionSettingsChanged(settings()..useSsl = true), isTrue);
       expect(settings().connectionSettingsChanged(settings()..useWebSockets = false), isTrue);
+      expect(settings().connectionSettingsChanged(settings()..caCertificatePath = 'ca.crt'), isTrue);
+      expect(settings().connectionSettingsChanged(settings()..clientCertificatePath = 'client.crt'), isTrue);
+      expect(settings().connectionSettingsChanged(settings()..clientKeyPath = 'client.key'), isTrue);
+      expect(settings().connectionSettingsChanged(settings()..clientKeyPassword = 'secret'), isTrue);
+    });
+
+    test('keeps the certificate files', () {
+      var copy = MqttSettings.fromJson((settings()
+            ..caCertificatePath = 'ca.crt'
+            ..clientCertificatePath = 'client.crt'
+            ..clientKeyPath = 'client.key'
+            ..clientKeyPassword = 'secret')
+          .toJson());
+
+      expect(copy.caCertificatePath, 'ca.crt');
+      expect(copy.clientCertificatePath, 'client.crt');
+      expect(copy.clientKeyPath, 'client.key');
+      expect(copy.clientKeyPassword, 'secret');
+      expect(copy.hasCertificates, isTrue);
+    });
+
+    test('reads projects saved before certificates existed', () {
+      var copy = MqttSettings.fromJson({'hostname': 'broker.local', 'clientId': 'client', 'port': 1883});
+
+      expect(copy.clientCertificatePath, isNull);
+      expect(copy.hasCertificates, isFalse);
     });
 
     test('connectionSettingsChanged detects a changed port',

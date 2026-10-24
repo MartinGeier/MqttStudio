@@ -91,6 +91,10 @@ mqttstudio simulate -p "Demo factory" --dry-run
 | `--client-id <id>` | Default: `<project client id>-cli-<4 random hex>`. This avoids the broker disconnecting a GUI session that uses the project's own client id |
 | `--username <name>` | Username |
 | `--tls` / `--no-tls` | Override `useSsl` |
+| `--ca-cert <file>` | PEM file of a CA to trust in addition to the system ones. Overrides the project's CA certificate |
+| `--cert <file>` | PEM file of the client certificate for TLS over TCP. Overrides the project's certificate and key |
+| `--key <file>` | PEM file of the private key. Without it the key is read from the certificate file |
+| *(key password)* | Taken from `MQTTSTUDIO_KEY_PASSWORD` if set, else from the project, for the same reason as the password |
 | *(password)* | Taken from the environment variable `MQTTSTUDIO_PASSWORD` if set, else from the project. There is deliberately **no `--password` option**: arguments end up in shell history and process lists |
 
 **Behavior**

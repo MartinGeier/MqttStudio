@@ -226,6 +226,36 @@ void main() {
     expect(settings.username, 'bob');
   });
 
+  test('certificate overrides', () {
+    var cli = Cli([demoProject()], environment: {'MQTTSTUDIO_KEY_PASSWORD': 'secret'});
+    expect(
+        cli.run([
+          'simulate', '-p', 'Demo factory', '--tls', '--ca-cert', 'ca.crt', '--cert', 'client.crt', '--key',
+          'client.key', '--duration', '1s'
+        ], elapse: Duration(seconds: 2)),
+        0);
+    var settings = cli.adapter.connectedWith!;
+    expect(settings.caCertificatePath, 'ca.crt');
+    expect(settings.clientCertificatePath, 'client.crt');
+    expect(settings.clientKeyPath, 'client.key');
+    expect(settings.clientKeyPassword, 'secret');
+    expect(cli.out.toString(), contains('client certificate'));
+  });
+
+  test('--cert replaces the key of the project', () {
+    var project = demoProject()
+      ..mqttSettings.clientCertificatePath = 'project.crt'
+      ..mqttSettings.clientKeyPath = 'project.key';
+    var cli = Cli([project]);
+    expect(cli.run(['simulate', '-p', 'Demo factory', '--cert', 'client.pem', '--duration', '1s'],
+        elapse: Duration(seconds: 2)), 0);
+    expect(cli.adapter.connectedWith!.clientKeyPath, isNull);
+  });
+
+  test('--key without a certificate is a usage error', () {
+    expect(Cli([demoProject()]).run(['simulate', '-p', 'Demo factory', '--key', 'client.key', '--dry-run']), 2);
+  });
+
   test('a lost connection ends the run with exit code 6', () {
     var cli = Cli([demoProject()]);
     var code = cli.run(['simulate', '-p', 'Demo factory'], during: (async) {

@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/common/widgets/checkbox_field.dart';
@@ -121,8 +122,81 @@ class ProjectEditDialog extends StatelessWidget {
           SizedBox(width: 16),
           Expanded(child: _buildSessionExpiryIntervalField(viewmodel))
         ],
-      )
+      ),
+      ..._buildCertificateSection(viewmodel, context),
     ]);
+  }
+
+  List<Widget> _buildCertificateSection(ProjectEditViewmodel viewmodel, BuildContext context) {
+    return [
+      Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: Text('projectedit.certificates.label'.tr(), style: Theme.of(context).textTheme.titleSmall),
+      ),
+      SrxFormRow(children: [
+        Expanded(
+            child: _buildFileField(
+                viewmodel, ProjectEditViewmodel.caCertificateField, 'projectedit.cacertificate.label'))
+      ]),
+      SrxFormRow(children: [
+        Expanded(
+            child: _buildFileField(
+                viewmodel, ProjectEditViewmodel.clientCertificateField, 'projectedit.clientcertificate.label'))
+      ]),
+      SrxFormRow(children: [
+        Expanded(
+            flex: 3,
+            child: _buildFileField(viewmodel, ProjectEditViewmodel.clientKeyField, 'projectedit.clientkey.label',
+                validationMessages: {'certificateRequired': (error) => 'projectedit.clientkey.error'.tr()})),
+        SizedBox(width: 16),
+        Expanded(flex: 2, child: _buildKeyPasswordField(viewmodel)),
+      ]),
+    ];
+  }
+
+  ReactiveTextField<String> _buildFileField(ProjectEditViewmodel viewmodel, String formControlName, String labelKey,
+      {Map<String, ValidationMessageFunction>? validationMessages}) {
+    return ReactiveTextField(
+      textInputAction: TextInputAction.next,
+      maxLines: 1,
+      decoration: InputDecoration(
+          border: OutlineInputBorder(),
+          labelText: labelKey.tr(),
+          isDense: true,
+          suffixIcon: IconButton(
+              icon: Icon(Icons.folder_open),
+              tooltip: 'projectedit.selectfile.tooltip'.tr(),
+              onPressed: viewmodel.isCertificateEnabled
+                  ? () => _selectFile(viewmodel, formControlName, labelKey.tr())
+                  : null)),
+      formControlName: formControlName,
+      validationMessages: validationMessages,
+    );
+  }
+
+  ReactiveTextField<String?> _buildKeyPasswordField(ProjectEditViewmodel viewmodel) {
+    return ReactiveTextField(
+      textInputAction: TextInputAction.next,
+      obscureText: viewmodel.isKeyPasswordObscureText,
+      maxLines: 1,
+      decoration: InputDecoration(
+          border: OutlineInputBorder(),
+          labelText: 'projectedit.clientkeypassword.label'.tr(),
+          isDense: true,
+          suffixIcon: IconButton(
+              icon: Icon(Icons.visibility_rounded),
+              tooltip: 'projectedit.showpassword.tooltip'.tr(),
+              onPressed: () => viewmodel.isKeyPasswordObscureText = !viewmodel.isKeyPasswordObscureText)),
+      formControlName: ProjectEditViewmodel.clientKeyPasswordField,
+    );
+  }
+
+  Future _selectFile(ProjectEditViewmodel viewmodel, String formControlName, String title) async {
+    var result = await FilePicker.pickFiles(dialogTitle: title);
+    var path = result?.files.single.path;
+    if (path != null) {
+      viewmodel.form.control(formControlName).value = path;
+    }
   }
 
   Widget _buildProtocolVersionField(ProjectEditViewmodel viewmodel) {

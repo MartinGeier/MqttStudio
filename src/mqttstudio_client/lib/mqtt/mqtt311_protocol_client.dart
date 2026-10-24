@@ -50,7 +50,7 @@ class Mqtt311ProtocolClient extends MqttProtocolClient {
     _client.websocketProtocols = v3.MqttClientConstants.protocolsSingleDefault;
 
     // setup for server client only
-    mqtt3setup.setupSecure(_client, MqttProtocolClient.useSecureSocket(mqttSettings));
+    mqtt3setup.setupSecure(_client, MqttProtocolClient.useSecureSocket(mqttSettings), mqttSettings);
     mqtt3setup.setupUserWebSockets(_client, mqttSettings.useWebSockets);
 
     try {

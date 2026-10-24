@@ -52,7 +52,10 @@ abstract class CliCommand extends Command<int> {
 class CliFormat {
   static String broker(MqttSettings settings) {
     var scheme = settings.useWebSockets ? (settings.useSsl ? 'wss://' : 'ws://') : (settings.useSsl ? 'tls://' : '');
-    return '$scheme${settings.hostname}:${settings.port} (${settings.protocolVersion.displayName})';
+    var certificate = settings.useSsl && !settings.useWebSockets && (settings.clientCertificatePath ?? '').isNotEmpty
+        ? ', client certificate'
+        : '';
+    return '$scheme${settings.hostname}:${settings.port} (${settings.protocolVersion.displayName}$certificate)';
   }
 
   static String generator(GeneratorType type) {

@@ -66,6 +66,59 @@ void main() {
       expect(project.mqttSettings.useWebSockets, isFalse);
     });
 
+    test('saves the certificate files', () {
+      var viewmodel = ProjectEditViewmodel(null);
+      viewmodel.form.control(ProjectEditViewmodel.projectNameField).value = 'Project';
+      viewmodel.form.control(ProjectEditViewmodel.mqttHostnameField).value = 'broker.local';
+      viewmodel.form.control(ProjectEditViewmodel.useSslField).value = true;
+      viewmodel.form.control(ProjectEditViewmodel.caCertificateField).value = r' C:\certs\ca.crt ';
+      viewmodel.form.control(ProjectEditViewmodel.clientCertificateField).value = r'C:\certs\client.crt';
+      viewmodel.form.control(ProjectEditViewmodel.clientKeyField).value = '';
+      viewmodel.form.control(ProjectEditViewmodel.clientKeyPasswordField).value = 'secret';
+
+      expect(viewmodel.saveModel(), isTrue);
+
+      var settings = viewmodel.project!.mqttSettings;
+      expect(settings.caCertificatePath, r'C:\certs\ca.crt');
+      expect(settings.clientCertificatePath, r'C:\certs\client.crt');
+      expect(settings.clientKeyPath, isNull);
+      expect(settings.clientKeyPassword, 'secret');
+    });
+
+    test('enables the certificate fields only for TLS over TCP', () async {
+      var viewmodel = ProjectEditViewmodel(null);
+      var certificate = viewmodel.form.control(ProjectEditViewmodel.clientCertificateField);
+      expect(viewmodel.isCertificateEnabled, isFalse);
+      expect(certificate.disabled, isTrue);
+
+      viewmodel.form.control(ProjectEditViewmodel.useSslField).value = true;
+      await Future.delayed(Duration.zero);
+      expect(viewmodel.isCertificateEnabled, isTrue);
+      expect(certificate.enabled, isTrue);
+
+      viewmodel.form.control(ProjectEditViewmodel.useWebSocketField).value = true;
+      await Future.delayed(Duration.zero);
+      expect(viewmodel.isCertificateEnabled, isFalse);
+      expect(certificate.disabled, isTrue);
+    });
+
+    test('a private key needs a client certificate', () async {
+      var viewmodel = ProjectEditViewmodel(null);
+      viewmodel.form.control(ProjectEditViewmodel.projectNameField).value = 'Project';
+      viewmodel.form.control(ProjectEditViewmodel.mqttHostnameField).value = 'broker.local';
+      viewmodel.form.control(ProjectEditViewmodel.useSslField).value = true;
+      await Future.delayed(Duration.zero);
+      viewmodel.form.control(ProjectEditViewmodel.clientKeyField).value = 'client.key';
+
+      expect(viewmodel.saveModel(), isFalse);
+      expect(viewmodel.form.control(ProjectEditViewmodel.clientKeyField).hasError('certificateRequired'), isTrue);
+
+      viewmodel.form.control(ProjectEditViewmodel.clientCertificateField).value = 'client.crt';
+      await Future.delayed(Duration.zero);
+
+      expect(viewmodel.saveModel(), isTrue);
+    });
+
     test('toggles the password visibility', () {
       var viewmodel = ProjectEditViewmodel(null);
       expect(viewmodel.isPasswordObscureText, isTrue);
@@ -81,6 +134,19 @@ void main() {
         MqttSettings('broker.local', 'client', 1884, username: 'user', password: 'secret', useSsl: true)
           ..useWebSockets = true,
         name: 'Existing');
+
+    test('fills the certificate fields from the project', () {
+      var project = existing()
+        ..mqttSettings.useWebSockets = false
+        ..mqttSettings.clientCertificatePath = 'client.crt'
+        ..mqttSettings.clientKeyPath = 'client.key';
+
+      var viewmodel = ProjectEditViewmodel(project);
+
+      expect(viewmodel.form.control(ProjectEditViewmodel.clientCertificateField).value, 'client.crt');
+      expect(viewmodel.form.control(ProjectEditViewmodel.clientKeyField).value, 'client.key');
+      expect(viewmodel.form.control(ProjectEditViewmodel.clientKeyField).enabled, isTrue);
+    });
 
     test('fills the form from the project', () {
       var viewmodel = ProjectEditViewmodel(existing());

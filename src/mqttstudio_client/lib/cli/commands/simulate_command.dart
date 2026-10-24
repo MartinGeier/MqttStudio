@@ -20,6 +20,7 @@ import 'package:srx_flutter/srx_flutter.dart';
 // mqttstudio simulate: runs the simulation of a saved project, or some of its devices (doc/cli-design.md §2.4)
 class SimulateCommand extends CliCommand {
   static const String passwordVariable = 'MQTTSTUDIO_PASSWORD';
+  static const String keyPasswordVariable = 'MQTTSTUDIO_KEY_PASSWORD';
   static const List<Duration> reconnectDelays = [
     Duration(seconds: 1),
     Duration(seconds: 2),
@@ -48,6 +49,11 @@ class SimulateCommand extends CliCommand {
       ..addOption('client-id', help: 'Client id, by default the one of the project with -cli-<random> appended.')
       ..addOption('username', help: 'User name. The password is read from $passwordVariable.')
       ..addFlag('tls', defaultsTo: null, help: 'Use TLS, or --no-tls to turn it off.')
+      ..addOption('ca-cert', help: 'PEM file of a CA to trust in addition to the system ones.')
+      ..addOption('cert', help: 'PEM file of the client certificate.')
+      ..addOption('key',
+          help: 'PEM file of the private key, by default read from the certificate file. '
+              'The key password is read from $keyPasswordVariable.')
       ..addFlag('reconnect', negatable: false, help: 'Reconnect after a lost connection instead of stopping.')
       ..addFlag('clear-retained', negatable: false, help: 'Clear the retained messages of the topics on exit.')
       ..addOption('stats-every', defaultsTo: '10s', help: 'Interval of the progress lines, 0 turns them off.');
@@ -183,10 +189,33 @@ class SimulateCommand extends CliCommand {
     if (password != null) {
       settings.password = password;
     }
+    _applyCertificates(settings);
     // its own client id, so the broker does not disconnect an app window that uses the project
     settings.clientId = (results['client-id'] as String?) ??
         '${projectSettings.clientId}-cli-${Random().nextInt(0x10000).toRadixString(16).padLeft(4, '0')}';
     return settings;
+  }
+
+  void _applyCertificates(MqttSettings settings) {
+    var results = argResults!;
+    if (results['ca-cert'] != null) {
+      settings.caCertificatePath = results['ca-cert'] as String;
+    }
+    if (results['cert'] != null) {
+      settings.clientCertificatePath = results['cert'] as String;
+      // the key of the project belongs to the certificate of the project
+      settings.clientKeyPath = null;
+    }
+    if (results['key'] != null) {
+      if (settings.clientCertificatePath == null || settings.clientCertificatePath!.isEmpty) {
+        usageException('--key needs a client certificate, from --cert or the project.');
+      }
+      settings.clientKeyPath = results['key'] as String;
+    }
+    var keyPassword = context.environment[keyPasswordVariable];
+    if (keyPassword != null) {
+      settings.clientKeyPassword = keyPassword;
+    }
   }
 
   void _printPlan(Project project, MqttSettings settings, List<SimulatedDevice> devices, double rate) {

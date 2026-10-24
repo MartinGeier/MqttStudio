@@ -49,7 +49,7 @@ class Mqtt5ProtocolClient extends MqttProtocolClient {
     _client.websocketProtocols = ['mqtt'];
 
     // setup for server client only
-    mqttsetup.setupSecure(_client, MqttProtocolClient.useSecureSocket(mqttSettings));
+    mqttsetup.setupSecure(_client, MqttProtocolClient.useSecureSocket(mqttSettings), mqttSettings);
     mqttsetup.setupUserWebSockets(_client, mqttSettings.useWebSockets);
 
     try {

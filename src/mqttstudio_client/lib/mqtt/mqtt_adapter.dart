@@ -1,6 +1,4 @@
-import 'dart:io';
 import 'dart:convert';
-import 'package:flutter/services.dart';
 import 'package:mqtt5_client/mqtt5_client.dart';
 import 'package:mqttstudio/model/broker_info.dart';
 import 'package:mqttstudio/model/mqtt_message_properties.dart';
@@ -12,6 +10,7 @@ import 'package:mqttstudio/model/topic_subscription.dart';
 import 'package:mqttstudio/mqtt/mqtt311_protocol_client.dart';
 import 'package:mqttstudio/mqtt/mqtt5_protocol_client.dart';
 import 'package:mqttstudio/mqtt/mqtt_protocol_client.dart';
+import 'package:mqttstudio/mqtt/tls_context.dart';
 import 'package:mqttstudio/service/service_error.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 import 'package:flutter/foundation.dart';
@@ -41,9 +40,7 @@ class MqttAdapter {
 
   MqttAdapter() {
     if (!kIsWeb) {
-      rootBundle
-          .load('assets/cert/mosquitto.org.crt')
-          .then((value) => SecurityContext.defaultContext.setTrustedCertificatesBytes(value.buffer.asUint8List()));
+      TlsContext.loadBundledCa();
     }
   }
 

@@ -16,6 +16,10 @@ MqttSettings _$MqttSettingsFromJson(Map<String, dynamic> json) =>
         useSsl: json['useSsl'] as bool? ?? false,
       )
       ..useWebSockets = json['useWebSockets'] as bool? ?? false
+      ..caCertificatePath = json['caCertificatePath'] as String?
+      ..clientCertificatePath = json['clientCertificatePath'] as String?
+      ..clientKeyPath = json['clientKeyPath'] as String?
+      ..clientKeyPassword = json['clientKeyPassword'] as String?
       ..protocolVersion =
           $enumDecodeNullable(
             _$MqttProtocolVersionEnumMap,
@@ -36,6 +40,10 @@ Map<String, dynamic> _$MqttSettingsToJson(
   'password': instance.password,
   'useSsl': instance.useSsl,
   'useWebSockets': instance.useWebSockets,
+  'caCertificatePath': instance.caCertificatePath,
+  'clientCertificatePath': instance.clientCertificatePath,
+  'clientKeyPath': instance.clientKeyPath,
+  'clientKeyPassword': instance.clientKeyPassword,
   'protocolVersion': _$MqttProtocolVersionEnumMap[instance.protocolVersion]!,
   'cleanStart': instance.cleanStart,
   'sessionExpiryInterval': instance.sessionExpiryInterval,
