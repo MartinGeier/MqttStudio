@@ -259,6 +259,8 @@ class _Options {
 // One run of the simulation, from the start until it stops
 class _Run {
   static final DateFormat _time = DateFormat('HH:mm:ss');
+  // the process ends right after the command, the socket needs a moment to send the last packets
+  static const Duration _socketFlushTime = Duration(milliseconds: 500);
 
   final SimulateCommand command;
   final MqttAdapter adapter;
@@ -297,6 +299,7 @@ class _Run {
     }
 
     var reason = await _stopped.future;
+    var runTime = clock.now().difference(startedAt);
 
     durationTimer?.cancel();
     statsTimer?.cancel();
@@ -304,10 +307,12 @@ class _Run {
     adapter.onDisconnectedEvent.unsubscribe(_onDisconnected);
     if (options.clearRetained && adapter.isConnected()) {
       var cleared = runner.clearRetained(topics);
+      await Future.delayed(_socketFlushTime);
       out.event('retainedCleared', {'topics': cleared}, text: 'Cleared $cleared retained topics.');
     }
     if (adapter.isConnected()) {
       adapter.disconnect();
+      await Future.delayed(_socketFlushTime);
     }
     // nothing depends on the end of the cancel, and its future belongs to the root zone
     unawaited(interrupts.cancel());
@@ -319,7 +324,7 @@ class _Run {
     out.event(
         'stopped',
         {'reason': reason, 'sent': sent, 'errors': errors, 'exitCode': exitCode.code},
-        text: 'Stopped after ${DurationParser.format(clock.now().difference(startedAt))} (${_describe(reason)}): '
+        text: 'Stopped after ${DurationParser.format(runTime)} (${_describe(reason)}): '
             '${CliFormat.count(sent)} messages, $errors ${errors == 1 ? 'error' : 'errors'}.',
         level: OutputLevel.result);
     return exitCode.code;

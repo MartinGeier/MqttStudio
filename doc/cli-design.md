@@ -394,15 +394,24 @@ What the code does where it differs from the text above:
   console launcher is `mqttstudio-cli.exe` next to it (`windows/cli_launcher/main.cpp`, CMake
   target `mqttstudio_cli`). It starts `mqttstudio.exe --cli …` with its own standard handles, so
   output can also be redirected to a file, ignores Ctrl+C itself and returns the app's exit code.
-- **MSIX execution alias: not set up yet.** The `msix` package's `execution_alias` always points at
-  the main executable, the GUI. An alias for the launcher needs a second `<Application>` (or an
-  alias with `desktop4:Subsystem="console"`) in the AppxManifest, which `msix_config` can't
-  express. Open point, see the end of §8.
+- **MSIX execution alias:** the `msix` package's `execution_alias` always points at the main
+  executable, the GUI, so it is not used. `windows/packaging/create_msix.ps1` runs `msix:build`,
+  adds a second, hidden `<Application>` for `mqttstudio-cli.exe` (`AppListEntry="none"`) with a
+  `uap5:ExecutionAlias` `mqttstudio.exe` to the generated manifest, and runs `msix:pack`. Without
+  `desktop4:Subsystem`: the launcher is a console program already, and makeappx rejects the
+  attribute here.
+- **Output through pipes:** Dart can't write to a console from a GUI-subsystem process; the writes
+  never complete, so the CLI hung without output in an interactive console (redirected output
+  worked). The launcher therefore gives the app pipes for stdout and stderr and copies them to its
+  own handles: as UTF-16 with `WriteConsoleW` to a console, so `≈` or `…` show whatever the code page
+  is, and unchanged to files and pipes. The app still attaches to the launcher's console, which is
+  how Ctrl+C reaches it.
+- **Runner argument fix:** `Utf8FromUtf16` in `windows/runner/utils.cpp` (old Flutter template)
+  kept the terminating null in the string, so `--cli` was never recognized and the window showed.
+  Fixed like the current Flutter template.
 - **Version:** the launcher is built with the `pubspec.yaml` version and passes it as
   `--app-version=…` right after `--cli`; `runCli()` takes it off, and `--version` prints it without
-  the build number. The runner can't add it itself, because the Flutter engine reads the real
-  command line of the process, and an environment variable set in `wWinMain` comes too late for
-  the engine's C runtime. The runner's CMake file now also passes the version to `Runner.rc`, so
+  the build number. The runner's CMake file also passes the version to `Runner.rc`, so
   `mqttstudio.exe` carries the right file version.
 - **Output of the app:** `print` lines of the app (MQTT client logging) are only shown with
   `--verbose`, on stderr, so they never mix with text or JSON output.

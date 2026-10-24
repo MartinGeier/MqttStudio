@@ -68,6 +68,8 @@ class Cli {
       async.flushMicrotasks();
       during?.call(async);
       async.elapse(elapse);
+      // the shutdown waits for the socket to send the last packets
+      async.elapse(Duration(seconds: 2));
       async.flushMicrotasks();
     });
     expect(exitCode, isNotNull, reason: 'the command did not finish');
