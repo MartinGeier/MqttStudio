@@ -337,7 +337,7 @@ mqttstudio record -p "Demo factory" -t "plant/#" --flight 10m --save-when 'plant
 | `-t`, `--topic <filter>` | **required** | Repeatable include filter. `<filter>@<qos>` sets the QoS (default 2) |
 | `-x`, `--exclude <filter>` | | Repeatable exclude filter |
 | `--name <name>` | `<first filter> <time>` | Recording name |
-| `--out <file>` | library folder | Write to this file instead |
+| `--out <file>` | library folder (the one set in the recorder tab) | Write to this file instead |
 | `--duration`, `--max-messages`, `--max-size` | `--max-size 1GB` | Stop conditions (recorder §5.4) |
 | `--start-when <cond>`, `--pre-roll <time>` | | Start trigger (recorder §10 condition syntax) |
 | `--stop-when <cond>`, `--post-roll <time>` | | Stop condition |

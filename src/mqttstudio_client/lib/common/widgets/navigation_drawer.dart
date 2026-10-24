@@ -143,7 +143,9 @@ class NavigationDrawer extends SrxNavigationDrawer {
 
     // reopening the project closes the connection, so reconnect with the new settings if it was connected
     var wasConnected = mqttConnectionViewmodel.isConnected();
-    await projectViewmodel.openProject(project);
+    if (!await projectViewmodel.openProject(project)) {
+      return;
+    }
     if (wasConnected) {
       mqttConnectionViewmodel.connect(project.mqttSettings);
     }

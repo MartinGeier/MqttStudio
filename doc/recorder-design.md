@@ -1,6 +1,6 @@
 # MQTT Recorder – Detailed Design
 
-Status: **Draft**. Scope and the former open questions are decided (R1–R4, R16, R17, R23, R24); the other design decisions are proposed, see §2 · Branch: `mqtt5` · Last updated: 2026-10-24
+Status: **Draft**. Scope and the former open questions are decided (R1–R4, R16, R17, R23, R24); the other design decisions are proposed, see §2. Phases 1–3 are implemented, see §15.1 · Branch: `mqtt5` · Last updated: 2026-10-24
 
 Related: `simulator-design.md` (recorded devices, D22–D25) and `cli-design.md` (`record`, `replay`,
 `recordings`, §7.1).
@@ -70,7 +70,7 @@ still produces the same output for the same input.
 | R21 | Shared subscriptions (`$share/…`) are not allowed as recorder filters. They would record only this client's share | Design |
 | R22 | Overlapping filters are normalized before subscribing: a filter covered by another (`a/b/+` under `a/#`) is dropped with a hint, so no message is stored twice | Design |
 | R23 | **All recorder features are free**, including compare, anonymize, the flight recorder and the CLI commands. None of them is a commercial add-on | User |
-| R24 | The library folder defaults to `Documents\MQTT Studio\Recordings`, and recordings use the extension `.mqttrec` | User |
+| R24 | The library folder defaults to `Documents\MQTT Studio\Recordings` and can be changed in the recorder tab; recordings use the extension `.mqttrec` | User |
 
 ## 3. Current state (for reference)
 
@@ -865,6 +865,51 @@ pubspec.yaml                                        crypto (anonymize) and idb_s
 | 8 | Compare (tab and comparer) | Compare finds the seeded differences in test recordings |
 | 9 | CLI `record`, `replay`, `recordings …` (needs the CLI framework of `cli-design.md`) | CI flow of §9 runs from a script with the documented exit codes |
 | 10 | Web storage (IndexedDB), limits, web hints, i18n, design system update | Manual test on desktop and web |
+
+## 15.1 Implementation notes (2026-10-24)
+
+Phases 1 to 3 are implemented. Where the code differs from the text above:
+- **Footer** also holds `topics`, the topic table (index → topic), so reading can start at a seek
+  index entry without the topic records before it.
+- **Reading** goes through `RecordingCursor` (`reader.cursor(from:)`, one entry per `next()`);
+  `entries()` is a stream on top of it. The player pulls from a cursor, which keeps stopping and
+  looping free of stream cancellation.
+- **Library recovery** only touches an unfinished file that hasn't been written for 15 s, so a
+  recording another process (the CLI) is writing is left alone. Files this app writes are not
+  listed until they are finished.
+- **Web:** the library keeps recordings in memory until phase 10, so they are gone after a
+  reload.
+- **Recordings folder:** the settings icon in the library head opens *Recordings folder*: CHOOSE
+  picks another folder, DEFAULT goes back to `Documents\MQTT Studio\Recordings`. The choice is
+  `LocalStoreData.recordingsFolder` (null = default), read at startup, so the CLI can use the same
+  folder. Recordings already saved stay in the old folder. It can't change while a recording
+  runs; a playback stops. FOLDER opens the current folder in Explorer.
+- **Open files:** a stopped or finished playback closes its file at once, so Windows can delete
+  or replace the recording. Deleting retries for about 3 s, because sync clients such as OneDrive
+  open new files for a moment.
+- **Retained snapshot (§5.2):** the 2 s window starts when the recorder sends its subscriptions,
+  not at the SUBACK. For both protocols only the first message of a topic can be the snapshot,
+  so retained messages the broker sends again after a reconnect are stored with retain but
+  without the snapshot flag.
+- **`PlaybackOptions.topics`** is `null` for all topics (also those recorded later) and a list
+  otherwise; an empty list plays nothing.
+- **`PlaybackService`** (GetIt singleton) owns the app's player, like `Simulator` owns the
+  simulator runner. It checks the estimate against the 1000 msg/s limit minus what the simulator
+  is running, gives the player the rest as its Max rate, and stops on disconnect and project close.
+- **Rate estimate:** a recording shorter than a second counts as one second.
+- **Close guards (R16):** `ProjectManager.addCloseGuard` / `removeCloseGuard`; `closeProject`
+  asks the guards first, and `openProject` returns false when the current project stayed open.
+- **Record dialog defaults:** the filters are the topics subscribed in the topic viewer (paused
+  ones too, `$share/<group>/` removed, each with its subscription's color); without subscriptions
+  the filters of the last recording, else `#`. Name, limits and options come from the last
+  recording.
+- **Record dialog:** one page instead of three tabs (filters, stop conditions, options). The
+  START AND STOP and flight recorder parts come with phase 6.
+- **Recorder tab:** the OVERVIEW is the only view so far (phase 5 adds the others); its table
+  has no gaps column yet. The ⋮ menu and the list's context menu offer *Edit name and notes* and
+  *Delete*. ADD TO SIMULATION and SAVE (flight recorder) are left out until their phases.
+- **Closing the app** asks through `AppLifecycleListener.onExitRequested` on desktop; the
+  browser's `beforeunload` prompt is not added yet.
 
 ## 16. Known limitations
 

@@ -27,9 +27,11 @@ class ProjectViewmodel extends SrxChangeNotifier {
 
   bool get isProjectOpen => _projectService.isProjectOpen;
 
-  Future openProject(Project? newProject) async {
-    await _projectService.openProject(newProject);
+  // false when the current project stayed open, e.g. because the user kept a recording running
+  Future<bool> openProject(Project? newProject) async {
+    var opened = await _projectService.openProject(newProject);
     notifyListeners();
+    return opened;
   }
 
   Future<bool> closeProject([bool forceSave = false]) async {

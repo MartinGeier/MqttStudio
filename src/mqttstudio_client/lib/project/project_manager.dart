@@ -13,6 +13,8 @@ class ProjectManager {
   final projectClosedEvent = Event();
   int? lastSavedProjectHash;
   final Future Function() _onClosingNotSaved;
+  // asked before a project closes; one that returns false keeps it open, e.g. the recorder while recording
+  final List<Future<bool> Function()> _closeGuards = [];
 
   ProjectManager(this._onClosingNotSaved) {
     _mqttAdapter = GetIt.I.get<MqttAdapter>();
@@ -26,9 +28,16 @@ class ProjectManager {
 
   bool get isProjectOpen => _currentProject != null;
 
-  Future openProject(Project? newProject) async {
+  void addCloseGuard(Future<bool> Function() guard) => _closeGuards.add(guard);
+
+  void removeCloseGuard(Future<bool> Function() guard) => _closeGuards.remove(guard);
+
+  // false when a close guard kept the current project open
+  Future<bool> openProject(Project? newProject) async {
     // also disconnects from the broker, callers that want to stay connected reconnect after opening
-    await closeProject(true);
+    if (!await closeProject(true)) {
+      return false;
+    }
 
     _currentProject = newProject;
     if (newProject?.lastUsed != null) {
@@ -42,9 +51,17 @@ class ProjectManager {
     lastSavedProjectHash = _currentProject?.getHash();
 
     projectOpenedEvent.broadcast();
+    return true;
   }
 
   Future<bool> closeProject([bool forceSave = false]) async {
+    if (isProjectOpen) {
+      for (var guard in List.of(_closeGuards)) {
+        if (!await guard()) {
+          return false;
+        }
+      }
+    }
     if (forceSave) {
       await saveProject();
     } else if (hasProjectChanged()) {

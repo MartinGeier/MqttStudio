@@ -17,6 +17,11 @@ import 'repository/local/local_project_repository.dart';
 import 'message_viewer/message_viewer.dart';
 import 'project/project_viewmodel.dart';
 import 'simulator/simulator.dart';
+import 'package:mqttstudio/recorder/engine/playback_service.dart';
+import 'package:mqttstudio/recorder/engine/recorder_service.dart';
+import 'package:mqttstudio/recorder/storage/recording_library.dart';
+import 'package:mqttstudio/common/localstore.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 //final String baseUrlRelease = 'to be defined';
 //final String baseUrlDebug = 'http://192.168.10.100:5001';
@@ -37,7 +42,7 @@ void main(List<String> args) async {
 
   await openLocalDatabase();
 
-  setupServiceLocator();
+  setupServiceLocator(await RecordingLibrary.forPlatform(folder: await LocalStore().getRecordingsFolder()));
   await GetIt.instance.get<SrxSessionController>().restoreSession(); // TODO: eventually do during splash screen
 
   PiwikTrackingService().trackAction('App started');
@@ -57,7 +62,7 @@ Future openLocalDatabase() async {
   await GetIt.instance.get<SrxLocalDatabaseController>().openDatabase(); // TODO: eventually do during splash screen
 }
 
-void setupServiceLocator() {
+void setupServiceLocator(RecordingLibrary recordingLibrary) {
   // repositories
   GetIt.I.registerSingleton<SrxCrudRepository<Project>>(LocalProjectRepository());
 
@@ -71,6 +76,9 @@ void setupServiceLocator() {
   GetIt.I.registerSingleton(ProjectManager(onClosingNotSaved));
   GetIt.I.registerSingleton(MessageViewer());
   GetIt.I.registerSingleton(Simulator());
+  GetIt.I.registerSingleton(recordingLibrary);
+  GetIt.I.registerSingleton(RecorderService(recordingLibrary, appVersion: _appVersion)..confirmStopOnClose = onClosingWhileRecording);
+  GetIt.I.registerSingleton(PlaybackService(recordingLibrary));
   GetIt.I.registerSingleton(MqttConnectionViewmodel());
 }
 
@@ -100,4 +108,22 @@ Future<bool?> onClosingNotSaved() async {
       context: GetIt.instance.get<SrxNavigationService>().navigatorKey.currentContext!,
       builder: (outerContext) => SrxTheme(
           data: CustomTheme.srxTheme, child: SrxDialog.yesNo(bodyText: 'navigator.confirmsaving_message'.tr())));
+}
+
+// asked when the project closes while a recording runs (doc/recorder-design.md R16)
+Future<bool> onClosingWhileRecording() async {
+  var name = GetIt.I.get<RecorderService>().config?.name ?? '';
+  return await showDialog<bool>(
+          context: GetIt.instance.get<SrxNavigationService>().navigatorKey.currentContext!,
+          builder: (_) => SrxTheme(
+              data: CustomTheme.srxTheme, child: SrxDialog.yesNo(bodyText: 'recorder.closeproject.confirm'.tr(args: [name])))) ==
+      true;
+}
+
+Future<String> _appVersion() async {
+  try {
+    return (await PackageInfo.fromPlatform()).version;
+  } catch (_) {
+    return '';
+  }
 }

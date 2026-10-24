@@ -70,4 +70,6 @@ class CustomColors {
   Color watermark = Color(0xffe9e9e9);
   // a running simulated topic, the same green as the play buttons
   Color running = Colors.green;
+  // a running recording: the REC indicator, the RECORD icon and the live row of the recordings
+  Color recordingColor = Colors.red.shade800;
 }

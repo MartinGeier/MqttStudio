@@ -2,9 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:mqttstudio/common/widgets/broker_info_button.dart';
 import 'package:mqttstudio/common/widgets/connect_button.dart';
 import 'package:mqttstudio/project/project_viewmodel.dart';
+import 'package:mqttstudio/recorder/widgets/rec_indicator.dart';
 import 'package:easy_localization/easy_localization.dart';
 
 class MainAppBar extends StatefulWidget implements PreferredSizeWidget {
+  static const int topicViewerTab = 0;
+  static const int simulatorTab = 1;
+  static const int recorderTab = 2;
+
   final ProjectViewmodel viewmodel;
 
   MainAppBar({required this.viewmodel, Key? key}) : super(key: key);
@@ -46,12 +51,9 @@ class _MainAppBarState extends State<MainAppBar> {
                     padding: const EdgeInsets.symmetric(horizontal: 36),
                     child: Text('topicviewerpage.menuitem.simulator'.tr()),
                   ),
-                  Visibility(
-                    visible: false,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 48),
-                      child: Text('topicviewerpage.menuitem.recorder'.tr()),
-                    ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 36),
+                    child: Text('topicviewerpage.menuitem.recorder'.tr()),
                   ),
                   Visibility(
                     visible: false,
@@ -64,7 +66,12 @@ class _MainAppBarState extends State<MainAppBar> {
           )
         ],
       ),
-      actions: [BrokerInfoButton(), SizedBox(width: 6), ConnectButton(key: coachKey)],
+      actions: [
+        RecIndicator(recorderTab: MainAppBar.recorderTab),
+        BrokerInfoButton(),
+        SizedBox(width: 6),
+        ConnectButton(key: coachKey)
+      ],
     );
   }
 }

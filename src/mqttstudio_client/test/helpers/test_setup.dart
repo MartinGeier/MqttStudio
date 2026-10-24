@@ -11,6 +11,10 @@ import 'package:mqttstudio/project/project_manager.dart';
 import 'package:mqttstudio/simulator/simulator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:typed_data/typed_buffers.dart';
+import 'package:mqttstudio/recorder/engine/playback_service.dart';
+import 'package:mqttstudio/recorder/engine/recorder_service.dart';
+import 'package:mqttstudio/recorder/storage/recording_library.dart';
+import 'package:mqttstudio/recorder/storage/recording_storage.dart';
 import 'fake_mqtt_adapter.dart';
 
 // Answer of the "project has not been saved" dialog: null = cancel, false = don't save, true = save
@@ -32,6 +36,10 @@ FakeMqttAdapter setUpServices([FakeMqttAdapter? fakeAdapter]) {
   }));
   GetIt.I.registerSingleton(MessageViewer());
   GetIt.I.registerSingleton(Simulator());
+  var library = RecordingLibrary(MemoryRecordingStore());
+  GetIt.I.registerSingleton(library);
+  GetIt.I.registerSingleton(RecorderService(library, connectionFactory: FakeMqttAdapter.new));
+  GetIt.I.registerSingleton(PlaybackService(library));
   return adapter;
 }
 

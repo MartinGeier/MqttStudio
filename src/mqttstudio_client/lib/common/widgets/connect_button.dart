@@ -66,7 +66,9 @@ class ConnectButton extends StatelessWidget {
         if (project == null) {
           return;
         }
-        await projectViewmodel.openProject(project);
+        if (!await projectViewmodel.openProject(project)) {
+          return;
+        }
       }
 
       mqttConnectionViewmodel.connect(projectViewmodel.currentProject!.mqttSettings);

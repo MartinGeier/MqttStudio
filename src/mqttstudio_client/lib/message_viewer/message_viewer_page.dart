@@ -1,3 +1,4 @@
+import 'dart:ui' show AppExitResponse;
 import 'package:flutter/material.dart';
 import 'package:mqttstudio/common/browser_performance_warning.dart';
 import 'package:mqttstudio/common/localstore.dart';
@@ -12,6 +13,12 @@ import 'package:mqttstudio/message_viewer/widgets/topic_subscription_panel.dart'
 import 'package:mqttstudio/message_viewer/widgets/topics_viewer_command_bar.dart';
 import 'package:mqttstudio/message_viewer/widgets/tree_messages_viewer.dart';
 import 'package:mqttstudio/simulator/simulator_page.dart';
+import 'package:mqttstudio/recorder/recorder_page.dart';
+import 'package:mqttstudio/recorder/engine/recorder_service.dart';
+import 'package:mqttstudio/custom_theme.dart';
+import 'package:easy_localization/easy_localization.dart';
+import 'package:get_it/get_it.dart';
+import 'package:srx_flutter/srx_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:mqttstudio/common/widgets/navigation_drawer.dart' as navDrawer;
 import 'package:flutter/foundation.dart';
@@ -24,9 +31,12 @@ class MessageViewerPage extends StatefulWidget {
 }
 
 class _MessageViewerPageState extends State<MessageViewerPage> {
+  late final AppLifecycleListener _lifecycleListener;
+
   @override
   void initState() {
     super.initState();
+    _lifecycleListener = AppLifecycleListener(onExitRequested: _onExitRequested);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (kIsWeb) {
         _showBrowserPerformanceWarning(context);
@@ -49,13 +59,16 @@ class _MessageViewerPageState extends State<MessageViewerPage> {
                   return Scaffold(
                     appBar: MainAppBar(viewmodel: projectViewmodel),
                     drawer: navDrawer.NavigationDrawer(),
-                    // IndexedStack keeps the state of the topic viewer while the simulator tab is shown
+                    // IndexedStack keeps the state of the topic viewer while another tab is shown
                     body: AnimatedBuilder(
                       animation: tabController,
-                      builder: (context, _) => IndexedStack(index: tabController.index.clamp(0, 1), children: [
-                        _buildTopicViewer(viewmodel, projectViewmodel),
-                        SimulatorPage(),
-                      ]),
+                      builder: (context, _) => IndexedStack(
+                          index: tabController.index.clamp(MainAppBar.topicViewerTab, MainAppBar.recorderTab),
+                          children: [
+                            _buildTopicViewer(viewmodel, projectViewmodel),
+                            SimulatorPage(),
+                            RecorderPage(),
+                          ]),
                     ),
                   );
                 });
@@ -89,6 +102,30 @@ class _MessageViewerPageState extends State<MessageViewerPage> {
         )
       ],
     );
+  }
+
+  @override
+  void dispose() {
+    _lifecycleListener.dispose();
+    super.dispose();
+  }
+
+  // closing the app while recording asks first; yes stops and saves the recording (doc/recorder-design.md §5.1)
+  Future<AppExitResponse> _onExitRequested() async {
+    var recorder = GetIt.I.get<RecorderService>();
+    if (!recorder.isRecording) {
+      return AppExitResponse.exit;
+    }
+    var stop = await showDialog<bool>(
+        context: context,
+        builder: (_) => SrxTheme(
+            data: CustomTheme.srxTheme,
+            child: SrxDialog.yesNo(bodyText: 'recorder.closeapp.confirm'.tr(args: [recorder.config?.name ?? '']))));
+    if (stop != true) {
+      return AppExitResponse.cancel;
+    }
+    await recorder.stop();
+    return AppExitResponse.exit;
   }
 
   void _showBrowserPerformanceWarning(BuildContext context) async {
