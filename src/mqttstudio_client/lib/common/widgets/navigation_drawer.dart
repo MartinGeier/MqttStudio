@@ -121,7 +121,7 @@ class NavigationDrawer extends SrxNavigationDrawer {
           return GestureDetector(
             onTap: _openEmail,
             child: Text(
-              'info@redpin.eu',
+              'info@sarix.eu',
               style: isHovering
                   ? Theme.of(context).textTheme.bodyMedium!.copyWith(decoration: TextDecoration.underline)
                   : Theme.of(context).textTheme.bodyMedium,
@@ -180,6 +180,6 @@ class NavigationDrawer extends SrxNavigationDrawer {
   }
 
   void _openEmail() {
-    UrlLauncherPlatform.instance.launchUrl('mailto://info@redpin.eu', LaunchOptions());
+    UrlLauncherPlatform.instance.launchUrl('mailto://info@sarix.eu', LaunchOptions());
   }
 }

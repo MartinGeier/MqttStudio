@@ -93,7 +93,7 @@ BEGIN
             VALUE "FileDescription", "MQTT Studio" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "mqttstudio" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2021 eu.redpin. All rights reserved." "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 Sarix. All rights reserved." "\0"
             VALUE "OriginalFilename", "mqttstudio.exe" "\0"
             VALUE "ProductName", "mqttstudio" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"

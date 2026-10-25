@@ -257,7 +257,7 @@ class RecordingChartsView extends StatelessWidget {
         TileLayer(
           urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
           // OpenStreetMap blocks requests without a user agent identifying the app
-          userAgentPackageName: 'eu.redpin.mqttstudio',
+          userAgentPackageName: 'eu.sarix.mqttstudio',
         ),
         PolylineLayer(polylines: [
           Polyline(points: track, strokeWidth: 3, color: vm.colorOf(vm.topic!).color),

@@ -4,7 +4,7 @@ Guidance for Claude Code when working in this repository.
 
 ## What MQTT Studio is
 
-MQTT Studio (https://www.mqttstudio.com) is a free MQTT client from Redpin (Bolzano, Italy) for developers who build, test and support MQTT-based systems. It ships as a Windows desktop app (MSIX / Microsoft Store) and as a web app running in the browser. Personal and commercial use are both allowed under the EULA. The free version stays free, and commercial add-on features are planned.
+MQTT Studio (https://www.mqttstudio.com) is a free MQTT client from Sarix for developers who build, test and support MQTT-based systems. It ships as a Windows desktop app (MSIX / Microsoft Store) and as a web app running in the browser. Personal and commercial use are both allowed under the EULA. The free version stays free, and commercial add-on features are planned.
 
 User-facing features (as advertised on the website):
 - **Projects**: bundle broker settings and topic subscriptions so users can switch between scenarios.

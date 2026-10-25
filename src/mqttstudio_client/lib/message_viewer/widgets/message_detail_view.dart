@@ -491,7 +491,7 @@ class _MessageDetailViewState extends State<MessageDetailView> {
   TileLayer get openStreetMapTileLayer => TileLayer(
         urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
         // OpenStreetMap blocks requests without a user agent identifying the app
-        userAgentPackageName: 'eu.redpin.mqttstudio',
+        userAgentPackageName: 'eu.sarix.mqttstudio',
         // The default NetworkTileProvider of flutter_map 8 cancels obsolete tile requests itself.
       );
 
