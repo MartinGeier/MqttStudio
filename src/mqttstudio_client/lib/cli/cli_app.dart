@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
 import 'package:mqttstudio/cli/cli_context.dart';
+import 'package:mqttstudio/cli/commands/doc_command.dart';
 import 'package:mqttstudio/cli/commands/projects_command.dart';
 import 'package:mqttstudio/cli/commands/record_command.dart';
 import 'package:mqttstudio/cli/commands/recordings_command.dart';
@@ -28,15 +29,15 @@ class CliApp {
   CliApp(this.context) {
     _runner = _Runner(context)
       ..argParser.addFlag('version', negatable: false, help: 'Print the MQTT Studio version.')
-      ..argParser.addOption('output',
-          abbr: 'o', allowed: ['text', 'json'], defaultsTo: 'text', help: 'Output format.')
+      ..argParser.addOption('output', abbr: 'o', allowed: ['text', 'json'], defaultsTo: 'text', help: 'Output format.')
       ..argParser.addFlag('quiet', abbr: 'q', negatable: false, help: 'Only print errors and the final summary.')
       ..argParser.addFlag('verbose', abbr: 'v', negatable: false, help: 'Print per-topic details and MQTT client logs.')
       ..addCommand(ProjectsCommand(context))
       ..addCommand(SimulateCommand(context))
       ..addCommand(RecordCommand(context))
       ..addCommand(ReplayCommand(context))
-      ..addCommand(RecordingsCommand(context));
+      ..addCommand(RecordingsCommand(context))
+      ..addCommand(DocCommand(context));
   }
 
   Future<int> run(List<String> args) async {

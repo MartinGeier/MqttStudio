@@ -1,5 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
+import 'package:mqttstudio/documentation/documentation_service.dart';
+import 'package:mqttstudio/documentation/model/topic_documentation.dart';
+import 'package:mqttstudio/documentation/model/topic_spec.dart';
 import 'package:mqttstudio/message_viewer/message_buffer.dart';
 import 'package:mqttstudio/message_viewer/message_viewer.dart';
 import 'package:mqttstudio/message_viewer/message_viewer_viewmodel.dart';
@@ -162,6 +165,16 @@ void main() {
 
       // MessageViewer clears its messages when the project is closed
       expect(GetIt.I.get<MessageViewer>().messageBuffer.length, 0);
+    });
+  });
+
+  group('documentation', () {
+    test('the tree viewer shows the documented title', () {
+      GetIt.I
+          .get<DocumentationService>()
+          .addNode(DocNode(path: 'plant/m{machine}/temp', title: 'Temperature', topic: TopicSpec()));
+      expect(viewmodel.documentedTitleOf('plant/m3/temp'), 'Temperature');
+      expect(viewmodel.documentedTitleOf('plant/other'), isNull);
     });
   });
 }

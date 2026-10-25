@@ -1,10 +1,12 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:mqttstudio/documentation/documentation_viewmodel.dart';
+import 'package:mqttstudio/documentation/model/observed_topic.dart';
 import 'package:mqttstudio/documentation/widgets/doc_overview.dart';
 import 'package:mqttstudio/documentation/widgets/doc_tree.dart';
 import 'package:mqttstudio/documentation/widgets/documentation_command_bar.dart';
 import 'package:mqttstudio/documentation/widgets/documentation_dialogs.dart';
+import 'package:mqttstudio/documentation/widgets/findings_panel.dart';
 import 'package:mqttstudio/documentation/widgets/observed_panel.dart';
 import 'package:mqttstudio/documentation/widgets/topic_doc_editor.dart';
 import 'package:provider/provider.dart';
@@ -33,6 +35,17 @@ class _DocumentationPageState extends State<DocumentationPage> {
         if (mounted) {
           DocumentationDialogs.discoveryError(context, message);
         }
+      }
+      ..onCheckError = (message) {
+        if (mounted) {
+          DocumentationDialogs.discoveryError(context, message);
+        }
+      }
+      ..onDiscoverRequested = (recordingId) {
+        if (mounted && _viewmodel.canDiscover) {
+          DocumentationDialogs.discover(context, _viewmodel,
+              source: DiscoverySource.recording, recordingId: recordingId);
+        }
       };
   }
 
@@ -51,8 +64,20 @@ class _DocumentationPageState extends State<DocumentationPage> {
           Expanded(
               child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             DocTree(),
-            Expanded(child: Consumer<DocumentationViewmodel>(builder: (context, vm, _) => _buildEditor(context, vm))),
-            Consumer<DocumentationViewmodel>(builder: (context, vm, _) => _buildObserved(vm))
+            Expanded(
+              child: Consumer<DocumentationViewmodel>(
+                builder: (context, vm, _) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  Expanded(
+                    child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                      Expanded(child: _buildEditor(context, vm)),
+                      _buildObserved(vm),
+                    ]),
+                  ),
+                  // the findings of the running or last check, under the editor
+                  if (vm.isProjectOpen && vm.findings != null) FindingsPanel(),
+                ]),
+              ),
+            )
           ]))
         ]));
   }

@@ -33,7 +33,9 @@ class _TrieLevel {
 class DocIndex {
   final _root = _TrieLevel();
 
-  DocIndex(Iterable<DocNode> nodes) {
+  // without patterns, a parameter matches any value; the check uses it to tell a broken pattern from an undocumented
+  // topic
+  DocIndex(Iterable<DocNode> nodes, {bool patterns = true}) {
     for (var node in nodes.where((node) => node.isTopic)) {
       var path = DocPath.tryParse(node.path);
       if (path == null) {
@@ -43,7 +45,7 @@ class DocIndex {
       for (var segment in path.segments) {
         level = level.childFor(segment);
       }
-      level.ends.add((path, node, _patternsOf(node)));
+      level.ends.add((path, node, patterns ? _patternsOf(node) : const <String, RegExp>{}));
     }
   }
 

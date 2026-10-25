@@ -67,6 +67,8 @@ dependencies:
   idb_shim: ^2.10.1+1
   # the leave-page prompt of the browser while recording
   web: ^1.1.1
+  # reading AsyncAPI documents into the documentation
+  yaml: ^3.1.4
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.

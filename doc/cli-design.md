@@ -315,6 +315,7 @@ Run "mqttstudio help <command>" for more information about a command.
 | `publish -p <project> -t <topic> [--payload <text> \| --file <path>] [--qos] [--retain]` | One-off publish, e.g. from scripts |
 | `subscribe -p <project> -t <filter>… [--count N] [--duration]` | Print received messages (text or JSON lines) |
 | `record`, `replay`, `recordings …` | Designed, see §7.1 |
+| `doc discover`, `check`, `export`, `import` | Implemented, see §7.3 |
 | `simulate --topic <id>`, `--instances <device>=<n>` | Finer selection and load scaling without editing the project |
 | `projects export` / `import` | If file export (a v1 non-goal of the simulator) is ever wanted |
 
@@ -441,6 +442,32 @@ What the code does where it differs from the text above:
 - `recordings compare` with recordings in different folders copies B into A's folder for the
   comparison and deletes the copy afterwards. `recordings import --format mosquitto` tells the
   `-F "%U %t %p"` and `-v` forms apart by the first line.
+
+### 7.3 Documentation commands (`documentation-design.md` §10)
+
+All four take `-p <project>` and read its documentation; like every command they never write to the project store.
+
+```
+mqttstudio doc discover -p <project> -t <filter>... [-x <filter>]... [--duration 5m | --count N]
+                        [--from-recording <recording>] [--out <file>] [--no-templates] [--no-schemas] [--reconnect]
+mqttstudio doc check    -p <project> [-t <filter>]... [--duration 10m] [--fail-on error|warning|never] [--reconnect]
+mqttstudio doc export   -p <project> --format md|html|asyncapi-yaml|asyncapi-json|jsonschema|csv [--out <file>]
+                        [--scope <path>] [--observed] [--broker] [--no-examples]
+mqttstudio doc import   -p <project> <file> [--out <file>] [--replace]
+```
+
+- **`discover`** listens for the duration (default 5 min) or message count, or reads a recording; Ctrl+C stops
+  early with a result. It prints the comparison (`new`, `changed`, `notSeen` per topic with `-v`, then `result`).
+  `--out` applies the result with the review defaults and writes the documentation as an MQTT Studio AsyncAPI file
+  (`.json` → JSON, else YAML) for the app's IMPORT. The broker overrides of §2.4 apply.
+- **`check`** subscribes to `-t`, else the filters of the last discovery, else the documented topics. It runs for
+  `--duration` or until Ctrl+C, then prints one `finding` per finding and a `summary`. Exit code 8 (`mismatch`)
+  when a finding at or above `--fail-on` (default `error`) occurred, 6 when the connection was lost without
+  `--reconnect`, 4 when there is nothing to check.
+- **`export`** writes to stdout or `--out`, with the same options as the app's export dialog. Credentials,
+  certificates and the client id are never written.
+- **`import`** reads an AsyncAPI 2.x/3.x file, prints the plan (new, changed, unchanged, conflicts; the items with
+  `-v`) and with `--out` writes the merged (or with `--replace` the replaced) documentation.
 
 ## 8. Decisions
 

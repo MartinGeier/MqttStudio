@@ -104,6 +104,18 @@ void main() {
     expect(service.nodes.map((node) => node.path), ['ab']);
   });
 
+  test('clearing deletes every node and keeps the documentation texts', () {
+    var documentation = GetIt.I.get<ProjectManager>().currentProject!.documentation..title = 'Plant';
+    service.addNode(DocNode(path: 'a'));
+    service.addNode(DocNode(path: 'a/b', topic: TopicSpec()));
+    var events = 0;
+    service.documentationChangedEvent.subscribe((_) => events++);
+    expect(service.clearAll(), 2);
+    expect(service.nodes, isEmpty);
+    expect(documentation.title, 'Plant');
+    expect(events, 1);
+  });
+
   test('duplicating finds a free path', () {
     var node = DocNode(path: 'a/b', title: 'B', topic: TopicSpec());
     service.addNode(node);

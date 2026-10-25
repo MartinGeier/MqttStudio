@@ -99,6 +99,36 @@ void main() {
     });
   });
 
+  testWidgets('DELETE ALL TOPICS asks and clears the documentation', (tester) async {
+    await ignoringOverflowErrors(() async {
+      await pumpPage(tester);
+      var button = find.ancestor(of: find.text('DELETE ALL TOPICS'), matching: find.byType(TextButton));
+      expect(tester.widget<TextButton>(button).onPressed, isNull);
+      var service = GetIt.I.get<DocumentationService>();
+      service.addNode(DocNode(path: 'plant/a', topic: TopicSpec()));
+      service.addNode(DocNode(path: 'plant/b', topic: TopicSpec()));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('DELETE ALL TOPICS'));
+      await tester.pumpAndSettle();
+      // SrxDialog shows its body as Markdown, in a RichText
+      expect(
+          find.byWidgetPredicate(
+              (widget) => widget is RichText && widget.text.toPlainText().contains('Delete all 2 documented topics')),
+          findsOneWidget);
+      await tester.tap(find.text('No'));
+      await tester.pumpAndSettle();
+      expect(service.nodes, hasLength(2));
+
+      await tester.tap(find.text('DELETE ALL TOPICS'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Yes'));
+      await tester.pumpAndSettle();
+      expect(service.nodes, isEmpty);
+      expect(find.text('a'), findsNothing);
+    });
+  });
+
   testWidgets('selecting a namespace shows the topics below it', (tester) async {
     await ignoringOverflowErrors(() async {
       await pumpPage(tester);

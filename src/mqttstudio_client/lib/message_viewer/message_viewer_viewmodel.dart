@@ -2,6 +2,7 @@ import 'package:darq/darq.dart';
 import 'package:event/event.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqtt5_client/mqtt5_client.dart';
+import 'package:mqttstudio/documentation/documentation_service.dart';
 import 'package:mqttstudio/model/mqtt_payload_type.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
 import 'package:mqttstudio/message_viewer/message_viewer.dart';
@@ -40,12 +41,14 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
     _messageViewer.topicSubscriptionsChangedEvent.subscribe(_topicSubriptionsChanged);
     _messageViewer.messagesClearedEvent.subscribe(_messagesCleared);
     GetIt.I.get<ProjectManager>().projectClosedEvent.subscribe(_projectClosed);
+    _documentation.documentationChangedEvent.subscribe(_documentationChanged);
   }
 
   @override
   void dispose() {
     // only remove our own handlers, the events are shared with other services and viewmodels
     GetIt.I.get<ProjectManager>().projectClosedEvent.unsubscribe(_projectClosed);
+    _documentation.documentationChangedEvent.unsubscribe(_documentationChanged);
     _messageViewer.topicSubscriptionsChangedEvent.unsubscribe(_topicSubriptionsChanged);
     _messageViewer.messageReceivedEvent.unsubscribe(_onMessageReceived);
     _messageViewer.messagesClearedEvent.unsubscribe(_messagesCleared);
@@ -53,6 +56,16 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
   }
 
   ReceivedMqttMessage? get selectedMessage => _selectedMessage;
+
+  DocumentationService get _documentation => GetIt.I.get<DocumentationService>();
+
+  // the documented title of a topic, for the tree viewer's tooltips
+  String? documentedTitleOf(String topic) {
+    var title = _documentation.match(topic)?.node.title;
+    return title == null || title.isEmpty ? null : title;
+  }
+
+  void _documentationChanged(EventArgs? _) => notifyListeners();
 
   MQTTMessageBuffer get messageBuffer => _messageViewer.messageBuffer;
 

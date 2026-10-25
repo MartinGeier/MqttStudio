@@ -425,7 +425,7 @@ or JSON lines.
 ## 8. Viewer integration with the rest of the app
 
 ### 8.1 Topic viewer
-- **Detail view:** a "Documentation" section under the topic chip (collapsed when the user
+- **Detail view (dropped, see §15.1 phase 4):** a "Documentation" section under the topic chip (collapsed when the user
   collapsed it last time): title, the first paragraph of the description, status, and the unit
   next to the payload value. The documented range is drawn as two dashed lines in the chart.
   Actions: OPEN IN DOCUMENTATION, or DOCUMENT for an undocumented topic (creates a node from this
@@ -506,8 +506,8 @@ mqttstudio doc export   -p <project> --format md|html|asyncapi-yaml|asyncapi-jso
 mqttstudio doc import   -p <project> <file> [--replace] [--save]
 ```
 
-- `discover` prints the review summary. `--apply` accepts the defaults of §5.6, `--save` saves
-  the project.
+- `discover` prints the review summary. The implementation writes files instead of saving the
+  project: `--out <file>` replaces `--apply` and `--save` (§15.1, phase 5).
 - `check` exits with 8 (`mismatch`, C6) when a finding at or above `--fail-on` occurs, 0 when
   clean. `--output json` writes one JSON line per finding.
 
@@ -611,7 +611,7 @@ the new `warning` color, T16), topic, rule, count, last seen and the detail text
 row selects the node; the tree shows a small severity icon on affected nodes. EXPORT and `close`
 in the panel header.
 
-### 12.7 Detail view section (topic viewer)
+### 12.7 Detail view section (topic viewer, dropped)
 Under the topic chip in `MessageDetailView`: "Documentation" (`titleMedium`) with the status tag,
 the title (`headlineSmall`), the first paragraph of the description (`bodyMedium`, 3 lines), unit
 next to the payload value, and the actions OPEN IN DOCUMENTATION or DOCUMENT, PIN AS EXAMPLE.
@@ -699,7 +699,8 @@ Changes elsewhere: `project.dart` (field), `main_appbar.dart` (tab), `message_vi
 
 ## 15.1 Implementation notes (2026-10-24)
 
-Phases 1 and 2 are implemented in `lib/documentation/`; tests in `test/documentation/`.
+All five phases are implemented in `lib/documentation/` (the CLI in `lib/cli/commands/doc_command.dart`); tests in
+`test/documentation/` and `test/cli/doc_cli_test.dart`.
 
 **Phase 1 (model and editor)**
 
@@ -722,8 +723,8 @@ Phases 1 and 2 are implemented in `lib/documentation/`; tests in `test/documenta
   add namespace, rename or move) and `SchemaFieldDialog`. `ReactiveTagField` edits tags, allowed values, producers and
   consumers. `NumberValueAccessor` moved from the generator editor to `common/utils/` for reuse. New color
   `CustomColors.topicGroup`.
-- **Not yet:** the Markdown PREVIEW of descriptions (no Markdown package in the app), EDIT AS JSON for the schema
-  (comes with the JSON Schema export, phase 3), bulk edit of several nodes, and `[label](topic:…)` links.
+- **Not yet:** the Markdown PREVIEW of descriptions (no Markdown package in the app), bulk edit of several nodes,
+  and `[label](topic:…)` links. EDIT AS JSON came with phase 3.
 
 **Phase 2 (discovery)**
 
@@ -747,9 +748,64 @@ Phases 1 and 2 are implemented in `lib/documentation/`; tests in `test/documenta
   (opens when a result is ready; REVIEW reopens it), review tags in the tree and filters New / Changed / Not seen,
   `ObservedPanel` (360 px, closable, reopened from the editor header) and "Observed: …" helper texts on format, QoS,
   retain, nominal interval and minimum.
-- **Not yet:** live "New" marks in the tree while a discovery runs (the status counts new topics instead),
-  "Discover documentation" in the recording list's menu (phase 4), and showing the observed interval histogram (the
+- **Not yet:** live "New" marks in the tree while a discovery runs (the status counts new topics instead), and showing the observed interval histogram (the
   panel shows min, p10–p90 and max instead).
+
+**Phase 3 (export and import)**
+
+- **Export** (`export/`): `DocExport.run` writes Markdown and HTML from one block model (`DocBlocks`: table of
+  contents with anchors, facts, tables, code blocks), AsyncAPI 3.0 as YAML (`YamlWriter`, own writer) or JSON
+  (`AsyncApiExporter`), a JSON Schema bundle and CSV (`CsvExporter`). `SchemaJson` converts payloads and schemas to
+  JSON Schema and back. The exported texts are English: they are documents, not app UI, and the CLI (phase 5) writes
+  them without the app's translations. Channel ids are the path with other characters replaced by `_`, made unique
+  with a number. Credentials, certificates and the client id are never written (T15).
+- **HTML** shows descriptions as plain paragraphs, not rendered Markdown (no Markdown package). It is styled like the
+  app and has a print stylesheet for PDF.
+- **Import** (`AsyncApiImporter`, `yaml` package): AsyncAPI 3.x and 2.x, YAML or JSON, local `$ref`s, `x-mqttstudio-*`
+  extensions; in 2.x the operation summary becomes the title. Schema keywords outside the subset (§5.4) are left out
+  and listed as warnings instead of kept as raw JSON. An MQTT Studio export imports again without loss (tested).
+- **Import dialog instead of the review dialog** (§9.3): imported topics are documentation, not observations, so they
+  get a dialog of their own (`ImportDialog`, `ImportPlan`): new, changed, unchanged and conflicting topics (a
+  documented template with the same shape), a checkbox per new or changed topic, and "Replace the whole
+  documentation". Changed topics take the imported texts and keep their observed values; replacing keeps observed
+  values of topics with the same path.
+- **UI:** IMPORT and EXPORT in the command bar, `ExportDialog` (format, whole documentation or the selected subtree,
+  examples, observed statistics, broker address, file name that follows the format) and EDIT AS JSON in the schema
+  table (`SchemaJsonDialog`). Files are saved with the file picker on the desktop and downloaded in the browser.
+
+**Phase 4 (check and integration)**
+
+- **Engine:** `SchemaValidator` checks a JSON value against a `SchemaNode` (type, enum, range, required, properties,
+  items; `null` passes for every type, as discovery infers optional fields). `ConformanceChecker` applies the rules
+  of §7 and aggregates findings per concrete topic and rule (schema findings also per JSON path). Its detail texts are
+  English, like the exports and the CLI. Without a discovery its filters are the documented topics with `+` for
+  parameters. `DocIndex(patterns: false)` matches templates without their parameter patterns, so a value that breaks
+  a pattern is a parameter mismatch instead of an undocumented topic.
+- **Service:** `CheckService` (GetIt) runs one check on its own `SideConnection` (client id tag `-chk-`), checks
+  stale topics every second and keeps the findings in memory until the panel is closed or the next check starts. A
+  check and a discovery don't run at the same time in the tab.
+- **UI:** CHECK and stop with a live status in the command bar, `FindingsPanel` (280 px under the editor, counts,
+  EXPORT as CSV, a click selects the topic), severity icons in the tree and the filter "With findings". New color
+  `CustomColors.warning`.
+- **Topic viewer:** the tree viewer's chips have the documented title as tooltip. The detail view's documentation
+  section (§8.1, §12.7) was built and then removed again on request: the detail view stays as it was, without
+  OPEN IN DOCUMENTATION, DOCUMENT, PIN AS EXAMPLE or the documented unit. `DocumentationService.requestDiscover`
+  switches the main window to the tab for the recorder's "Discover documentation".
+- **Simulator:** "Create simulation" in a node's menu adds a device per documented topic at or below it
+  (`SimulationBuilder`, §8.2). Event-driven topics get a random interval between p10 and p90 of the observation, else
+  between the nominal interval and three times it. A string topic gets a random string; `date-time` maps to a
+  timestamp inside JSON templates only.
+- **Recorder:** "Discover documentation" in the recording list's menu.
+- **Not yet:** the documented range as dashed lines in the chart and the unit on its Y axis, and exporting findings as JSON lines in the app (the CLI writes them).
+
+**Phase 5 (CLI)**
+
+- `mqttstudio doc discover|check|export|import`, see `cli-design.md` §7.3. They use `DiscoveryService` and
+  `CheckService` without the app's projects, like `record` uses the `RecorderService`.
+- **Deviation from §10:** the CLI never writes to the project store (cli-design C2), so there is no `--save`.
+  `discover --out <file>` applies the result with the review defaults (§5.6) and `import --out <file>` merges; both
+  write the documentation as an MQTT Studio AsyncAPI file that the app's IMPORT reads back without loss.
+  `--apply` is implied by `--out`.
 
 ## 16. Known limitations
 

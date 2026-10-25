@@ -4,6 +4,7 @@ import 'package:mqttstudio/documentation/doc_root_editor_model.dart';
 import 'package:mqttstudio/documentation/documentation_viewmodel.dart';
 import 'package:mqttstudio/documentation/model/topic_documentation.dart';
 import 'package:mqttstudio/documentation/widgets/doc_widgets.dart';
+import 'package:mqttstudio/documentation/widgets/documentation_dialogs.dart';
 import 'package:provider/provider.dart';
 import 'package:reactive_forms/reactive_forms.dart';
 import 'package:srx_flutter/srx_flutter.dart';
@@ -40,7 +41,11 @@ class DocOverview extends StatelessWidget {
               DocWidgets.textField(DocRootEditorModel.description, 'doceditor.description.label',
                   minLines: 3, maxLines: 12),
               SizedBox(height: 24),
-              DocWidgets.sectionTitle(context, 'docoverview.contents.section'),
+              DocWidgets.sectionTitle(context, 'docoverview.contents.section',
+                  action: TextButton.icon(
+                      onPressed: vm.nodeCount > 0 ? () => DocumentationDialogs.clearAll(context, vm) : null,
+                      icon: Icon(Icons.delete_sweep),
+                      label: Text('docoverview.clearall.button'.tr()))),
               SizedBox(height: 16),
               _buildCounts(context, vm.documentation!),
               SizedBox(height: 24),

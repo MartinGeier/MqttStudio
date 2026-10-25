@@ -38,7 +38,11 @@ class DiscoverViewmodel extends SrxChangeNotifier {
   List<RecordingInfo> recordings = [];
   final List<StreamSubscription> _subscriptions = [];
 
-  DiscoverViewmodel({DiscoverySource source = DiscoverySource.live, String? recordingId}) {
+  // chosen once the recordings are loaded: a dropdown value must be one of its items
+  final String? _initialRecordingId;
+
+  DiscoverViewmodel({DiscoverySource source = DiscoverySource.live, String? recordingId})
+      : _initialRecordingId = recordingId {
     var documentation = _projectManager.currentProject?.documentation;
     var settings = documentation?.discoverySettings ?? DiscoverySettings();
     // only the filters of an applied discovery are remembered; otherwise one empty filter to fill in
@@ -46,7 +50,7 @@ class DiscoverViewmodel extends SrxChangeNotifier {
         documentation?.lastDiscoveryAt != null && settings.filters.isNotEmpty ? settings.filters : [RecorderFilter('')];
     form = FormGroup({
       sourceField: FormControl<DiscoverySource>(value: source),
-      recordingField: FormControl<String>(value: recordingId, validators: [Validators.delegate(_validateRecording)]),
+      recordingField: FormControl<String>(validators: [Validators.delegate(_validateRecording)]),
       filtersField: FormArray<Map<String, Object?>>(
           [for (var filter in filters) _filterGroup(filter.filter, filter.exclude)],
           validators: [Validators.delegate(_validateIncludes)]),
@@ -123,6 +127,9 @@ class DiscoverViewmodel extends SrxChangeNotifier {
     var library = GetIt.I.isRegistered<RecordingLibrary>() ? GetIt.I.get<RecordingLibrary>() : null;
     recordings = await library?.list() ?? [];
     recordings.sort((a, b) => b.header.startedAt.compareTo(a.header.startedAt));
+    if (recordings.any((info) => info.id == _initialRecordingId)) {
+      form.control(recordingField).value = _initialRecordingId;
+    }
     form.control(recordingField).updateValueAndValidity();
     notifyListeners();
   }

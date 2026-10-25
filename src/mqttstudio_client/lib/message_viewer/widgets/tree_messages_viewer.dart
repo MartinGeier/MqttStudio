@@ -41,17 +41,20 @@ class TreeMessagesViewer extends StatelessWidget {
     for (var msgNode in messageNodes) {
       var childNodes = (_buildNodes(msgNode.children, viewmodel, context));
       var realTopic = msgNode.message!.topicName.endsWith(msgNode.topicLevelName);
-      var newNode = TreeNode(
-          content: TopicChip(
-            topic: msgNode.topicLevelName,
-            countLabel: realTopic ? msgNode.messageCount.toString() : null,
-            receivedTime: realTopic ? msgNode.message!.receivedOn : null,
-            topicColor:
-                realTopic ? context.read<MessageViewerViewmodel>().getTopicColor(msgNode.message!.topicName) : TopicColor(Colors.grey),
-            selected: realTopic ? viewmodel.selectedMessage == msgNode.message : false,
-            onPressed: realTopic ? () => viewmodel.selectedMessage = msgNode.message : () {},
-          ),
-          children: childNodes);
+      var title = realTopic ? viewmodel.documentedTitleOf(msgNode.message!.topicName) : null;
+      var chip = TopicChip(
+        topic: msgNode.topicLevelName,
+        countLabel: realTopic ? msgNode.messageCount.toString() : null,
+        receivedTime: realTopic ? msgNode.message!.receivedOn : null,
+        topicColor: realTopic
+            ? context.read<MessageViewerViewmodel>().getTopicColor(msgNode.message!.topicName)
+            : TopicColor(Colors.grey),
+        selected: realTopic ? viewmodel.selectedMessage == msgNode.message : false,
+        onPressed: realTopic ? () => viewmodel.selectedMessage = msgNode.message : () {},
+      );
+      // the documented title of the topic
+      var newNode =
+          TreeNode(content: title == null ? chip : Tooltip(message: title, child: chip), children: childNodes);
       result.add(newNode);
     }
 

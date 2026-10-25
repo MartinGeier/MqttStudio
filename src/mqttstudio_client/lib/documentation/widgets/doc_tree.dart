@@ -7,6 +7,7 @@ import 'package:mqttstudio/documentation/engine/doc_tree.dart';
 import 'package:mqttstudio/documentation/model/topic_documentation.dart';
 import 'package:mqttstudio/documentation/widgets/doc_format.dart';
 import 'package:mqttstudio/documentation/widgets/documentation_dialogs.dart';
+import 'package:mqttstudio/documentation/widgets/findings_panel.dart';
 import 'package:provider/provider.dart';
 
 // The documented topics on the left of the DOCUMENTATION tab: the documentation itself on top, then the path tree
@@ -68,9 +69,9 @@ class DocTree extends StatelessWidget {
     var entry = row.entry;
     var selected = entry.path == vm.selectedPath;
     return GestureDetector(
-        onSecondaryTapDown: entry.isRoot
-            ? null
-            : (details) => DocumentationDialogs.showNodeMenu(context, vm, entry, details.globalPosition),
+        onSecondaryTapDown: (details) => entry.isRoot
+            ? DocumentationDialogs.showRootMenu(context, vm, details.globalPosition)
+            : DocumentationDialogs.showNodeMenu(context, vm, entry, details.globalPosition),
         child: Material(
             color: selected ? theme.colorScheme.primary.withValues(alpha: 0.12) : Colors.transparent,
             child: InkWell(
@@ -137,7 +138,12 @@ class DocTree extends StatelessWidget {
       return [];
     }
     var theme = Theme.of(context);
+    var severity = context.read<DocumentationViewmodel>().severityOf(node.path);
     return [
+      if (severity != null)
+        Tooltip(
+            message: 'doctree.findings.tooltip'.tr(),
+            child: Icon(FindingsPanel.iconOf(severity), size: 18, color: FindingsPanel.colorOf(context, severity))),
       if (node.isTopic && node.isUndocumented)
         Tooltip(
             message: 'doctree.undocumented.tooltip'.tr(),

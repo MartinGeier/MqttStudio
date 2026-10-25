@@ -20,6 +20,10 @@ class SchemaTable extends StatelessWidget {
       Row(children: [
         Expanded(child: Text('schematable.title'.tr(), style: theme.textTheme.titleSmall)),
         TextButton.icon(
+            onPressed: () => DocumentationDialogs.editSchemaJson(context, editor),
+            icon: Icon(Icons.data_object),
+            label: Text('schematable.editjson.button'.tr())),
+        TextButton.icon(
             onPressed: () => DocumentationDialogs.editSchemaField(context, editor),
             icon: Icon(Icons.add),
             label: Text('schematable.addfield.button'.tr()))

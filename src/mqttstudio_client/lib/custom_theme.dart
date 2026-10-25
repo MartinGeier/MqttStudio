@@ -74,4 +74,6 @@ class CustomColors {
   Color recordingColor = Colors.red.shade800;
   // a topic group or a documented topic without a subscription of its own, as in the tree viewer
   Color topicGroup = Colors.grey;
+  // findings of the documentation check that are warnings; errors use the theme's error color. Icons only.
+  Color warning = Color(0xffef6c00);
 }

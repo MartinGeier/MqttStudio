@@ -1,7 +1,10 @@
 import 'dart:async';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:mqttstudio/documentation/check_service.dart';
 import 'package:mqttstudio/documentation/discovery_service.dart';
+import 'package:mqttstudio/documentation/engine/conformance_checker.dart';
+import 'package:mqttstudio/documentation/widgets/findings_panel.dart';
 import 'package:mqttstudio/documentation/doc_path_viewmodel.dart';
 import 'package:mqttstudio/documentation/documentation_viewmodel.dart';
 import 'package:mqttstudio/documentation/widgets/doc_format.dart';
@@ -35,6 +38,8 @@ class _DocumentationCommandBarState extends State<DocumentationCommandBar> {
       Row(children: [
         _buildDiscovery(vm),
         SizedBox(height: 40, child: VerticalDivider()),
+        _buildCheck(vm),
+        SizedBox(height: 40, child: VerticalDivider()),
         Padding(
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
             child: Tooltip(
@@ -49,6 +54,23 @@ class _DocumentationCommandBarState extends State<DocumentationCommandBar> {
         Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: _buildSearchField(vm)),
         _buildFilter(vm),
         Spacer(),
+        Tooltip(
+          message: 'documentation.import.tooltip'.tr(),
+          child: TextButton.icon(
+              onPressed: vm.isProjectOpen && !vm.isDiscovering
+                  ? () => DocumentationDialogs.importDocumentation(context, vm)
+                  : null,
+              icon: Icon(Icons.file_upload),
+              label: Text('documentation.import.button'.tr())),
+        ),
+        Tooltip(
+          message: 'documentation.export.tooltip'.tr(),
+          child: TextButton.icon(
+              onPressed: vm.isProjectOpen ? () => DocumentationDialogs.exportDocumentation(context, vm) : null,
+              icon: Icon(Icons.file_download),
+              label: Text('documentation.export.button'.tr())),
+        ),
+        SizedBox(width: 8),
         if (vm.lastDiscoveryResult != null && !vm.isDiscovering)
           Padding(
             padding: const EdgeInsets.only(right: 16),
@@ -140,6 +162,47 @@ class _DocumentationCommandBarState extends State<DocumentationCommandBar> {
             icon: Icon(Icons.stop),
             tooltip: 'documentation.stopdiscovery.tooltip'.tr()),
         if (vm.isDiscovering) _buildDiscoveryStatus(vm),
+      ]),
+    );
+  }
+
+  Widget _buildCheck(DocumentationViewmodel vm) {
+    return Row(children: [
+      Tooltip(
+        message: 'documentation.check.tooltip'.tr(),
+        child: TextButton.icon(
+            onPressed: vm.canCheck ? () => DocumentationDialogs.startCheck(context, vm) : null,
+            icon: Icon(Icons.rule),
+            label: Text('documentation.check.button'.tr())),
+      ),
+      IconButton(
+          onPressed: vm.isChecking ? vm.stopCheck : null,
+          icon: Icon(Icons.stop),
+          tooltip: 'documentation.stopcheck.tooltip'.tr()),
+      if (vm.isChecking) _buildCheckStatus(vm),
+    ]);
+  }
+
+  Widget _buildCheckStatus(DocumentationViewmodel vm) {
+    var theme = Theme.of(context);
+    var elapsed = vm.checkElapsed;
+    var clock =
+        '${elapsed.inMinutes.toString().padLeft(2, '0')}:${(elapsed.inSeconds % 60).toString().padLeft(2, '0')}';
+    var label = switch (vm.checkState) {
+      CheckState.connecting => 'documentation.discovery.connecting'.tr(),
+      CheckState.reconnecting => 'documentation.discovery.reconnecting'.tr(args: ['${vm.checkReconnectAttempt}']),
+      _ => 'documentation.check.running'.tr(args: [clock, DocFormat.count(vm.checkMessages)]),
+    };
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Row(children: [
+        Text(label, style: theme.textTheme.bodyMedium!.copyWith(fontFeatures: [FontFeature.tabularFigures()])),
+        for (var severity in FindingSeverity.values) ...[
+          SizedBox(width: 12),
+          Icon(FindingsPanel.iconOf(severity), size: 18, color: FindingsPanel.colorOf(context, severity)),
+          SizedBox(width: 4),
+          Text('${vm.findingCount(severity)}', style: theme.textTheme.bodyMedium),
+        ],
       ]),
     );
   }

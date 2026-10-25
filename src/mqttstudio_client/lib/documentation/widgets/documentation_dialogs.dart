@@ -1,10 +1,15 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:mqttstudio/common/widgets/main_appbar.dart';
 import 'package:mqttstudio/custom_theme.dart';
 import 'package:mqttstudio/common/widgets/error_snackbar.dart';
 import 'package:mqttstudio/documentation/discover_dialog.dart';
 import 'package:mqttstudio/documentation/discover_viewmodel.dart';
 import 'package:mqttstudio/documentation/doc_node_editor_model.dart';
+import 'package:mqttstudio/documentation/export_dialog.dart';
+import 'package:mqttstudio/documentation/export_viewmodel.dart';
+import 'package:mqttstudio/documentation/import_dialog.dart';
+import 'package:mqttstudio/documentation/import_viewmodel.dart';
 import 'package:mqttstudio/documentation/doc_path_dialog.dart';
 import 'package:mqttstudio/documentation/doc_path_viewmodel.dart';
 import 'package:mqttstudio/documentation/documentation_viewmodel.dart';
@@ -13,11 +18,13 @@ import 'package:mqttstudio/documentation/engine/doc_tree.dart';
 import 'package:mqttstudio/documentation/model/observed_topic.dart';
 import 'package:mqttstudio/documentation/review_dialog.dart';
 import 'package:mqttstudio/documentation/model/topic_documentation.dart';
+import 'package:mqttstudio/documentation/model/topic_spec.dart';
 import 'package:mqttstudio/documentation/schema_field_dialog.dart';
+import 'package:mqttstudio/documentation/schema_json_dialog.dart';
 import 'package:mqttstudio/documentation/schema_field_viewmodel.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 
-enum _NodeAction { addTopic, addNamespace, move, duplicate, toTopic, toNamespace, delete }
+enum _NodeAction { addTopic, addNamespace, move, duplicate, toTopic, toNamespace, createSimulation, delete }
 
 // Opens the dialogs and menus of the documentation tab and applies their result
 class DocumentationDialogs {
@@ -49,6 +56,58 @@ class DocumentationDialogs {
   static void discoveryError(BuildContext context, String message) =>
       ScaffoldMessenger.of(context).showSnackBar(errorSnackBar('discovery.error'.tr(args: [message]), context));
 
+  static Future exportDocumentation(BuildContext context, DocumentationViewmodel vm) async {
+    var request = await _show<DocExportRequest>(
+        context, ExportDialog(title: vm.documentation?.title ?? '', selectedPath: vm.selectedPath));
+    if (request == null || !context.mounted) {
+      return;
+    }
+    try {
+      var saved = await vm.exportDocumentation(request);
+      if (saved != null && context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('documentation.exported.info'.tr(args: [saved]))));
+      }
+    } catch (exc) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(errorSnackBar('documentation.export.error'.tr(args: [exc.toString()]), context));
+      }
+    }
+  }
+
+  static Future startCheck(BuildContext context, DocumentationViewmodel vm) async {
+    try {
+      await vm.startCheck();
+    } catch (exc) {
+      if (context.mounted) {
+        await _show(context, SrxDialog.error(title: 'documentation.cannotcheck.title'.tr(), bodyText: exc.toString()));
+      }
+    }
+  }
+
+  static Future exportFindings(BuildContext context, DocumentationViewmodel vm) async {
+    try {
+      var saved = await vm.exportFindings();
+      if (saved != null && context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('documentation.exported.info'.tr(args: [saved]))));
+      }
+    } catch (exc) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(errorSnackBar('documentation.export.error'.tr(args: [exc.toString()]), context));
+      }
+    }
+  }
+
+  static Future importDocumentation(BuildContext context, DocumentationViewmodel vm) async {
+    var request = await _show<DocImportRequest>(context, ImportDialog());
+    if (request != null) {
+      vm.importDocumentation(request);
+    }
+  }
+
   static Future addNode(
       BuildContext context, DocumentationViewmodel vm, DocPathDialogMode mode, String? basePath) async {
     var node = await _show<DocNode>(context, DocPathDialog(mode: mode, basePath: basePath, onAdd: vm.addNode));
@@ -61,6 +120,33 @@ class DocumentationDialogs {
     var target = await _show<String>(context, DocPathDialog(mode: DocPathDialogMode.move, basePath: path));
     if (target != null && target != path) {
       vm.movePath(path, target);
+    }
+  }
+
+  static Future clearAll(BuildContext context, DocumentationViewmodel vm) async {
+    var confirmed =
+        await _show<bool>(context, SrxDialog.yesNo(bodyText: 'documentation.clearall.confirm'.plural(vm.nodeCount)));
+    if (confirmed == true) {
+      vm.clearAll();
+    }
+  }
+
+  // the root of the tree: the documentation as a whole
+  static Future showRootMenu(BuildContext context, DocumentationViewmodel vm, Offset position) async {
+    var overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    var clear = await showMenu<bool>(
+      context: context,
+      position: RelativeRect.fromRect(position & Size(1, 1), Offset.zero & overlay.size),
+      items: [
+        PopupMenuItem(
+            value: true,
+            enabled: vm.nodeCount > 0,
+            child: ListTile(
+                leading: Icon(Icons.delete_sweep), title: Text('documentation.menu.clearall'.tr()), dense: true)),
+      ],
+    );
+    if (clear == true && context.mounted) {
+      await clearAll(context, vm);
     }
   }
 
@@ -82,6 +168,13 @@ class DocumentationDialogs {
     }
   }
 
+  static Future editSchemaJson(BuildContext context, DocNodeEditorModel editor) async {
+    var schema = await _show<SchemaNode>(context, SchemaJsonDialog(schema: editor.schema));
+    if (schema != null) {
+      editor.replaceSchema(schema);
+    }
+  }
+
   static Future showNodeMenu(
       BuildContext context, DocumentationViewmodel vm, DocTreeEntry entry, Offset position) async {
     var path = entry.path!;
@@ -100,6 +193,8 @@ class DocumentationDialogs {
           if (node != null && !node.isTopic) item(_NodeAction.toTopic, Icons.topic, 'documentation.menu.totopic'),
           if (node != null && node.isTopic)
             item(_NodeAction.toNamespace, Icons.folder, 'documentation.menu.tonamespace'),
+          if (vm.topicCountAtOrBelow(path) > 0)
+            item(_NodeAction.createSimulation, Icons.precision_manufacturing, 'documentation.menu.createsimulation'),
           item(_NodeAction.delete, Icons.delete, 'documentation.menu.delete')
         ]);
     if (!context.mounted || action == null) {
@@ -118,9 +213,18 @@ class DocumentationDialogs {
         vm.setTopic(node!, true);
       case _NodeAction.toNamespace:
         await _confirmToNamespace(context, vm, node!);
+      case _NodeAction.createSimulation:
+        createSimulation(context, vm, path);
       case _NodeAction.delete:
         await delete(context, vm, path);
     }
+  }
+
+  static void createSimulation(BuildContext context, DocumentationViewmodel vm, String path) {
+    var names = vm.createSimulation(path);
+    DefaultTabController.maybeOf(context)?.animateTo(MainAppBar.simulatorTab);
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('documentation.simulationcreated.info'.plural(names.length, args: [names.join(', ')]))));
   }
 
   // the topic details are lost

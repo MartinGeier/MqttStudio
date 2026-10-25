@@ -7,6 +7,7 @@ import 'package:mqttstudio/recorder/model/recording_header.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqtt5_client/mqtt5_client.dart';
+import 'package:mqttstudio/documentation/check_service.dart';
 import 'package:mqttstudio/documentation/discovery_service.dart';
 import 'package:mqttstudio/documentation/documentation_service.dart';
 import 'package:mqttstudio/message_viewer/message_viewer.dart';
@@ -51,6 +52,7 @@ FakeMqttAdapter setUpServices([FakeMqttAdapter? fakeAdapter]) {
   GetIt.I.registerSingleton(RecordingAnalysisService(library));
   GetIt.I.registerSingleton(DocumentationService());
   GetIt.I.registerSingleton(DiscoveryService(connectionFactory: FakeMqttAdapter.new));
+  GetIt.I.registerSingleton(CheckService(connectionFactory: FakeMqttAdapter.new));
   return adapter;
 }
 

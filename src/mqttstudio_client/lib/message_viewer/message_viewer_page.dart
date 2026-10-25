@@ -15,6 +15,8 @@ import 'package:mqttstudio/message_viewer/widgets/tree_messages_viewer.dart';
 import 'package:mqttstudio/simulator/simulator_page.dart';
 import 'package:mqttstudio/recorder/recorder_page.dart';
 import 'package:mqttstudio/documentation/documentation_page.dart';
+import 'package:mqttstudio/documentation/documentation_service.dart';
+import 'package:event/event.dart';
 import 'package:mqttstudio/recorder/engine/recorder_service.dart';
 import 'package:mqttstudio/custom_theme.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -35,12 +37,15 @@ class MessageViewerPage extends StatefulWidget {
 
 class _MessageViewerPageState extends State<MessageViewerPage> {
   late final AppLifecycleListener _lifecycleListener;
+  TabController? _tabController;
 
   @override
   void initState() {
     super.initState();
     _lifecycleListener = AppLifecycleListener(onExitRequested: _onExitRequested);
     installLeavePageGuard(() => GetIt.I.get<RecorderService>().isRecording);
+    // the recorder tab opens the documentation tab
+    GetIt.I.get<DocumentationService>().discoverRequestedEvent.subscribe(_showDocumentation);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (kIsWeb) {
         _showBrowserPerformanceWarning(context);
@@ -60,6 +65,7 @@ class _MessageViewerPageState extends State<MessageViewerPage> {
               return Consumer<MessageViewerViewmodel>(builder: (context, viewmodel, child) {
                 return Consumer<ProjectViewmodel>(builder: (context, projectViewmodel, child) {
                   var tabController = DefaultTabController.of(context);
+                  _tabController = tabController;
                   return Scaffold(
                     appBar: MainAppBar(viewmodel: projectViewmodel),
                     drawer: navDrawer.NavigationDrawer(),
@@ -109,8 +115,11 @@ class _MessageViewerPageState extends State<MessageViewerPage> {
     );
   }
 
+  void _showDocumentation(EventArgs? _) => _tabController?.animateTo(MainAppBar.documentationTab);
+
   @override
   void dispose() {
+    GetIt.I.get<DocumentationService>().discoverRequestedEvent.unsubscribe(_showDocumentation);
     _lifecycleListener.dispose();
     super.dispose();
   }

@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:mqtt5_client/mqtt5_client.dart' show MqttQos;
+import 'package:mqttstudio/documentation/engine/conformance_checker.dart';
 import 'package:mqttstudio/documentation/engine/discovery_merger.dart';
 import 'package:mqttstudio/documentation/engine/doc_path.dart';
 import 'package:mqttstudio/documentation/model/observed_topic.dart';
@@ -75,6 +76,8 @@ class DocFormat {
   static final NumberFormat _count = NumberFormat('#,##0');
 
   static String count(int value) => _count.format(value);
+
+  static String findingRule(FindingRule rule) => 'docfindings.rule.${rule.name}'.tr();
 
   static String difference(DifferenceKind kind, String? subject) =>
       'docreview.difference.${kind.name}'.tr(args: [subject ?? '']);

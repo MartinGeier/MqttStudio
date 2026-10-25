@@ -1,11 +1,18 @@
 import 'package:event/event.dart';
 import 'package:get_it/get_it.dart';
+import 'package:mqttstudio/documentation/engine/doc_index.dart';
 import 'package:mqttstudio/documentation/engine/doc_path.dart';
 import 'package:mqttstudio/documentation/model/topic_documentation.dart';
 import 'package:mqttstudio/documentation/model/topic_spec.dart';
 import 'package:mqttstudio/project/project_manager.dart';
 
 enum DocPathConflict { exists, sameShape }
+
+class DocDiscoverEventArgs extends EventArgs {
+  final String recordingId;
+
+  DocDiscoverEventArgs(this.recordingId);
+}
 
 // Domain service of the documentation tab: edits the documentation of the current project
 // (doc/documentation-design.md §6). Every change marks the project as changed through its hash.
@@ -14,6 +21,12 @@ class DocumentationService {
 
   // nodes were added, changed, moved or deleted
   final documentationChangedEvent = Event();
+  // the recorder tab asks to discover the documentation of a recording
+  final discoverRequestedEvent = Event<DocDiscoverEventArgs>();
+
+  // matches concrete topics, rebuilt after a change or for another documentation
+  DocIndex? _index;
+  TopicDocumentation? _indexed;
 
   TopicDocumentation? get documentation => _projectManager.currentProject?.documentation;
 
@@ -42,7 +55,25 @@ class DocumentationService {
     return null;
   }
 
-  void notifyChanged() => documentationChangedEvent.broadcast();
+  void notifyChanged() {
+    _index = null;
+    documentationChangedEvent.broadcast();
+  }
+
+  // the documented topic of a concrete topic, e.g. of a message in the topic viewer
+  DocMatch? match(String topic) {
+    var current = documentation;
+    if (current == null) {
+      return null;
+    }
+    if (_index == null || !identical(_indexed, current)) {
+      _index = DocIndex(current.nodes);
+      _indexed = current;
+    }
+    return _index!.match(topic);
+  }
+
+  void requestDiscover(String recordingId) => discoverRequestedEvent.broadcast(DocDiscoverEventArgs(recordingId));
 
   void addNode(DocNode node) {
     syncParameters(node);
@@ -90,6 +121,14 @@ class DocumentationService {
   }
 
   // deletes the node at path and every node below it
+  // deletes every topic and namespace; the documentation's own texts and the discovery settings stay
+  int clearAll() {
+    var count = nodes.length;
+    documentation!.nodes.clear();
+    notifyChanged();
+    return count;
+  }
+
   int deletePath(String path) {
     var doomed = nodesAtOrBelow(path).toSet();
     documentation!.nodes.removeWhere(doomed.contains);

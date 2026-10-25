@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
+import 'package:mqttstudio/documentation/documentation_service.dart';
 import 'package:mqttstudio/custom_theme.dart';
 import 'package:mqttstudio/project/project_manager.dart';
 import 'package:mqttstudio/recorder/engine/playback_service.dart';
@@ -35,6 +36,7 @@ class RecorderDialogs {
   static const String mergeAction = 'merge';
   static const String splitAction = 'split';
   static const String exportAction = 'export';
+  static const String discoverAction = 'discover';
 
   static Future<T?> _show<T>(BuildContext context, Widget dialog) =>
       showDialog<T>(context: context, builder: (_) => SrxTheme(data: CustomTheme.srxTheme, child: dialog));
@@ -49,7 +51,8 @@ class RecorderDialogs {
     if (!context.mounted) {
       return;
     }
-    var config = await _show<RecorderConfig>(context, RecordDialog(config: initial, settings: project.mqttSettings, suggestions: suggestions));
+    var config = await _show<RecorderConfig>(
+        context, RecordDialog(config: initial, settings: project.mqttSettings, suggestions: suggestions));
     if (config != null) {
       await vm.startRecording(config);
     }
@@ -90,8 +93,11 @@ class RecorderDialogs {
     }
   }
 
-  static PopupMenuItem<String> _item(String action, IconData icon, String labelKey, {bool enabled = true}) => PopupMenuItem(
-      value: action, enabled: enabled, child: ListTile(leading: Icon(icon), title: Text(labelKey.tr()), dense: true));
+  static PopupMenuItem<String> _item(String action, IconData icon, String labelKey, {bool enabled = true}) =>
+      PopupMenuItem(
+          value: action,
+          enabled: enabled,
+          child: ListTile(leading: Icon(icon), title: Text(labelKey.tr()), dense: true));
 
   // edits write new recordings (§8.1); they apply to the selected recording, so the menu acts on that one
   static List<PopupMenuEntry<String>> menuItems(RecorderViewmodel vm, RecordingInfo info) {
@@ -114,15 +120,16 @@ class RecorderDialogs {
       _item(splitAction, Icons.call_split, 'recorder.menu.split', enabled: edits),
       PopupMenuDivider(),
       _item(exportAction, Icons.file_download, 'recorder.menu.export', enabled: edits),
+      _item(discoverAction, Icons.travel_explore, 'recorder.menu.discover', enabled: vm.isProjectOpen),
       PopupMenuDivider(),
       _menuDelete(vm, info),
     ];
   }
 
   static PopupMenuItem<String> _menuDelete(RecorderViewmodel vm, RecordingInfo info) => PopupMenuItem(
-            value: deleteAction,
-            enabled: vm.canDelete(info),
-            child: ListTile(leading: Icon(Icons.delete), title: Text('recorder.menu.delete'.tr()), dense: true));
+      value: deleteAction,
+      enabled: vm.canDelete(info),
+      child: ListTile(leading: Icon(Icons.delete), title: Text('recorder.menu.delete'.tr()), dense: true));
 
   static Future importRecording(BuildContext context, RecorderViewmodel vm) async {
     var request = await _show<ImportRequest>(context, ImportDialog());
@@ -131,7 +138,8 @@ class RecorderDialogs {
     }
   }
 
-  static Future showRecordingMenu(BuildContext context, RecorderViewmodel vm, RecordingInfo info, Offset position) async {
+  static Future showRecordingMenu(
+      BuildContext context, RecorderViewmodel vm, RecordingInfo info, Offset position) async {
     var action = await showMenu<String>(
         context: context,
         position: RelativeRect.fromLTRB(position.dx, position.dy, position.dx, position.dy),
@@ -155,7 +163,8 @@ class RecorderDialogs {
       case topicsAction:
         await vm.keepSelectedTopics();
       case renameAction:
-        var remaps = await _show<List<TopicRemap>>(context, RenameTopicsDialog(topics: List.of(info.footer.topics)..sort()));
+        var remaps =
+            await _show<List<TopicRemap>>(context, RenameTopicsDialog(topics: List.of(info.footer.topics)..sort()));
         if (remaps != null) {
           await vm.renameTopics(remaps);
         }
@@ -174,22 +183,29 @@ class RecorderDialogs {
         var mode = await _show<SplitMode>(
             context,
             SplitDialog(
-                bookmarkCount: vm.bookmarkCount, playheadMicros: vm.playheadMicros, topicCount: info.footer.topics.length));
+                bookmarkCount: vm.bookmarkCount,
+                playheadMicros: vm.playheadMicros,
+                topicCount: info.footer.topics.length));
         if (mode != null) {
           await vm.split(mode);
         }
+      case discoverAction:
+        // the documentation tab opens with the discover dialog for this recording
+        GetIt.I.get<DocumentationService>().requestDiscover(info.id);
       case exportAction:
         var request = await _show<ExportRequest>(
             context,
             ExportDialog(
                 canLimitTopics: vm.selectedTopicCount < info.footer.topics.length,
                 canLimitRange: vm.hasRange,
-                topicsLabel: 'export.topics.label'.tr(args: ['${vm.selectedTopicCount}', '${info.footer.topics.length}'])));
+                topicsLabel:
+                    'export.topics.label'.tr(args: ['${vm.selectedTopicCount}', '${info.footer.topics.length}'])));
         if (request != null) {
           await vm.export(request);
         }
       case deleteAction:
-        if (await _show<bool>(context, SrxDialog.confirmDelete(bodyText: 'recorder.delete.confirm'.tr(args: [info.name]))) ==
+        if (await _show<bool>(
+                context, SrxDialog.confirmDelete(bodyText: 'recorder.delete.confirm'.tr(args: [info.name]))) ==
             true) {
           await vm.delete(info);
         }

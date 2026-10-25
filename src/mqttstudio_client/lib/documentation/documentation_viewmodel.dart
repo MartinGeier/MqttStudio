@@ -1,25 +1,38 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:event/event.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/documentation/doc_node_editor_model.dart';
+import 'package:mqttstudio/documentation/check_service.dart';
 import 'package:mqttstudio/documentation/discover_viewmodel.dart';
 import 'package:mqttstudio/documentation/discovery_service.dart';
 import 'package:mqttstudio/documentation/doc_root_editor_model.dart';
 import 'package:mqttstudio/documentation/documentation_service.dart';
 import 'package:mqttstudio/documentation/engine/discovery_merger.dart';
 import 'package:mqttstudio/documentation/engine/doc_path.dart';
+import 'package:mqttstudio/documentation/engine/conformance_checker.dart';
 import 'package:mqttstudio/documentation/engine/doc_tree.dart';
+import 'package:mqttstudio/documentation/export/csv_exporter.dart';
+import 'package:mqttstudio/documentation/export/doc_export.dart';
+import 'package:mqttstudio/documentation/export_viewmodel.dart';
+import 'package:mqttstudio/documentation/import_viewmodel.dart';
 import 'package:mqttstudio/documentation/model/observed_topic.dart';
 import 'package:mqttstudio/documentation/model/topic_documentation.dart';
+import 'package:mqttstudio/documentation/engine/simulation_builder.dart';
 import 'package:mqttstudio/project/project_manager.dart';
+import 'package:mqttstudio/simulator/simulator.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 
-enum DocFilter { all, undocumented, added, changed, notSeen, draft, stable, deprecated }
+enum DocFilter { all, undocumented, added, changed, notSeen, withFindings, draft, stable, deprecated }
 
 // Viewmodel of the documentation tab: the tree, the selection and the editor of the selected node
 class DocumentationViewmodel extends SrxChangeNotifier {
   final _service = GetIt.I.get<DocumentationService>();
   final _projectManager = GetIt.I.get<ProjectManager>();
   final _discovery = GetIt.I.get<DiscoveryService>();
+  final _check = GetIt.I.get<CheckService>();
 
   // a discovery result is ready for the review
   void Function(DiscoveryResult result)? onDiscoveryResult;
@@ -37,24 +50,32 @@ class DocumentationViewmodel extends SrxChangeNotifier {
 
   DocumentationViewmodel() {
     _service.documentationChangedEvent.subscribe(_onChanged);
+    _service.discoverRequestedEvent.subscribe(_onDiscoverRequested);
     _projectManager.projectOpenedEvent.subscribe(_onProjectChanged);
     _projectManager.projectClosedEvent.subscribe(_onProjectChanged);
     _discovery.stateChangedEvent.subscribe(_onDiscoveryChanged);
     _discovery.statsChangedEvent.subscribe(_onDiscoveryChanged);
     _discovery.resultEvent.subscribe(_onDiscoveryResult);
     _discovery.errorEvent.subscribe(_onDiscoveryError);
+    _check.stateChangedEvent.subscribe(_onDiscoveryChanged);
+    _check.statsChangedEvent.subscribe(_onDiscoveryChanged);
+    _check.errorEvent.subscribe(_onCheckError);
     _rebuild();
   }
 
   @override
   void dispose() {
     _service.documentationChangedEvent.unsubscribe(_onChanged);
+    _service.discoverRequestedEvent.unsubscribe(_onDiscoverRequested);
     _projectManager.projectOpenedEvent.unsubscribe(_onProjectChanged);
     _projectManager.projectClosedEvent.unsubscribe(_onProjectChanged);
     _discovery.stateChangedEvent.unsubscribe(_onDiscoveryChanged);
     _discovery.statsChangedEvent.unsubscribe(_onDiscoveryChanged);
     _discovery.resultEvent.unsubscribe(_onDiscoveryResult);
     _discovery.errorEvent.unsubscribe(_onDiscoveryError);
+    _check.stateChangedEvent.unsubscribe(_onDiscoveryChanged);
+    _check.statsChangedEvent.unsubscribe(_onDiscoveryChanged);
+    _check.errorEvent.unsubscribe(_onCheckError);
     _editor?.dispose();
     _rootEditor?.dispose();
     super.dispose();
@@ -137,6 +158,7 @@ class DocumentationViewmodel extends SrxChangeNotifier {
       DocFilter.added => node.review == DocReviewState.added,
       DocFilter.changed => node.review == DocReviewState.changed,
       DocFilter.notSeen => node.review == DocReviewState.notSeen,
+      DocFilter.withFindings => severityOf(node.path) != null,
       DocFilter.draft => node.status == DocStatus.draft,
       DocFilter.stable => node.status == DocStatus.stable,
       DocFilter.deprecated => node.status == DocStatus.deprecated
@@ -169,7 +191,7 @@ class DocumentationViewmodel extends SrxChangeNotifier {
 
   DiscoveryResult? get lastDiscoveryResult => _discovery.lastResult;
 
-  bool get canDiscover => isProjectOpen && !isDiscovering;
+  bool get canDiscover => isProjectOpen && !isDiscovering && !isChecking;
 
   // throws when the broker or the recording can't be opened
   Future<void> startDiscovery(DiscoverRequest request) =>
@@ -192,6 +214,91 @@ class DocumentationViewmodel extends SrxChangeNotifier {
   void _onDiscoveryError(DiscoveryErrorEventArgs? args) {
     if (args != null) {
       onDiscoveryError?.call(args.message);
+    }
+  }
+
+  // ---------- export and import ----------
+
+  // the file name the export was saved as, null when the user cancelled
+  Future<String?> exportDocumentation(DocExportRequest request) async {
+    var documentation = _service.documentation!;
+    var text = DocExport.run(documentation, request.options, broker: _projectManager.currentProject?.mqttSettings);
+    return _saveText(request.fileName, text);
+  }
+
+  // the findings as CSV; the file name or path, null when the user cancelled
+  Future<String?> exportFindings() => _saveText('findings.csv', findingsCsv());
+
+  // the browser downloads the bytes, the desktop asks where to write them
+  static Future<String?> _saveText(String fileName, String text) async {
+    var bytes = Uint8List.fromList(utf8.encode(text));
+    var extension = fileName.substring(fileName.lastIndexOf('.') + 1);
+    var path = await FilePicker.saveFile(
+        fileName: fileName, type: FileType.custom, allowedExtensions: [extension], bytes: kIsWeb ? bytes : null);
+    if (kIsWeb) {
+      return fileName;
+    }
+    if (path == null) {
+      return null;
+    }
+    await File(path).writeAsBytes(bytes);
+    return path;
+  }
+
+  void importDocumentation(DocImportRequest request) {
+    request.plan.applyTo(_service.documentation!, replaceAll: request.replaceAll);
+    if (_selectedPath != null && _service.nodeAt(_selectedPath!) == null) {
+      _selectedPath = null;
+    }
+    _service.notifyChanged();
+  }
+
+  // ---------- conformance check ----------
+
+  CheckState get checkState => _check.state;
+
+  bool get isChecking => _check.isRunning;
+
+  bool get canCheck => isProjectOpen && !isDiscovering && !isChecking && topicCount > 0;
+
+  Duration get checkElapsed => _check.elapsed;
+
+  int get checkMessages => _check.messages;
+
+  int get checkReconnectAttempt => _check.reconnectAttempt;
+
+  List<String> get checkFilters => _check.filters;
+
+  // the findings of the running or last check, null when there are none to show
+  List<Finding>? get findings => _check.checker?.findings;
+
+  int findingCount(FindingSeverity severity) => _check.checker?.countOf(severity) ?? 0;
+
+  FindingSeverity? severityOf(String path) => _check.checker?.severityByPath[path];
+
+  // throws when the broker can't be reached
+  Future<void> startCheck() => _check.start();
+
+  void stopCheck() => _check.stop();
+
+  void clearFindings() => _check.clear();
+
+  String findingsCsv() => CsvExporter.findings(findings ?? []);
+
+  void Function(String message)? onCheckError;
+
+  // the recorder tab asked to discover a recording; the page opens the discover dialog
+  void Function(String recordingId)? onDiscoverRequested;
+
+  void _onDiscoverRequested(DocDiscoverEventArgs? args) {
+    if (args != null) {
+      onDiscoverRequested?.call(args.recordingId);
+    }
+  }
+
+  void _onCheckError(CheckErrorEventArgs? args) {
+    if (args != null) {
+      onCheckError?.call(args.message);
     }
   }
 
@@ -233,6 +340,27 @@ class DocumentationViewmodel extends SrxChangeNotifier {
   }
 
   int countAtOrBelow(String path) => _service.nodesAtOrBelow(path).length;
+
+  int get nodeCount => _service.nodes.length;
+
+  void clearAll() {
+    _selectedPath = null;
+    _service.clearAll();
+  }
+
+  int topicCountAtOrBelow(String path) => _service.nodesAtOrBelow(path).where((node) => node.isTopic).length;
+
+  // a simulated device per documented topic at or below the path (doc/documentation-design.md §8.2); returns their names
+  List<String> createSimulation(String path) {
+    var simulator = GetIt.I.get<Simulator>();
+    return [
+      for (var node in _service.nodesAtOrBelow(path).where((node) => node.isTopic))
+        simulator
+            .addDevice(SimulationBuilder.deviceOf(node,
+                simulator.uniqueNewDeviceName(node.title.isNotEmpty ? node.title : DocPath.lastSegmentOf(node.path))))
+            .name
+    ];
+  }
 
   void deletePath(String path) {
     if (_selectedPath != null && DocPath.isAtOrBelow(_selectedPath!, path)) {

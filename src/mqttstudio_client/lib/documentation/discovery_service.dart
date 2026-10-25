@@ -9,6 +9,7 @@ import 'package:mqttstudio/documentation/engine/discovery_merger.dart';
 import 'package:mqttstudio/documentation/engine/doc_index.dart';
 import 'package:mqttstudio/documentation/engine/documentation_analyzer.dart';
 import 'package:mqttstudio/documentation/model/observed_topic.dart';
+import 'package:mqttstudio/documentation/model/topic_documentation.dart';
 import 'package:mqttstudio/message_viewer/message_viewer.dart';
 import 'package:mqttstudio/model/mqtt_protocol_version.dart';
 import 'package:mqttstudio/model/mqtt_settings.dart';
@@ -43,8 +44,10 @@ class DiscoveryService {
   static const int batchSize = 2000;
   static const String sysFilter = r'$SYS/#';
 
-  final _projectManager = GetIt.I.get<ProjectManager>();
+  // null in the CLI, which discovers without the app's projects
+  final ProjectManager? _projectManager;
   final MqttAdapter Function() _connectionFactory;
+  final bool reconnect;
 
   final stateChangedEvent = Event();
   // at most once per statsInterval while running
@@ -63,6 +66,10 @@ class DiscoveryService {
   List<String> _ignore = [];
   final List<String> _errors = [];
   bool _isMqtt5 = true;
+  // the documentation the result is compared with
+  TopicDocumentation? _documentation;
+  RecordingLibrary? _library;
+  bool _lostConnection = false;
   Stopwatch? _stopwatch;
   int _subscribedAtMicros = 0;
   int _newTopics = 0;
@@ -74,13 +81,14 @@ class DiscoveryService {
   Future<void>? _finishing;
   DiscoveryResult? lastResult;
 
-  DiscoveryService({MqttAdapter Function()? connectionFactory})
-      : _connectionFactory = connectionFactory ?? MqttAdapter.new {
-    _projectManager.projectClosedEvent.subscribe(_onProjectClosed);
+  DiscoveryService({MqttAdapter Function()? connectionFactory, bool withProjects = true, this.reconnect = true})
+      : _connectionFactory = connectionFactory ?? MqttAdapter.new,
+        _projectManager = withProjects ? GetIt.I.get<ProjectManager>() : null {
+    _projectManager?.projectClosedEvent.subscribe(_onProjectClosed);
   }
 
   void dispose() {
-    _projectManager.projectClosedEvent.unsubscribe(_onProjectClosed);
+    _projectManager?.projectClosedEvent.unsubscribe(_onProjectClosed);
     _cancel();
   }
 
@@ -119,14 +127,24 @@ class DiscoveryService {
     };
   }
 
-  // throws without an include filter, or when the broker or the recording can't be opened; nothing runs then
+  // the connection was lost and reconnect is off, e.g. in the CLI
+  bool get lostConnection => _lostConnection;
+
+  // throws without an include filter, or when the broker or the recording can't be opened; nothing runs then.
+  // The app discovers for the open project; the CLI passes the documentation, the broker settings and the library.
   Future<void> start(DiscoverySettings settings,
-      {DiscoverySource source = DiscoverySource.live, RecordingInfo? recording}) async {
+      {DiscoverySource source = DiscoverySource.live,
+      RecordingInfo? recording,
+      TopicDocumentation? documentation,
+      MqttSettings? broker,
+      RecordingLibrary? library}) async {
     if (isRunning) {
       throw StateError('A discovery is already running');
     }
-    var project = _projectManager.currentProject;
-    if (project == null) {
+    var project = _projectManager?.currentProject;
+    var discovered = documentation ?? project?.documentation;
+    var connection = broker ?? (project == null ? null : SideConnection.settingsFor(project.mqttSettings, 'doc'));
+    if (discovered == null || (source == DiscoverySource.live && connection == null)) {
       throw StateError('Discovery needs an open project');
     }
     if (!settings.filters.any((filter) => !filter.exclude && filter.filter.isNotEmpty)) {
@@ -135,8 +153,11 @@ class DiscoveryService {
     _settings = settings.copy();
     _source = source;
     _filters = RecorderRules.normalize(settings.filters).filters;
-    _ignore = [...project.documentation.ignoreFilters, if (settings.ignoreSys) sysFilter];
-    _index = DocIndex(project.documentation.nodes);
+    _documentation = discovered;
+    _library = library;
+    _lostConnection = false;
+    _ignore = [...discovered.ignoreFilters, if (settings.ignoreSys) sysFilter];
+    _index = DocIndex(discovered.nodes);
     _errors.clear();
     _newTopics = 0;
     _read = 0;
@@ -145,13 +166,13 @@ class DiscoveryService {
     _finishing = null;
     _isMqtt5 = switch (source) {
       DiscoverySource.recording => recording!.header.protocol == MqttProtocolVersion.v5,
-      _ => project.mqttSettings.isMqtt5,
+      _ => connection?.isMqtt5 ?? true,
     };
     _analyzer = DocumentationAnalyzer(source: source, sourceName: recording?.name, inferSchemas: settings.inferSchemas);
     _stopwatch = clock.stopwatch()..start();
     switch (source) {
       case DiscoverySource.live:
-        await _startLive(SideConnection.settingsFor(project.mqttSettings, 'doc'));
+        await _startLive(connection!);
       case DiscoverySource.recording:
         _setState(DiscoveryState.running);
         _startStats();
@@ -178,7 +199,7 @@ class DiscoveryService {
 
   // writes the reviewed result into the documentation
   void apply(DiscoveryResult result) {
-    var documentation = _projectManager.currentProject?.documentation;
+    var documentation = _projectManager?.currentProject?.documentation;
     if (documentation == null) {
       return;
     }
@@ -191,7 +212,7 @@ class DiscoveryService {
 
   Future<void> _startLive(MqttSettings settings) async {
     _setState(DiscoveryState.connecting);
-    var connection = SideConnection(_connectionFactory);
+    var connection = SideConnection(_connectionFactory, reconnect: reconnect);
     try {
       await connection.connect(settings);
     } catch (_) {
@@ -259,6 +280,11 @@ class DiscoveryService {
 
   void _onConnectionLost(EventArgs? _) {
     _analyzer?.markGap();
+    if (!reconnect) {
+      _lostConnection = true;
+      unawaited(stop());
+      return;
+    }
     _setState(DiscoveryState.reconnecting);
   }
 
@@ -278,7 +304,7 @@ class DiscoveryService {
   Future<void> _readRecording(RecordingInfo info) async {
     RecordingReader? reader;
     try {
-      reader = await GetIt.I.get<RecordingLibrary>().open(info);
+      reader = await (_library ?? GetIt.I.get<RecordingLibrary>()).open(info);
       _total = info.footer.summary.messages;
       var startedAt = info.header.startedAt;
       await for (var entry in reader.entries()) {
@@ -355,7 +381,7 @@ class DiscoveryService {
     DiscoveryResult? result;
     try {
       _closeConnection();
-      var documentation = _projectManager.currentProject?.documentation;
+      var documentation = _documentation;
       if (analyzer != null && documentation != null) {
         if (_source == DiscoverySource.live) {
           analyzer.finish(clock.now());

@@ -427,6 +427,13 @@ class DocNodeEditorModel extends ChangeNotifier {
     _schemaChanged();
   }
 
+  // the schema edited as JSON Schema replaces the whole schema
+  void replaceSchema(SchemaNode schema) {
+    _node!.topic!.payload.schema = schema;
+    _node!.editedFields.add('$schemaPrefix${SchemaPaths.root}');
+    _schemaChanged();
+  }
+
   void removeSchemaField(String path) {
     var schema = _node?.topic?.payload.schema;
     if (schema == null) {
