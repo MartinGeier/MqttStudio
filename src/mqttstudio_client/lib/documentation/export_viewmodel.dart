@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:mqttstudio/documentation/engine/doc_path.dart';
 import 'package:mqttstudio/documentation/export/doc_export.dart';
 import 'package:reactive_forms/reactive_forms.dart';
 import 'package:srx_flutter/srx_flutter.dart';
@@ -22,15 +23,17 @@ class ExportViewmodel extends SrxChangeNotifier {
   static const String wholeDocumentation = '';
 
   final String baseName;
-  // the selected namespace or topic, offered as scope
-  final String? selectedPath;
+  // the namespaces and the selected topic, each exported with everything below it
+  final List<String> scopes;
   late final FormGroup form;
   final List<StreamSubscription> _subscriptions = [];
 
-  ExportViewmodel({required String title, this.selectedPath}) : baseName = _safeName(title) {
+  ExportViewmodel({required String title, Iterable<String> paths = const [], String? selectedPath})
+      : baseName = _safeName(title),
+        scopes = scopesOf(paths, selectedPath) {
     form = FormGroup({
       formatField: FormControl<DocExportFormat>(value: DocExportFormat.markdown),
-      scopeField: FormControl<String>(value: wholeDocumentation),
+      scopeField: FormControl<String>(value: wholeDocumentation, disabled: scopes.isEmpty),
       examplesField: FormControl<bool>(value: true),
       observedField: FormControl<bool>(value: false),
       brokerField: FormControl<bool>(value: false),
@@ -46,6 +49,17 @@ class ExportViewmodel extends SrxChangeNotifier {
       subscription.cancel();
     }
     super.dispose();
+  }
+
+  // every path with documented topics below it, explicit namespace or not
+  static List<String> scopesOf(Iterable<String> paths, String? selectedPath) {
+    var scopes = <String>{if (selectedPath != null && selectedPath.isNotEmpty) selectedPath};
+    for (var path in paths) {
+      for (var parent = DocPath.parentOf(path); parent.isNotEmpty; parent = DocPath.parentOf(parent)) {
+        scopes.add(parent);
+      }
+    }
+    return scopes.toList()..sort();
   }
 
   DocExportFormat get format => form.control(formatField).value as DocExportFormat;

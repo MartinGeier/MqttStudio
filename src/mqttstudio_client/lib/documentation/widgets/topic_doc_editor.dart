@@ -18,7 +18,6 @@ import 'package:mqttstudio/documentation/widgets/schema_table.dart';
 import 'package:mqttstudio/documentation/widgets/tag_field.dart';
 import 'package:provider/provider.dart';
 import 'package:reactive_forms/reactive_forms.dart';
-import 'package:srx_flutter/srx_flutter.dart';
 
 typedef E = DocNodeEditorModel;
 
@@ -106,7 +105,7 @@ class TopicDocEditor extends StatelessWidget {
 
   List<Widget> _buildGeneral(BuildContext context, DocNodeEditorModel editor) {
     return [
-      SrxFormRow(children: [
+      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Expanded(flex: 5, child: DocWidgets.textField(E.title, 'doceditor.title.label')),
         SizedBox(width: 16),
         Expanded(
@@ -135,7 +134,7 @@ class TopicDocEditor extends StatelessWidget {
 
   Widget _buildLinkRow(DocNodeEditorModel editor, int index) {
     var group = editor.array(E.links).controls[index] as FormGroup;
-    return SrxFormRow(alignment: CrossAxisAlignment.center, children: [
+    return Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
       Expanded(
           flex: 2,
           child: DocWidgets.textField('', 'doceditor.linklabel.label',
@@ -156,7 +155,7 @@ class TopicDocEditor extends StatelessWidget {
       DocWidgets.sectionTitle(context, 'doceditor.parameters.section'),
       SizedBox(height: 16),
       for (var i = 0; i < names.length && i < groups.length; i++) ...[
-        SrxFormRow(children: [
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           SizedBox(
               width: 140,
               child: InputDecorator(
@@ -188,7 +187,7 @@ class TopicDocEditor extends StatelessWidget {
     return [
       DocWidgets.sectionTitle(context, 'doceditor.payload.section'),
       SizedBox(height: 16),
-      SrxFormRow(children: [
+      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Expanded(
             child: DocWidgets.dropdown<PayloadFormat>(
                 E.payloadFormat, 'doceditor.format.label', PayloadFormat.values, DocFormat.format,
@@ -232,7 +231,7 @@ class TopicDocEditor extends StatelessWidget {
 
   Widget _buildExampleRow(DocNodeEditorModel editor, int index) {
     var group = editor.array(E.examples).controls[index] as FormGroup;
-    return SrxFormRow(children: [
+    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Expanded(
           flex: 5,
           child: DocWidgets.textField('', 'doceditor.examplepayload.label',
@@ -253,7 +252,7 @@ class TopicDocEditor extends StatelessWidget {
     return [
       DocWidgets.sectionTitle(context, 'doceditor.delivery.section'),
       SizedBox(height: 16),
-      SrxFormRow(children: [
+      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Expanded(
             child: DocWidgets.dropdown<MqttQos?>(E.qos, 'doceditor.qos.label',
                 [null, MqttQos.atMostOnce, MqttQos.atLeastOnce, MqttQos.exactlyOnce], DocFormat.qos,
@@ -265,7 +264,7 @@ class TopicDocEditor extends StatelessWidget {
                 helperText: editor.observedHint(E.retain)))
       ]),
       SizedBox(height: 16),
-      SrxFormRow(children: [
+      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Expanded(
             flex: 4,
             child: DocWidgets.dropdown<IntervalKind>(
@@ -285,7 +284,7 @@ class TopicDocEditor extends StatelessWidget {
   Widget _buildMqtt5(BuildContext context, DocNodeEditorModel editor) {
     var enabled = editor.isMqtt5;
     return Mqtt5Section(title: 'doceditor.mqtt5.section'.tr(), enabled: enabled, children: [
-      SrxFormRow(children: [
+      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Expanded(flex: 3, child: DocWidgets.textField(E.contentType, 'doceditor.contenttype.label')),
         SizedBox(width: 16),
         Expanded(
@@ -301,7 +300,7 @@ class TopicDocEditor extends StatelessWidget {
                 }))
       ]),
       CheckboxField(formControlName: E.utf8Payload, form: editor.form, label: 'doceditor.utf8payload.label'.tr()),
-      SrxFormRow(children: [
+      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Expanded(child: DocWidgets.textField(E.responseTopic, 'doceditor.responsetopic.label')),
         SizedBox(width: 16),
         Expanded(child: DocWidgets.textField(E.correlationData, 'doceditor.correlationdata.label'))
@@ -318,7 +317,7 @@ class TopicDocEditor extends StatelessWidget {
   Widget _buildUserPropertyRow(DocNodeEditorModel editor, int index) {
     var group = editor.array(E.userProperties).controls[index] as FormGroup;
     FormControl<String> control(String name) => group.control(name) as FormControl<String>;
-    return SrxFormRow(alignment: CrossAxisAlignment.center, children: [
+    return Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
       Expanded(
           flex: 2,
           child: DocWidgets.textField('', 'doceditor.userpropertykey.label', control: control(E.userPropertyKey))),
@@ -340,7 +339,7 @@ class TopicDocEditor extends StatelessWidget {
     return [
       DocWidgets.sectionTitle(context, 'doceditor.access.section'),
       SizedBox(height: 16),
-      SrxFormRow(children: [
+      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Expanded(
             flex: 3,
             child: ReactiveTagField(formControlName: E.producers, labelText: 'doceditor.producers.label'.tr())),

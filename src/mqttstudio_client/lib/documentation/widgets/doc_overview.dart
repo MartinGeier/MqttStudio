@@ -7,7 +7,6 @@ import 'package:mqttstudio/documentation/widgets/doc_widgets.dart';
 import 'package:mqttstudio/documentation/widgets/documentation_dialogs.dart';
 import 'package:provider/provider.dart';
 import 'package:reactive_forms/reactive_forms.dart';
-import 'package:srx_flutter/srx_flutter.dart';
 
 // The documentation as a whole, shown when the root of the tree is selected: its title and description, what it
 // contains and the topics in it
@@ -32,7 +31,7 @@ class DocOverview extends StatelessWidget {
                     style: theme.textTheme.bodySmall!.copyWith(color: theme.hintColor))
               ]),
               SizedBox(height: 24),
-              SrxFormRow(children: [
+              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Expanded(flex: 3, child: DocWidgets.textField(DocRootEditorModel.title, 'doceditor.title.label')),
                 SizedBox(width: 16),
                 Expanded(flex: 2, child: DocWidgets.textField(DocRootEditorModel.owner, 'doceditor.owner.label'))

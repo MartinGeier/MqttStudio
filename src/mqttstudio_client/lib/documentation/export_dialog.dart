@@ -14,9 +14,11 @@ typedef X = ExportViewmodel;
 // null.
 class ExportDialog extends StatefulWidget {
   final String title;
+  // the documented paths, for the scope
+  final Iterable<String> paths;
   final String? selectedPath;
 
-  const ExportDialog({Key? key, required this.title, this.selectedPath}) : super(key: key);
+  const ExportDialog({Key? key, required this.title, this.paths = const [], this.selectedPath}) : super(key: key);
 
   @override
   State<ExportDialog> createState() => _ExportDialogState();
@@ -28,7 +30,7 @@ class _ExportDialogState extends State<ExportDialog> {
   @override
   void initState() {
     super.initState();
-    _viewmodel = ExportViewmodel(title: widget.title, selectedPath: widget.selectedPath);
+    _viewmodel = ExportViewmodel(title: widget.title, paths: widget.paths, selectedPath: widget.selectedPath);
   }
 
   @override
@@ -91,11 +93,10 @@ class _ExportDialogState extends State<ExportDialog> {
           InputDecoration(border: OutlineInputBorder(), labelText: 'docexportdialog.scope.label'.tr(), isDense: true),
       items: [
         DropdownMenuItem(value: X.wholeDocumentation, child: Text('docexportdialog.scope.all'.tr())),
-        if (vm.selectedPath != null)
+        for (var scope in vm.scopes)
           DropdownMenuItem(
-              value: vm.selectedPath,
-              child:
-                  Text('docexportdialog.scope.selected'.tr(args: [vm.selectedPath!]), overflow: TextOverflow.ellipsis)),
+              value: scope,
+              child: Text('docexportdialog.scope.selected'.tr(args: [scope]), overflow: TextOverflow.ellipsis)),
       ],
     );
   }

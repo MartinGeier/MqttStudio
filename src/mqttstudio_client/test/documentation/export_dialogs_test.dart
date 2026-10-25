@@ -52,6 +52,21 @@ void main() {
       expect(request.fileName, 'mine.csv');
       vm.dispose();
     });
+
+    test('the scope offers every namespace, and nothing to choose without topics', () {
+      var vm = ExportViewmodel(
+          title: 'Demo',
+          paths: ['plant/{line}/temp', 'plant/{line}/speed', 'office/light'],
+          selectedPath: 'office/light');
+      expect(vm.scopes, ['office', 'office/light', 'plant', 'plant/{line}']);
+      expect(vm.form.control(ExportViewmodel.scopeField).enabled, isTrue);
+      vm.dispose();
+      vm = ExportViewmodel(title: 'Demo');
+      expect(vm.scopes, isEmpty);
+      expect(vm.form.control(ExportViewmodel.scopeField).enabled, isFalse);
+      expect(vm.save()!.options.scope, isNull);
+      vm.dispose();
+    });
   });
 
   group('ImportViewmodel', () {

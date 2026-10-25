@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
@@ -96,6 +97,20 @@ void main() {
       expect(dialog, findsNothing);
       expect(node.topic!.payload.schema!.properties.keys, ['temp']);
       expect(find.text(r'$.temp'), findsOneWidget);
+    });
+  });
+
+  testWidgets('editor rows are as high as their fields, with a 16 px gap', (tester) async {
+    await ignoringOverflowErrors(() async {
+      await pumpPage(tester);
+      GetIt.I.get<DocumentationService>().addNode(DocNode(path: 'plant/speed', topic: TopicSpec()));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('speed'));
+      await tester.pumpAndSettle();
+      Rect outline(String label) =>
+          tester.getRect(find.ancestor(of: find.text(label), matching: find.byType(InputDecorator)).first);
+      var row = [outline('Title'), outline('Status'), outline('Owner')].map((rect) => rect.bottom).reduce(max);
+      expect(outline('Tags').top - row, 16);
     });
   });
 

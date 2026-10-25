@@ -66,6 +66,18 @@ class _TagEditorState extends State<_TagEditor> {
   @override
   Widget build(BuildContext context) {
     var theme = Theme.of(context);
+    // a click anywhere in the outline types into the field, not only on the small text input
+    return MouseRegion(
+      cursor: widget.enabled ? SystemMouseCursors.text : MouseCursor.defer,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: widget.enabled ? _focus.requestFocus : null,
+        child: _buildDecorator(theme),
+      ),
+    );
+  }
+
+  Widget _buildDecorator(ThemeData theme) {
     return InputDecorator(
         isFocused: _focus.hasFocus,
         isEmpty: widget.tags.isEmpty && _controller.text.isEmpty && !_focus.hasFocus,

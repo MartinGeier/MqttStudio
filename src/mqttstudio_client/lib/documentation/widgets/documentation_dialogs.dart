@@ -58,7 +58,11 @@ class DocumentationDialogs {
 
   static Future exportDocumentation(BuildContext context, DocumentationViewmodel vm) async {
     var request = await _show<DocExportRequest>(
-        context, ExportDialog(title: vm.documentation?.title ?? '', selectedPath: vm.selectedPath));
+        context,
+        ExportDialog(
+            title: vm.documentation?.title ?? '',
+            paths: [for (var node in vm.documentation?.nodes ?? <DocNode>[]) node.path],
+            selectedPath: vm.selectedPath));
     if (request == null || !context.mounted) {
       return;
     }
