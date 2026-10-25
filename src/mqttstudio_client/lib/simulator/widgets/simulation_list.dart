@@ -3,12 +3,17 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:mqttstudio/common/widgets/fast_topic_chip.dart';
 import 'package:mqttstudio/custom_theme.dart';
+import 'package:mqttstudio/protocol/vda5050/vda5050_model.dart';
 import 'package:mqttstudio/recorder/widgets/recorder_format.dart';
 import 'package:mqttstudio/simulator/engine/generator_instances.dart';
 import 'package:mqttstudio/simulator/engine/simulator_runner.dart';
+import 'package:mqttstudio/simulator/engine/placeholders.dart';
 import 'package:mqttstudio/simulator/model/simulation.dart';
 import 'package:mqttstudio/simulator/simulator_viewmodel.dart';
 import 'package:mqttstudio/simulator/widgets/simulator_dialogs.dart';
+import 'package:mqttstudio/simulator/vda5050/robot_fault.dart';
+import 'package:mqttstudio/simulator/vda5050/simulated_robot.dart';
+import 'package:mqttstudio/simulator/widgets/robot_fault_menu.dart';
 import 'package:mqttstudio/simulator/widgets/simulator_format.dart';
 import 'package:provider/provider.dart';
 
@@ -86,6 +91,17 @@ class SimulationList extends StatelessWidget {
   }
 
   List<Widget> _buildDevice(BuildContext context, SimulatorViewmodel vm, SimulatedDevice device) {
+    if (device.isVda5050) {
+      var robots = vm.fleetOf(device)?.robots;
+      return [
+        _DeviceHeader(device: device),
+        if (vm.isExpanded(device))
+          if (robots != null)
+            for (var robot in robots) _RobotRow(device: device, robot: robot)
+          else
+            for (var n in device.instanceNumbers) _RobotRow(device: device, instance: n),
+      ];
+    }
     if (device.isRecorded) {
       var topics = vm.recordedTopicsOf(device);
       return [
@@ -143,12 +159,13 @@ class _DeviceHeader extends StatelessWidget {
                 icon: Icon(expanded ? Icons.expand_more : Icons.chevron_right),
                 tooltip: (expanded ? 'simulator.collapse.tooltip' : 'simulator.expand.tooltip').tr()),
             SizedBox(width: 8),
-            if (device.isRecorded)
+            if (!device.isGenerated)
               Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: Tooltip(
-                    message: 'simulator.recorded.tooltip'.tr(),
-                    child: Icon(Icons.history, size: 20, color: theme.unselectedWidgetColor)),
+                    message: (device.isRecorded ? 'simulator.recorded.tooltip' : 'simulator.vda5050.tooltip').tr(),
+                    child: Icon(device.isRecorded ? Icons.history : Icons.precision_manufacturing,
+                        size: 20, color: theme.unselectedWidgetColor)),
               ),
             Expanded(
               child: Row(children: [
@@ -170,6 +187,9 @@ class _DeviceHeader extends StatelessWidget {
   String _caption(SimulatorViewmodel vm, int running) {
     if (device.isRecorded) {
       return _recordedCaption(vm);
+    }
+    if (device.isVda5050) {
+      return _vda5050Caption(vm);
     }
     var total = device.topics.length;
     var errors = vm.errorCountOf(device);
@@ -207,10 +227,35 @@ class _DeviceHeader extends StatelessWidget {
     return parts.join(' · ');
   }
 
+  // VDA 5050 3.0 · vda5050/v3/MQTTStudio/SIM-{n}, or why it stopped
+  String _vda5050Caption(SimulatorViewmodel vm) {
+    var stats = vm.deviceStatsOf(device);
+    if (stats.issue != null) {
+      return 'simulator.issue.${stats.issue!.name}'.tr(args: [stats.errorDetail]);
+    }
+    var source = device.vda5050;
+    if (source == null) {
+      return '';
+    }
+    return [
+      'VDA 5050 ${source.version.protocolVersion}',
+      source.topicPrefix,
+      if (vm.isRecordedRunning(device)) 'simulator.state.running'.tr(),
+    ].join(' · ');
+  }
+
   Widget _buildActions(BuildContext context, SimulatorViewmodel vm, int running) {
-    var canStartDevice = device.isRecorded ? !vm.isRecordedRunning(device) : running < device.topics.length;
-    var isRunning = device.isRecorded ? vm.isRecordedRunning(device) : running > 0;
+    var canStartDevice = device.isGenerated ? running < device.topics.length : !vm.isRecordedRunning(device);
+    var isRunning = device.isGenerated ? running > 0 : vm.isRecordedRunning(device);
+    var subscribed = device.isVda5050 && vm.isVda5050SubscribedInViewer(device);
     return Row(children: [
+      if (device.isVda5050)
+        IconButton(
+            onPressed: subscribed ? null : () => vm.subscribeVda5050InViewer(device),
+            icon: Icon(Icons.visibility),
+            tooltip: subscribed
+                ? 'simulator.subscribed.tooltip'.tr()
+                : 'simulator.subscribe.tooltip'.tr(args: [vm.vda5050SubscriptionOf(device)])),
       IconButton(
           onPressed: vm.canStart && canStartDevice ? () => vm.startDevice(device) : null,
           icon: Icon(Icons.play_arrow),
@@ -449,6 +494,145 @@ class _RecordedTopicRow extends StatelessWidget {
           tooltip: subscribed
               ? 'simulator.subscribed.tooltip'.tr()
               : 'simulator.subscribe.tooltip'.tr(args: [vm.recordedSubscriptionOf(device, topic)])),
+    ]);
+  }
+}
+
+// A simulated VDA 5050 robot: its connection, mode, battery, messages sent and what it does, with the Faults menu
+// while it runs (doc/vda5050-design.md §10.4, §10.6). Before the first start only the serial number is known.
+class _RobotRow extends StatelessWidget {
+  final SimulatedDevice device;
+  final SimulatedRobot? robot;
+  final int? instance;
+
+  const _RobotRow({required this.device, this.robot, this.instance});
+
+  @override
+  Widget build(BuildContext context) {
+    var vm = context.watch<SimulatorViewmodel>();
+    var theme = Theme.of(context);
+    var running = vm.isRecordedRunning(device);
+    var robot = this.robot;
+    return Container(
+      constraints: BoxConstraints(minHeight: 48),
+      padding: EdgeInsets.only(left: _Columns.indent, right: 12),
+      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: theme.dividerColor))),
+      child: Row(children: [
+        SizedBox(width: _Columns.status, child: _buildStatus(context, running)),
+        Expanded(flex: _Columns.topicFlex, child: _buildName(context)),
+        SizedBox(width: _Columns.generator, child: Text(robot?.connectionState ?? '–')),
+        SizedBox(width: _Columns.interval, child: Text(robot?.operatingMode ?? '–', overflow: TextOverflow.ellipsis)),
+        SizedBox(width: _Columns.qos, child: _buildBattery(context)),
+        SizedBox(
+            width: _Columns.sent,
+            child: Text(SimulatorFormat.count(robot?.sent ?? 0),
+                textAlign: TextAlign.end, style: TextStyle(fontFeatures: [FontFeature.tabularFigures()]))),
+        SizedBox(width: 12),
+        Expanded(flex: _Columns.payloadFlex, child: _buildActivity(context)),
+        SizedBox(width: _Columns.actions, child: _buildActions(context, vm, running)),
+      ]),
+    );
+  }
+
+  Widget _buildStatus(BuildContext context, bool running) {
+    var theme = Theme.of(context);
+    var robot = this.robot;
+    if (!running || robot == null) {
+      return Tooltip(
+          message: 'simulator.state.stopped'.tr(), child: Icon(Icons.stop, size: 20, color: theme.unselectedWidgetColor));
+    }
+    if (!robot.isOnline) {
+      var broken = robot.connectionState == VdaConnectionState.connectionBroken;
+      return Tooltip(
+          message: robot.connectionState,
+          child: Icon(Icons.link_off,
+              size: 20, color: broken ? theme.custom.disconnectedColor : theme.unselectedWidgetColor));
+    }
+    return Tooltip(
+        message: 'simulator.state.running'.tr(), child: Icon(Icons.play_arrow, size: 20, color: theme.custom.running));
+  }
+
+  Widget _buildName(BuildContext context) {
+    var theme = Theme.of(context);
+    var source = device.vda5050!;
+    var n = robot?.instance ?? instance!;
+    var serial = robot?.serialNumber ?? Placeholders.resolve(source.serialNumber, instance: n, deviceName: device.name);
+    var prefix = robot?.topicPrefix ?? Placeholders.resolve(source.topicPrefix, instance: n, deviceName: device.name);
+    return Text.rich(
+      TextSpan(children: [
+        TextSpan(text: serial, style: theme.textTheme.titleSmall),
+        TextSpan(text: '  $prefix', style: TextStyle(color: theme.hintColor)),
+      ]),
+      overflow: TextOverflow.ellipsis,
+    );
+  }
+
+  Widget _buildBattery(BuildContext context) {
+    var robot = this.robot;
+    if (robot == null) {
+      return Text('–');
+    }
+    return Row(children: [
+      Text('${robot.stateOfCharge.round()} %'),
+      if (robot.charging)
+        Tooltip(message: 'vda5050sim.charging.tooltip'.tr(), child: Icon(Icons.bolt, size: 16)),
+    ]);
+  }
+
+  // driving or why not, the order and the last node, errors and open requests
+  Widget _buildActivity(BuildContext context) {
+    var theme = Theme.of(context);
+    var robot = this.robot;
+    if (robot == null) {
+      return Text('–', style: TextStyle(color: theme.hintColor));
+    }
+    var fatal = robot.hasFatalError;
+    var errors = robot.errors.length;
+    var parts = [
+      robot.driving ? 'vda5050sim.driving.label'.tr() : _blockedText(robot),
+      if (robot.orderId.isNotEmpty)
+        'vda5050sim.order.label'.tr(args: [robot.orderId, '${robot.orderUpdateId}', robot.lastNodeId])
+      else
+        'vda5050sim.at.label'.tr(args: [robot.lastNodeId]),
+      if (robot.openRequests > 0) 'vda5050sim.requests.label'.tr(args: ['${robot.openRequests}']),
+    ];
+    return Row(children: [
+      if (errors > 0) ...[
+        Tooltip(
+          message: robot.errors.map((error) => '${error.errorLevel} ${error.errorType}').join('\n'),
+          child: Icon(fatal ? Icons.error : Icons.warning,
+              size: 16, color: fatal ? theme.colorScheme.error : theme.custom.warning),
+        ),
+        SizedBox(width: 4),
+        Text('$errors', style: theme.textTheme.labelLarge),
+        SizedBox(width: 8),
+      ],
+      Flexible(child: Text(parts.join(' · '), overflow: TextOverflow.ellipsis, maxLines: 1)),
+    ]);
+  }
+
+  String _blockedText(SimulatedRobot robot) {
+    var reason = robot.blockedBy;
+    if (reason == null) {
+      return robot.isIdle ? 'vda5050sim.idle.label'.tr() : 'vda5050sim.waiting.label'.tr();
+    }
+    return 'vda5050sim.blocked.$reason'.tr();
+  }
+
+  Widget _buildActions(BuildContext context, SimulatorViewmodel vm, bool running) {
+    var robot = this.robot;
+    var fleet = vm.fleetOf(device);
+    var enabled = running && robot != null && fleet != null && fleet.isRunning;
+    return Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+      PopupMenuButton<RobotFault>(
+        enabled: enabled,
+        icon: Icon(Icons.bolt),
+        tooltip: 'vda5050sim.faults.tooltip'.tr(),
+        // a popup menu is at most 280 px wide unless it is told otherwise
+        constraints: BoxConstraints.tightFor(width: RobotFaultMenu.width),
+        onSelected: (fault) => vm.injectFault(device, robot!, fault),
+        itemBuilder: (_) => [RobotFaultMenu(fleet: fleet!, robot: robot!)],
+      ),
     ]);
   }
 }

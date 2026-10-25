@@ -2,6 +2,7 @@ import 'package:mqttstudio/simulator/engine/generator_instances.dart';
 import 'package:mqttstudio/simulator/engine/placeholders.dart';
 import 'package:mqttstudio/simulator/model/payload_generators.dart';
 import 'package:mqttstudio/simulator/model/simulation.dart';
+import 'package:mqttstudio/simulator/vda5050/fleet_layout.dart';
 
 enum SimulationIssueKind {
   topicEmpty,
@@ -20,6 +21,11 @@ enum SimulationIssueKind {
   recordedNeedsInstance,
   recordedMaxSpeed,
   recordedRandomNeedsLoop,
+  vdaNameInvalid,
+  vdaSerialNeedsInstance,
+  vdaTooManyRobots,
+  vdaLayoutTooSmall,
+  vdaSettingOutOfRange,
 }
 
 // A rule a simulation breaks. The CLI prints describe(), the app shows a localized text per kind.
@@ -66,6 +72,16 @@ class SimulationIssue {
         return '$where: a recorded device cannot play at Max speed';
       case SimulationIssueKind.recordedRandomNeedsLoop:
         return '$where: instances starting at a random position need loop';
+      case SimulationIssueKind.vdaNameInvalid:
+        return '$where: the $detail must not be empty or contain /, + or #';
+      case SimulationIssueKind.vdaSerialNeedsInstance:
+        return '$where: with more than one robot the serial number must contain {n}';
+      case SimulationIssueKind.vdaTooManyRobots:
+        return '$where: a VDA 5050 device simulates at most ${SimulationRules.maxRobots} robots';
+      case SimulationIssueKind.vdaLayoutTooSmall:
+        return '$where: the layout needs more free nodes than robots';
+      case SimulationIssueKind.vdaSettingOutOfRange:
+        return '$where: the setting $detail is out of range';
     }
   }
 
@@ -84,6 +100,8 @@ class SimulationRules {
   static const double maxRate = 1000;
   // the most the CLI allows with --max-rate
   static const double maxCliRate = 20000;
+  // robots of one VDA 5050 device (D27)
+  static const int maxRobots = 200;
 
   static double topicRate(SimulatedDevice device, SimulatedTopic topic) =>
       device.instanceCount * 1000 / topic.interval.averageMs;
@@ -150,6 +168,9 @@ class SimulationRules {
     if (device.isRecorded) {
       issues.addAll(validateRecorded(device));
     }
+    if (device.isVda5050) {
+      issues.addAll(validateVda5050(device));
+    }
     for (var topic in device.topics) {
       issues.addAll(validateTopic(device, topic));
     }
@@ -171,6 +192,54 @@ class SimulationRules {
     }
     if (source.instanceStart == InstanceStart.randomPosition && !source.playback.loop) {
       issues.add(SimulationIssue(SimulationIssueKind.recordedRandomNeedsLoop, device: device.name));
+    }
+    return issues;
+  }
+
+  // D27: names that become topic levels, {n} in the serial number, enough room on the layout
+  static List<SimulationIssue> validateVda5050(SimulatedDevice device) {
+    var source = device.vda5050;
+    var issues = <SimulationIssue>[];
+    void add(SimulationIssueKind kind, [String detail = '']) =>
+        issues.add(SimulationIssue(kind, device: device.name, detail: detail));
+    if (source == null) {
+      add(SimulationIssueKind.vdaSettingOutOfRange, 'vda5050');
+      return issues;
+    }
+    for (var (name, value) in [
+      ('interface name', source.interfaceName),
+      ('manufacturer', source.manufacturer),
+      ('serial number', source.serialNumber),
+      ('map id', source.mapId),
+    ]) {
+      if (value.trim().isEmpty || topicHasWildcard(value) || value.contains('/')) {
+        add(SimulationIssueKind.vdaNameInvalid, name);
+      }
+    }
+    if (device.instanceCount > 1 && !Placeholders.containsInstance(source.serialNumber)) {
+      add(SimulationIssueKind.vdaSerialNeedsInstance);
+    }
+    if (device.instanceCount > maxRobots) {
+      add(SimulationIssueKind.vdaTooManyRobots);
+    }
+    if (FleetLayout.freeNodeCount(source) <= device.instanceCount) {
+      add(SimulationIssueKind.vdaLayoutTooSmall);
+    }
+    for (var (name, ok) in [
+      ('columns', source.columns >= 2 && source.columns <= 50),
+      ('rows', source.rows >= 1 && source.rows <= 50),
+      ('spacing', source.spacing > 0),
+      ('speed', source.speed > 0),
+      ('heartbeat', source.stateHeartbeatSec >= 1 && source.stateHeartbeatSec <= 30),
+      ('visualization', source.visualizationMs == 0 || source.visualizationMs >= 100),
+      ('order nodes', source.minOrderNodes >= 2 && source.maxOrderNodes >= source.minOrderNodes),
+      ('action duration', source.minActionSec >= 0 && source.maxActionSec >= source.minActionSec),
+      ('idle time', source.minIdleSec >= 0 && source.maxIdleSec >= source.minIdleSec),
+      ('action probability', source.actionProbability >= 0 && source.actionProbability <= 1),
+    ]) {
+      if (!ok) {
+        add(SimulationIssueKind.vdaSettingOutOfRange, name);
+      }
     }
     return issues;
   }

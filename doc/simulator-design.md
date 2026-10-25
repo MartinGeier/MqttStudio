@@ -1,6 +1,6 @@
 # MQTT Simulator – Detailed Design
 
-Status: **Final** (all sections reviewed). Amended for the headless CLI with D20–D21, see `cli-design.md`, and for recorded devices with D22–D25, see `recorder-design.md` · Branch: `mqtt5` · Last updated: 2026-10-24
+Status: **Final** (all sections reviewed). Amended for the headless CLI with D20–D21, see `cli-design.md`, for recorded devices with D22–D25, see `recorder-design.md`, and for VDA 5050 robots with D26–D29 (draft), see `vda5050-design.md` §10 · Branch: `mqtt5` · Last updated: 2026-10-25
 
 ## 1. Purpose
 
@@ -26,7 +26,9 @@ backends and the MQTT Studio viewers without real devices. It lives in the exist
 - Replaying recorded messages in a simulation was a non-goal and is now covered by recorded
   devices (D22). Recording itself belongs to the RECORDER tab (`recorder-design.md`).
 - Scripting or expressions beyond the generator set.
-- Request/response simulation (reacting to incoming messages).
+- Request/response simulation (reacting to incoming messages). VDA 5050 robots (D26) react only to their own
+  simulated fleet control, inside the engine; following outside orders is a later extension (`vda5050-design.md`
+  §10.7).
 - Stop conditions ("stop after N messages / after T minutes").
 - Time-based placeholders in topics (`{ts}`), because topics are resolved once at start.
 - Per-instance statistics.
@@ -60,6 +62,10 @@ backends and the MQTT Studio viewers without real devices. It lives in the exist
 | D23 | A recorded device references its recording by id, with the file name as a fallback. A missing recording doesn't stop the project from loading; it is a start error for that device, like a missing image folder | Design, for the recorder (draft) |
 | D24 | Recorded devices use `instanceCount` and `firstInstance`. With more than one instance, a topic remap target must contain `{n}` (§6.2). One player runs per instance, started staggered, aligned or at a random position | Design, for the recorder (draft) |
 | D25 | Recorded devices play at 0.1×–100×, not at Max speed, so their rate can be estimated (recorder R12). Statistics are per recorded topic, aggregated over instances (D16) | Design, for the recorder (draft) |
+| D26 | A third device kind, **VDA 5050 robots**: `instanceCount` robots driven by a `SimulatedFleet` that also plays a minimal fleet control, publishing every VDA 5050 topic for 2.x or 3.0 (`vda5050-design.md` §10) | User (vda5050 V17) |
+| D27 | A VDA 5050 device has no topics; its settings are a `Vda5050Source`. The serial number pattern uses `{n}` and must contain it with more than one robot. At most 200 robots | Design, for VDA 5050 (draft) |
+| D28 | Faults injected into a running robot are runtime state (D5) and reset on every start (D9) | Design, for VDA 5050 (draft) |
+| D29 | Statistics of a VDA 5050 device are per robot (messages sent and its status line), not per topic, as an exception to D16 | Design, for VDA 5050 (draft) |
 
 ## 3. Current state (for reference)
 
@@ -89,8 +95,9 @@ Project
  └─ simulation: Simulation
      └─ devices: List<SimulatedDevice>        (a "device" with instanceCount 1 is just a group)
          ├─ name, instanceCount, firstInstance
-         ├─ kind: generated | recorded        (D22)
+         ├─ kind: generated | recorded | vda5050   (D22, D26)
          ├─ recorded: RecordedSource?         recorded devices only (§4.5)
+         ├─ vda5050: Vda5050Source?           VDA 5050 robots only (§4.6)
          └─ topics: List<SimulatedTopic>      generated devices only
              ├─ topic template  ("plant/{n}/temp")
              ├─ qos, retain, interval
@@ -231,6 +238,14 @@ class RecordedSource {
   with its current playback options and `instanceCount 1`.
 - Placeholders (§6.1) work in remap targets. The validation of §6.2 applies to the remapped
   topics: no wildcards, and `{n}` is required when `instanceCount > 1` (D24).
+
+### 4.6 VDA 5050 robots (D26–D29)
+
+Designed in `vda5050-design.md` §10: the `Vda5050Source` settings (version, interface name, manufacturer, serial
+number pattern, layout, speed, battery, orders, message intervals, 3.0 zones and requests, random faults, seed), the
+`SimulatedFleet` engine in `lib/simulator/vda5050/`, fault injection and the device dialog. The runner keeps one
+`SimulatedFleet` per running VDA 5050 device next to its `TopicRun`s and `RecordedDeviceRun`s, publishes through the
+same `SimulatorPublisher`, and adds `robots × (1000 / visualizationMs + 2)` msg/s to the rate estimate (§7.2).
 
 ## 5. Generators
 
@@ -461,7 +476,8 @@ empty retained payload. It's an explicit action, not automatic.
   loop) and the position in the recording (of the first instance). The rows below are the
   selected recorded topics with their remapped target, read-only: they have only 👁. Editing goes
   through the device dialog. **+ Topic** is disabled when a recorded device is selected.
-- **+ Device** offers "Generated device" and "Recorded device".
+- **+ Device** offers "Generated device", "Recorded device" and "VDA 5050 robots" (D26). A VDA 5050 device shows
+  one row per robot with its status line and a Faults menu (`vda5050-design.md` §10.6).
 
 ### 8.3 Device dialog
 Name, instance count (1–1000), first instance number. A live line shows the resolved range, for

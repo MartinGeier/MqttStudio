@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:clock/clock.dart';
 import 'package:event/event.dart';
+import 'package:mqtt5_client/mqtt5_client.dart' show MqttQos;
 import 'package:mqttstudio/model/mqtt_message_properties.dart';
 import 'package:mqttstudio/recorder/engine/recording_player.dart';
 import 'package:mqttstudio/recorder/format/recording_reader.dart';
@@ -14,6 +15,7 @@ import 'package:mqttstudio/simulator/engine/placeholders.dart';
 import 'package:mqttstudio/simulator/engine/simulation_rules.dart';
 import 'package:mqttstudio/simulator/engine/simulator_publisher.dart';
 import 'package:mqttstudio/simulator/model/simulation.dart';
+import 'package:mqttstudio/simulator/vda5050/simulated_fleet.dart';
 import 'package:typed_data/typed_buffers.dart';
 
 enum TopicRunState { stopped, running, error }
@@ -121,6 +123,10 @@ class SimulatorRunner {
   final RecordingOpener? openRecording;
   final Map<String, _TopicRun> _runs = {};
   final Map<String, _RecordedRun> _recordedRuns = {};
+  // the robots of the running VDA 5050 devices, by device id (D26)
+  final Map<String, SimulatedFleet> _fleets = {};
+  // the fleets that ran last, so their robots and statistics stay visible after a stop
+  final Map<String, SimulatedFleet> _lastFleets = {};
   // the recorded topics a recorded device played last, by device id
   final Map<String, List<String>> _recordedTopics = {};
   final Map<String, TopicStats> _stats = {};
@@ -136,10 +142,13 @@ class SimulatorRunner {
 
   bool isRunning(String topicId) => _runs.containsKey(topicId);
 
-  // a recorded device plays
-  bool isDeviceRunning(String deviceId) => _recordedRuns.containsKey(deviceId);
+  // a recorded device plays or the robots of a VDA 5050 device drive
+  bool isDeviceRunning(String deviceId) => _recordedRuns.containsKey(deviceId) || _fleets.containsKey(deviceId);
 
-  bool get isAnyRunning => _runs.isNotEmpty || _recordedRuns.isNotEmpty;
+  bool get isAnyRunning => _runs.isNotEmpty || _recordedRuns.isNotEmpty || _fleets.isNotEmpty;
+
+  // the robots of a VDA 5050 device while it runs, else of its last run; null before its first start
+  SimulatedFleet? fleetOf(String deviceId) => _fleets[deviceId] ?? _lastFleets[deviceId];
 
   // statistics of a recorded topic of a recorded device, summed up over its instances
   TopicStats recordedStatsOf(String deviceId, String recordedTopic) => statsOf('$deviceId|$recordedTopic');
@@ -166,9 +175,13 @@ class SimulatorRunner {
 
   // estimated msg/s of the running topics
   double get runningRate =>
-      _runs.values.fold(0.0, (sum, run) => sum + run.rate) + _recordedRuns.values.fold(0.0, (sum, run) => sum + run.rate);
+      _runs.values.fold(0.0, (sum, run) => sum + run.rate) +
+      _recordedRuns.values.fold(0.0, (sum, run) => sum + run.rate) +
+      _fleets.values.fold(0.0, (sum, fleet) => sum + SimulatedFleet.rateOf(fleet.device));
 
-  int get totalSent => _stats.values.fold(0, (sum, stats) => sum + stats.sent);
+  int get totalSent =>
+      _stats.values.fold(0, (sum, stats) => sum + stats.sent) +
+      _lastFleets.values.fold(0, (sum, fleet) => sum + fleet.sent);
 
   int get errorCount =>
       _stats.values.where((stats) => stats.error != null).length +
@@ -179,6 +192,8 @@ class SimulatorRunner {
     for (var device in simulation.devices) {
       if (device.isRecorded) {
         startRecorded(device);
+      } else if (device.isVda5050) {
+        _startFleet(device);
       } else {
         _startTopics(device, device.topics);
       }
@@ -189,6 +204,9 @@ class SimulatorRunner {
   void startDevice(SimulatedDevice device) {
     if (device.isRecorded) {
       startRecorded(device);
+    } else if (device.isVda5050) {
+      _startFleet(device);
+      runStateChangedEvent.broadcast();
     } else {
       start(device, device.topics);
     }
@@ -220,6 +238,9 @@ class SimulatorRunner {
     if (device.isRecorded) {
       _recordedRuns.remove(device.id)?.cancel();
       runStateChangedEvent.broadcast();
+    } else if (device.isVda5050) {
+      _stopFleet(device.id);
+      runStateChangedEvent.broadcast();
     } else {
       stopTopics(device.topics.map((topic) => topic.id));
     }
@@ -234,7 +255,56 @@ class SimulatorRunner {
       run.cancel();
     }
     _recordedRuns.clear();
+    for (var id in _fleets.keys.toList()) {
+      _stopFleet(id);
+    }
     runStateChangedEvent.broadcast();
+  }
+
+  // Starts the robots of a VDA 5050 device and its fleet control (doc/vda5050-design.md §10). Problems end up in
+  // deviceStatsOf.
+  void _startFleet(SimulatedDevice device) {
+    _stopFleet(device.id);
+    var deviceStats = deviceStatsOf(device.id)
+      ..sent = 0
+      .._clearError();
+    var issues = SimulationRules.validateVda5050(device);
+    if (issues.isNotEmpty) {
+      _setDeviceError(device, issues.first.kind, issues.first.describe(), issues.first.detail);
+      return;
+    }
+    var source = device.vda5050!;
+    var random = Random(source.seed ?? (seed == null ? null : _seedFor(device.id, 0)));
+    var fleet = SimulatedFleet(device, (topic, json, qos, retain) => _publishJson(deviceStats, topic, json, qos, retain),
+        random,
+        onPublished: _markStatsDirty);
+    _fleets[device.id] = fleet;
+    _lastFleets[device.id] = fleet;
+    fleet.start();
+  }
+
+  // the robots of a connected device say goodbye (OFFLINE); without a connection they just stop
+  void _stopFleet(String deviceId) => _fleets.remove(deviceId)?.stop(goodbye: _publisher.isConnected);
+
+  void _publishJson(TopicStats stats, String topic, Map<String, Object?> json, MqttQos qos, bool retain) {
+    if (!_publisher.isConnected) {
+      _reportConnectionLost();
+      return;
+    }
+    try {
+      var payload = Uint8Buffer()..addAll(utf8.encode(jsonEncode(json)));
+      var properties = _publisher.supportsProperties
+          ? MqttMessageProperties(contentType: 'application/json', payloadFormatUtf8: true)
+          : null;
+      _publisher.publish(topic, payload, qos, retain, properties);
+    } on Exception {
+      _reportConnectionLost();
+      return;
+    }
+    _connectionLostReported = false;
+    stats
+      ..sent += 1
+      ..lastPublishedAt = clock.now();
   }
 
   // Plays the recording of a recorded device, one player per instance (D22, D24). {n} and {device} in the remap
@@ -389,6 +459,7 @@ class SimulatorRunner {
     _stats.clear();
     _deviceStats.clear();
     _recordedTopics.clear();
+    _lastFleets.clear();
     statsChangedEvent.broadcast();
   }
 
@@ -404,6 +475,22 @@ class SimulatorRunner {
       }
       for (var resolved in SimulationRules.resolvedTopics(device, topic)) {
         _publisher.publish(resolved, Uint8Buffer(), topic.qos, true, null);
+        count++;
+      }
+    }
+    return count;
+  }
+
+  // removes the retained connection messages of the robots of VDA 5050 devices
+  int clearRetainedConnections(Iterable<SimulatedDevice> devices) {
+    if (!_publisher.isConnected) {
+      return 0;
+    }
+    var count = 0;
+    for (var device in devices.where((device) => device.isVda5050 && device.vda5050 != null)) {
+      for (var n in device.instanceNumbers) {
+        var prefix = Placeholders.resolve(device.vda5050!.topicPrefix, instance: n, deviceName: device.name);
+        _publisher.publish('$prefix/connection', Uint8Buffer(), MqttQos.atLeastOnce, true, null);
         count++;
       }
     }

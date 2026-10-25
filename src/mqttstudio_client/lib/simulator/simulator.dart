@@ -15,6 +15,10 @@ import 'package:mqttstudio/simulator/engine/simulation_rules.dart';
 import 'package:mqttstudio/simulator/engine/simulator_publisher.dart';
 import 'package:mqttstudio/simulator/engine/simulator_runner.dart';
 import 'package:mqttstudio/simulator/model/simulation.dart';
+import 'package:mqttstudio/simulator/model/vda5050_source.dart';
+import 'package:mqttstudio/simulator/vda5050/robot_fault.dart';
+import 'package:mqttstudio/simulator/vda5050/simulated_fleet.dart';
+import 'package:mqttstudio/simulator/vda5050/simulated_robot.dart';
 
 // thrown when starting would publish more messages per second than the app allows
 class SimulationRateException implements Exception {
@@ -112,16 +116,24 @@ class Simulator {
   void startAll() {
     var all = [for (var device in devices) for (var topic in device.topics) (device, topic)];
     _checkRate(all,
-        recorded: devices.where((device) => device.isRecorded && !runner.isDeviceRunning(device.id)).fold(
-            0.0, (sum, device) => sum + _recordedRate(device)));
+        recorded: devices
+            .where((device) => !runner.isDeviceRunning(device.id))
+            .fold(0.0, (sum, device) => sum + _deviceRate(device)));
     runner.startAll(simulation!);
   }
 
   void startDevice(SimulatedDevice device) {
     _checkRate(device.topics.map((topic) => (device, topic)),
-        recorded: device.isRecorded && !runner.isDeviceRunning(device.id) ? _recordedRate(device) : 0);
+        recorded: runner.isDeviceRunning(device.id) ? 0 : _deviceRate(device));
     runner.startDevice(device);
   }
+
+  // msg/s of a recorded or VDA 5050 device; generated devices are estimated per topic
+  double _deviceRate(SimulatedDevice device) => switch (device.kind) {
+        DeviceKind.recorded => _recordedRate(device),
+        DeviceKind.vda5050 => SimulatedFleet.rateOf(device),
+        DeviceKind.generated => 0,
+      };
 
   void startTopic(SimulatedDevice device, SimulatedTopic topic) {
     _checkRate([(device, topic)]);
@@ -134,7 +146,9 @@ class Simulator {
 
   void stopTopic(SimulatedTopic topic) => runner.stopTopic(topic.id);
 
-  int clearRetained() => runner.clearRetained([for (var device in devices) for (var topic in device.topics) (device, topic)]);
+  int clearRetained() =>
+      runner.clearRetained([for (var device in devices) for (var topic in device.topics) (device, topic)]) +
+      runner.clearRetainedConnections(devices);
 
   void _checkRate(Iterable<(SimulatedDevice, SimulatedTopic)> topics, {double recorded = 0}) {
     var rate = rateWith(topics) + recorded;
@@ -164,6 +178,11 @@ class Simulator {
         runner.startRecorded(edited);
       }
       refreshRecordings();
+    } else if (edited.isVda5050) {
+      // D19: running robots start again with the new settings
+      if (runner.isDeviceRunning(edited.id)) {
+        runner.startDevice(edited);
+      }
     } else {
       runner.restart(edited, edited.topics.where((topic) => running.contains(topic.id)));
     }
@@ -188,10 +207,10 @@ class Simulator {
   // Recorded devices have no topics of their own.
   SimulatedDevice deviceForNewTopic(String? deviceId) {
     var device = deviceId == null ? null : simulation!.deviceById(deviceId);
-    if (device != null && !device.isRecorded) {
+    if (device != null && device.isGenerated) {
       return device;
     }
-    var generated = devices.where((device) => !device.isRecorded);
+    var generated = devices.where((device) => device.isGenerated);
     if (generated.isNotEmpty) {
       return generated.first;
     }
@@ -257,6 +276,39 @@ class Simulator {
       number++;
     }
     return candidate;
+  }
+
+  // a device that simulates VDA 5050 robots, named uniquely
+  SimulatedDevice newVda5050Device() => SimulatedDevice(
+      name: uniqueNewDeviceName('VDA 5050 robots'), kind: DeviceKind.vda5050, instanceCount: 5, vda5050: Vda5050Source());
+
+  SimulatedFleet? fleetOf(SimulatedDevice device) => runner.fleetOf(device.id);
+
+  void injectFault(SimulatedDevice device, SimulatedRobot robot, RobotFault fault) {
+    var fleet = runner.fleetOf(device.id);
+    if (fleet != null && fleet.isRunning && fleet.robots.contains(robot)) {
+      fleet.inject(robot, fault);
+    }
+  }
+
+  // the Topic Viewer subscription that receives every topic of the robots of a VDA 5050 device
+  String vda5050SubscriptionOf(SimulatedDevice device) {
+    var source = device.vda5050!;
+    return '${source.interfaceName}/${source.version.topicLevel}/${source.manufacturer}/+/#';
+  }
+
+  bool isVda5050SubscribedInViewer(SimulatedDevice device) {
+    var subscription = vda5050SubscriptionOf(device);
+    return (_projectManager.currentProject?.topicSubscriptions ?? <TopicSubscription>[])
+        .any((sub) => sub.topic == subscription);
+  }
+
+  void subscribeVda5050InViewer(SimulatedDevice device) {
+    if (!isVda5050SubscribedInViewer(device)) {
+      GetIt.I
+          .get<MessageViewer>()
+          .addTopicSubscription(TopicSubscription(vda5050SubscriptionOf(device), MqttQos.atLeastOnce));
+    }
   }
 
   // the Topic Viewer subscription that receives all instances of the topic

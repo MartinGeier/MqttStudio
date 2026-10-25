@@ -8,6 +8,7 @@ import 'package:mqttstudio/simulator/model/simulation.dart';
 import 'package:mqttstudio/simulator/recorded_device_dialog.dart';
 import 'package:mqttstudio/simulator/simulator_viewmodel.dart';
 import 'package:mqttstudio/simulator/topic_edit_dialog.dart';
+import 'package:mqttstudio/simulator/vda5050_device_dialog.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 
 // Opens the dialogs of the simulator tab and applies their result
@@ -31,12 +32,22 @@ class SimulatorDialogs {
     }
   }
 
+  static Future addVda5050Device(BuildContext context, SimulatorViewmodel vm) async {
+    var device = await _show<SimulatedDevice>(
+        context, Vda5050DeviceDialog(device: vm.newVda5050Device(), simulation: _simulation, isNew: true));
+    if (device != null) {
+      vm.addDevice(device);
+    }
+  }
+
   static Future editDevice(BuildContext context, SimulatorViewmodel vm, SimulatedDevice device) async {
     var edited = await _show<SimulatedDevice>(
         context,
-        device.isRecorded
-            ? RecordedDeviceDialog(device: device, simulation: _simulation)
-            : DeviceEditDialog(device: device, simulation: _simulation));
+        switch (device.kind) {
+          DeviceKind.recorded => RecordedDeviceDialog(device: device, simulation: _simulation),
+          DeviceKind.vda5050 => Vda5050DeviceDialog(device: device, simulation: _simulation, isNew: false),
+          DeviceKind.generated => DeviceEditDialog(device: device, simulation: _simulation),
+        });
     if (edited != null) {
       vm.updateDevice(edited);
     }

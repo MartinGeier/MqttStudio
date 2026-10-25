@@ -39,7 +39,7 @@ class SimulatorCommandBar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: OverflowBar(spacing: 6, children: [
         IconButton(
-            onPressed: vm.canStart && vm.topicCount > vm.runningCount ? vm.startAll : null,
+            onPressed: vm.canStart && vm.hasStoppedWork ? vm.startAll : null,
             icon: Icon(Icons.play_arrow),
             color: Colors.green,
             tooltip: vm.isProjectOpen && !vm.isConnected
@@ -74,7 +74,8 @@ class SimulatorCommandBar extends StatelessWidget {
     ]);
   }
 
-  // a device either generates payloads or plays a recording (D22); the menu opens below the button
+  // a device generates payloads, plays a recording (D22) or simulates VDA 5050 robots (D26); the menu opens below the
+  // button
   Future<void> _addDevice(BuildContext buttonContext, SimulatorViewmodel vm) async {
     var button = buttonContext.findRenderObject() as RenderBox;
     var overlay = Overlay.of(buttonContext).context.findRenderObject() as RenderBox;
@@ -90,14 +91,21 @@ class SimulatorCommandBar extends StatelessWidget {
       PopupMenuItem(
           value: DeviceKind.recorded,
           child: ListTile(leading: Icon(Icons.history), title: Text('simulator.adddevice.recorded'.tr()), dense: true)),
+      PopupMenuItem(
+          value: DeviceKind.vda5050,
+          child: ListTile(
+              leading: Icon(Icons.precision_manufacturing), title: Text('simulator.adddevice.vda5050'.tr()), dense: true)),
     ]);
     if (!buttonContext.mounted || kind == null) {
       return;
     }
-    if (kind == DeviceKind.recorded) {
-      await SimulatorDialogs.addRecordedDevice(buttonContext, vm);
-    } else {
-      await SimulatorDialogs.addDevice(buttonContext, vm);
+    switch (kind) {
+      case DeviceKind.recorded:
+        await SimulatorDialogs.addRecordedDevice(buttonContext, vm);
+      case DeviceKind.vda5050:
+        await SimulatorDialogs.addVda5050Device(buttonContext, vm);
+      case DeviceKind.generated:
+        await SimulatorDialogs.addDevice(buttonContext, vm);
     }
   }
 

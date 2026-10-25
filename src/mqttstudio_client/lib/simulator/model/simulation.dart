@@ -2,6 +2,7 @@ import 'package:json_annotation/json_annotation.dart';
 import 'package:mqtt5_client/mqtt5_client.dart';
 import 'package:mqttstudio/recorder/model/playback_options.dart';
 import 'package:mqttstudio/simulator/model/payload_generators.dart';
+import 'package:mqttstudio/simulator/model/vda5050_source.dart';
 import 'package:uuid/uuid.dart';
 
 // use 'dart run build_runner build' to run the code generator
@@ -64,6 +65,8 @@ class SimulatedDevice {
   DeviceKind kind;
   // the recording a recorded device plays; its topics list stays empty
   RecordedSource? recorded;
+  // the settings of a VDA 5050 device; its topics list stays empty (D26)
+  Vda5050Source? vda5050;
   List<SimulatedTopic> topics;
 
   SimulatedDevice(
@@ -73,11 +76,17 @@ class SimulatedDevice {
       this.firstInstance = 1,
       this.kind = DeviceKind.generated,
       this.recorded,
+      this.vda5050,
       List<SimulatedTopic>? topics})
       : id = id ?? _uuid.v4(),
         topics = topics ?? [];
 
   bool get isRecorded => kind == DeviceKind.recorded;
+
+  bool get isVda5050 => kind == DeviceKind.vda5050;
+
+  // a device with topics of its own
+  bool get isGenerated => kind == DeviceKind.generated;
 
   int get lastInstance => firstInstance + instanceCount - 1;
 
@@ -90,6 +99,7 @@ class SimulatedDevice {
         firstInstance: firstInstance,
         kind: kind,
         recorded: recorded == null ? null : RecordedSource.fromJson(recorded!.toJson()),
+        vda5050: vda5050?.copy(),
         topics: topics.map((topic) => topic.copy(newId: newIds)).toList(),
       );
 
@@ -97,8 +107,9 @@ class SimulatedDevice {
   Map<String, dynamic> toJson() => _$SimulatedDeviceToJson(this);
 }
 
-// generated devices publish payloads of generators, recorded ones play a recording (doc/simulator-design.md D22)
-enum DeviceKind { generated, recorded }
+// generated devices publish payloads of generators, recorded ones play a recording (doc/simulator-design.md D22),
+// VDA 5050 devices simulate robots and their fleet control (D26)
+enum DeviceKind { generated, recorded, vda5050 }
 
 // When the instances of a recorded device start (D24)
 enum InstanceStart {

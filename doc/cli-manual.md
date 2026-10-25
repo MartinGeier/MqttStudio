@@ -134,7 +134,9 @@ Stopped after 10m 00s (duration reached): 9,184 messages, 0 errors.
 ```
 
 Errors of single topics (for example a missing image folder) are printed and counted; the other
-topics keep running. Devices that play a recording run like in the app.
+topics keep running. Devices that play a recording run like in the app, and so do devices of
+simulated VDA 5050 robots: their robots say `OFFLINE` when the run stops, and `--clear-retained`
+also removes their retained `connection` messages. Faults can only be injected in the app.
 
 ### record
 
