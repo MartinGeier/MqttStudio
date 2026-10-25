@@ -84,6 +84,21 @@ void main() {
     expect(find.text('1'), findsWidgets);
   });
 
+  testPage('the topic column of the timeline grows with the longest topic, up to 40 %', (tester) async {
+    var long = 'vda5050/v3/MQTTStudio/SIM-1/visualization';
+    await writeRecording(GetIt.I.get<RecordingLibrary>(), 'Long',
+        [recorded(0, 'a/temp', '1'), recorded(1, long, '2'), recorded(2, '$long/${'x' * 200}', '3')],
+        durationMicros: 3000000);
+    await pumpPage(tester);
+    await openTab(tester, 'TIMELINE');
+    var column = tester.getRect(lanes()).left - tester.getRect(find.byType(Scrollbar).first).left;
+    var timelineWidth = tester.getRect(find.byType(Scrollbar).first).width;
+    // wider than the 240 px of short topics, but a very long topic doesn't take more than 40 % of the timeline
+    expect(column, greaterThan(240));
+    expect(column, lessThanOrEqualTo(timelineWidth * 0.4 + 1));
+    expect(chip(long), findsOneWidget);
+  });
+
   testPage('the timeline lists gaps and selects a range by dragging', (tester) async {
     await writeLine();
     await pumpPage(tester);

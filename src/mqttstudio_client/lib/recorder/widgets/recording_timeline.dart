@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:easy_localization/easy_localization.dart' hide TextDirection;
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:mqttstudio/common/widgets/fast_topic_chip.dart';
@@ -14,7 +15,11 @@ import 'package:provider/provider.dart';
 // The TIMELINE tab (doc/recorder-design.md §7.3): one lane per topic with its message density, gaps, markers and
 // bookmarks. The mouse wheel zooms, dragging the time axis pans, dragging across the lanes selects a range.
 class RecordingTimeline extends StatelessWidget {
-  static const double labelWidth = 240;
+  // the topic column fits the longest topic, within these limits
+  static const double minLabelWidth = 240;
+  static const double maxLabelShare = 0.4;
+  // the chip's padding and the margins left and right of it
+  static const double labelPadding = 8 + 20 + 8;
   static const double laneHeight = 30;
   // the topic chips are smaller than in the viewers, with 4px around them in their lane
   static const double chipHeight = 22;
@@ -105,6 +110,9 @@ class _TimelineCanvasState extends State<_TimelineCanvas> {
   final _scrollController = ScrollController();
   int? _dragStartMicros;
   int? _dragEndMicros;
+  // the width of the longest topic, measured again only when the topics change
+  List<String>? _measuredTopics;
+  double _longestTopic = 0;
 
   @override
   void dispose() {
@@ -117,7 +125,8 @@ class _TimelineCanvasState extends State<_TimelineCanvas> {
     var vm = context.watch<TimelineViewmodel>();
     var topics = vm.topics;
     return LayoutBuilder(builder: (context, constraints) {
-      var laneWidth = max(1.0, constraints.maxWidth - RecordingTimeline.labelWidth);
+      var labelWidth = _labelWidth(context, topics, constraints.maxWidth);
+      var laneWidth = max(1.0, constraints.maxWidth - labelWidth);
       var style = _TimelineStyle.of(context);
       var selection = _dragStartMicros != null && _dragEndMicros != null
           ? (min(_dragStartMicros!, _dragEndMicros!), max(_dragStartMicros!, _dragEndMicros!))
@@ -126,7 +135,7 @@ class _TimelineCanvasState extends State<_TimelineCanvas> {
               : null;
       return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
-          SizedBox(width: RecordingTimeline.labelWidth),
+          SizedBox(width: labelWidth),
           _buildAxis(vm, laneWidth, style, selection),
         ]),
         Expanded(
@@ -137,7 +146,7 @@ class _TimelineCanvasState extends State<_TimelineCanvas> {
               controller: _scrollController,
               child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 SizedBox(
-                  width: RecordingTimeline.labelWidth,
+                  width: labelWidth,
                   child: Column(children: [for (var topic in topics) _buildLabel(context, vm, topic)]),
                 ),
                 _buildLanes(vm, topics, laneWidth, style, selection),
@@ -147,6 +156,22 @@ class _TimelineCanvasState extends State<_TimelineCanvas> {
         ),
       ]);
     });
+  }
+
+  // wide enough for the longest topic, but the lanes keep most of the width; longer topics are clipped and shown in
+  // their tooltip
+  double _labelWidth(BuildContext context, List<String> topics, double available) {
+    if (!listEquals(topics, _measuredTopics)) {
+      var style = Theme.of(context).textTheme.titleSmall!;
+      _longestTopic = topics.fold(0.0, (longest, topic) {
+        var painter = TextPainter(text: TextSpan(text: topic, style: style), textDirection: TextDirection.ltr)..layout();
+        return max(longest, painter.width);
+      });
+      _measuredTopics = topics;
+    }
+    var wanted = _longestTopic + RecordingTimeline.labelPadding;
+    return wanted.clamp(RecordingTimeline.minLabelWidth,
+        max(RecordingTimeline.minLabelWidth, available * RecordingTimeline.maxLabelShare));
   }
 
   // the same divider below as its lane
