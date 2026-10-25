@@ -3,14 +3,18 @@ import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/documentation/export/import_merge.dart';
 import 'package:mqttstudio/documentation/import_viewmodel.dart';
+import 'package:mqttstudio/protocol/vda5050/vda5050_model.dart';
 import 'package:provider/provider.dart';
 import 'package:reactive_forms/reactive_forms.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 
 // Imports an AsyncAPI 3.0 or 2.x document into the documentation: new topics are added, changed ones replaced, or
-// the whole documentation is replaced. Returns a DocImportRequest or null.
+// the whole documentation is replaced. With preset, the VDA 5050 documentation of the chosen version and interface
+// name is imported the same way. Returns a DocImportRequest or null.
 class ImportDialog extends StatefulWidget {
-  const ImportDialog({Key? key}) : super(key: key);
+  final bool preset;
+
+  const ImportDialog({Key? key, this.preset = false}) : super(key: key);
 
   @override
   State<ImportDialog> createState() => _ImportDialogState();
@@ -23,7 +27,10 @@ class _ImportDialogState extends State<ImportDialog> {
   @override
   void initState() {
     super.initState();
-    _viewmodel = ImportViewmodel();
+    _viewmodel = ImportViewmodel(preset: widget.preset);
+    if (widget.preset) {
+      _viewmodel.loadPreset();
+    }
   }
 
   @override
@@ -38,7 +45,7 @@ class _ImportDialogState extends State<ImportDialog> {
       value: _viewmodel,
       child: Consumer<ImportViewmodel>(builder: (context, vm, _) {
         return SimpleDialog(
-          title: Text('docimportdialog.title'.tr()),
+          title: Text((widget.preset ? 'docpresetdialog.title' : 'docimportdialog.title').tr()),
           contentPadding: EdgeInsets.all(16),
           children: [
             ConstrainedBox(
@@ -46,7 +53,7 @@ class _ImportDialogState extends State<ImportDialog> {
               child: ReactiveForm(
                 formGroup: vm.form,
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                  _buildFile(context, vm),
+                  widget.preset ? _buildPreset(vm) : _buildFile(context, vm),
                   SizedBox(height: 16),
                   SizedBox(height: 360, child: _buildContent(context, vm)),
                   SizedBox(height: 16),
@@ -81,8 +88,45 @@ class _ImportDialogState extends State<ImportDialog> {
     ]);
   }
 
+  Widget _buildPreset(ImportViewmodel vm) {
+    return SrxFormRow(children: [
+      Expanded(
+        flex: 2,
+        child: ReactiveDropdownField<VdaVersion>(
+          formControlName: ImportViewmodel.versionField,
+          autofocus: true,
+          decoration: InputDecoration(
+              border: OutlineInputBorder(), labelText: 'docpresetdialog.version.label'.tr(), isDense: true),
+          items: [
+            for (var version in VdaVersion.values)
+              DropdownMenuItem(value: version, child: Text('VDA 5050 ${version.protocolVersion}'))
+          ],
+        ),
+      ),
+      SizedBox(width: 16),
+      Expanded(
+        flex: 3,
+        child: ReactiveTextField<String>(
+          formControlName: ImportViewmodel.interfaceNameField,
+          decoration: InputDecoration(
+              border: OutlineInputBorder(),
+              labelText: 'docpresetdialog.interfacename.label'.tr(),
+              helperText: 'docpresetdialog.interfacename.helper'.tr(),
+              isDense: true),
+          validationMessages: {
+            ValidationMessage.required: (_) => 'srx.common.fieldrequired'.tr(),
+            'level': (_) => 'vda5050device.level.error'.tr(),
+          },
+        ),
+      ),
+    ]);
+  }
+
   Widget _buildContent(BuildContext context, ImportViewmodel vm) {
     var theme = Theme.of(context);
+    if (vm.loading && vm.plan == null) {
+      return Center(child: CircularProgressIndicator());
+    }
     if (vm.error != null) {
       return Text('docimportdialog.error'.tr(args: [vm.error!]),
           style: theme.textTheme.bodyMedium!.copyWith(color: theme.colorScheme.error));
@@ -97,13 +141,20 @@ class _ImportDialogState extends State<ImportDialog> {
     var warnings = imported.warnings;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Text(
-          'docimportdialog.summary'.tr(args: [
-            imported.documentation.title.isEmpty ? '–' : imported.documentation.title,
-            imported.version,
-            '${plan.countOf(ImportState.added)}',
-            '${plan.countOf(ImportState.changed)}',
-            '${plan.countOf(ImportState.same)}',
-          ]),
+          widget.preset
+              ? 'docpresetdialog.summary'.tr(args: [
+                  imported.documentation.title,
+                  '${plan.countOf(ImportState.added)}',
+                  '${plan.countOf(ImportState.changed)}',
+                  '${plan.countOf(ImportState.same)}',
+                ])
+              : 'docimportdialog.summary'.tr(args: [
+                  imported.documentation.title.isEmpty ? '–' : imported.documentation.title,
+                  imported.version,
+                  '${plan.countOf(ImportState.added)}',
+                  '${plan.countOf(ImportState.changed)}',
+                  '${plan.countOf(ImportState.same)}',
+                ]),
           style: theme.textTheme.bodyMedium),
       if (warnings.isNotEmpty) ...[
         SizedBox(height: 4),

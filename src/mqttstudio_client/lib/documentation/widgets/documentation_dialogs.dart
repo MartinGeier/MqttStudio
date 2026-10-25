@@ -112,6 +112,14 @@ class DocumentationDialogs {
     }
   }
 
+  // the VDA 5050 documentation preset, reviewed like an import (doc/vda5050-design.md §9.1)
+  static Future addPreset(BuildContext context, DocumentationViewmodel vm) async {
+    var request = await _show<DocImportRequest>(context, ImportDialog(preset: true));
+    if (request != null) {
+      vm.importDocumentation(request);
+    }
+  }
+
   static Future addNode(
       BuildContext context, DocumentationViewmodel vm, DocPathDialogMode mode, String? basePath) async {
     var node = await _show<DocNode>(context, DocPathDialog(mode: mode, basePath: basePath, onAdd: vm.addNode));

@@ -27,6 +27,9 @@ ReceivedMqttMessage incoming(String topic, String payload) =>
     ReceivedMqttMessage(1, topic, toPayload(payload), MqttQos.atMostOnce, DateTime.now(), false);
 
 void main() {
+  // the VDA 5050 preset reads its schemas from the assets, like run_cli does
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   Cli cli() => Cli([project()]);
 
   group('doc check', () {
@@ -119,6 +122,23 @@ void main() {
       expect(merged.nodeAt('plant/speed')!.title, 'Spindle speed');
       expect(merged.nodeAt('plant/mode'), isNotNull);
       expect(await cli().runReal(['doc', 'import', '-p', 'Demo', '${folder.path}/missing.yaml']), 3);
+    });
+
+    test('import --preset writes the VDA 5050 documentation', () async {
+      var folder = await Directory.systemTemp.createTemp('doc_cli');
+      addTearDown(() => folder.delete(recursive: true));
+      var target = '${folder.path}/fleet.asyncapi.json';
+
+      var run = cli();
+      var code = await run
+          .runReal(['doc', 'import', '-p', 'Demo', '--preset', 'vda5050-v2', '--interface', 'agv', '--out', target]);
+      expect(code, 0, reason: run.err.toString());
+      expect(run.out.toString(), contains('VDA 5050 2.x: 8 new, 0 changed, 0 unchanged, 0 conflicts'));
+      var merged = AsyncApiImporter.read(await File(target).readAsString()).documentation;
+      expect(merged.nodeAt('agv/v2/{manufacturer}/{serialNumber}/state')!.topic!.payload.schema, isNotNull);
+      expect(merged.nodeAt('plant/speed'), isNotNull);
+      expect(await cli().runReal(['doc', 'import', '-p', 'Demo', '--preset', 'vda5050-v3', 'x.yaml']), 2);
+      expect(await cli().runReal(['doc', 'import', '-p', 'Demo', '--preset', 'vda5050-v3', '--interface', 'a/b']), 2);
     });
   });
 }

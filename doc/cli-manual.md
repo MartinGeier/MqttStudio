@@ -404,18 +404,22 @@ mqttstudio doc export -p "Demo factory" --format csv
 
 Exports never contain passwords, certificates or the client id.
 
-**doc import**: compare an AsyncAPI file (2.x or 3.x, YAML or JSON) with the documentation and
-write the merged result.
+**doc import**: compare an AsyncAPI file (2.x or 3.x, YAML or JSON), or the ready-made VDA 5050
+documentation, with the documentation and write the merged result.
 
 ```
 mqttstudio doc import -p "Demo factory" vendor-api.yaml
 mqttstudio doc import -p "Demo factory" vendor-api.yaml --out merged.asyncapi.yaml
 mqttstudio doc import -p "Demo factory" vendor-api.yaml --replace --out replaced.asyncapi.yaml
+mqttstudio doc import -p "Fleet" --preset vda5050-v3 --out fleet.asyncapi.yaml
+mqttstudio doc import -p "Fleet" --preset vda5050-v2 --interface agv --out fleet.asyncapi.yaml
 ```
 
 | Option | Meaning |
 |---|---|
 | `-p`, `--project <name>` | The project whose documentation the file is compared with. Required |
+| `--preset <name>` | Instead of a file: the VDA 5050 topics with the official JSON schemas, `vda5050-v2` (2.1.0) or `vda5050-v3` (3.0.0) |
+| `--interface <name>` | With `--preset`: the first topic level, default `uagv` for v2 and `vda5050` for v3 |
 | `--out <file>` | Write the merged documentation to this AsyncAPI file. Without it, the command only prints what would change |
 | `--replace` | Replace the documentation instead of merging |
 

@@ -18,7 +18,9 @@ import 'package:mqttstudio/documentation/export/doc_export.dart';
 import 'package:mqttstudio/documentation/export/import_merge.dart';
 import 'package:mqttstudio/documentation/model/observed_topic.dart';
 import 'package:mqttstudio/documentation/model/topic_documentation.dart';
+import 'package:mqttstudio/documentation/presets/vda5050_preset.dart';
 import 'package:mqttstudio/model/project.dart';
+import 'package:mqttstudio/protocol/vda5050/vda5050_model.dart';
 import 'package:mqttstudio/recorder/engine/recorder_rules.dart';
 import 'package:mqttstudio/recorder/model/recording_header.dart';
 import 'package:mqttstudio/recorder/storage/recording_library.dart';
@@ -395,34 +397,38 @@ class DocImportCommand extends CliCommand with _ProjectOption {
   @override
   final String name = 'import';
   @override
-  final String description = 'Compare an AsyncAPI file with the documentation and write the merged result.';
+  final String description =
+      'Compare an AsyncAPI file or the VDA 5050 preset with the documentation and write the merged result.';
+
+  // --preset values and their VDA 5050 version (doc/vda5050-design.md §9.1, §11)
+  static const Map<String, VdaVersion> presets = {'vda5050-v2': VdaVersion.v2, 'vda5050-v3': VdaVersion.v3};
 
   @override
-  String get invocation => 'mqttstudio doc import -p <project> <file> [--out <file>] [--replace]';
+  String get invocation =>
+      'mqttstudio doc import -p <project> (<file> | --preset <name> [--interface <name>]) [--out <file>] [--replace]';
 
   DocImportCommand(CliContext context) : super(context) {
     addProjectOption();
     argParser
+      ..addOption('preset',
+          allowed: presets.keys, help: 'Import the VDA 5050 documentation of this version instead of a file.')
+      ..addOption('interface', help: 'Interface name of the VDA 5050 topics, default uagv (v2) or vda5050 (v3).')
       ..addOption('out', help: 'Write the merged documentation to this AsyncAPI file (.yaml or .json).')
       ..addFlag('replace', negatable: false, help: 'Replace the documentation instead of merging.');
   }
 
   @override
   Future<int> run() async {
-    var path = singleArgument('AsyncAPI file');
+    var preset = argResults!['preset'] as String?;
+    var source = preset == null ? singleArgument('AsyncAPI file') : null;
+    if (preset != null && argResults!.rest.isNotEmpty) {
+      usageException('Give either a file or --preset, not both.');
+    }
+    if (preset == null && argResults!['interface'] != null) {
+      usageException('--interface needs --preset.');
+    }
     var project = await loadProject();
-    String text;
-    try {
-      text = await File(path).readAsString();
-    } on FileSystemException catch (exc) {
-      throw CliException(CliExitCode.notFound, 'Cannot read $path: ${exc.osError?.message ?? exc.message}');
-    }
-    ImportedDocumentation imported;
-    try {
-      imported = AsyncApiImporter.read(text);
-    } on FormatException catch (exc) {
-      throw CliException(CliExitCode.invalid, '$path: ${exc.message}');
-    }
+    var imported = source == null ? await _readPreset(presets[preset]!) : await _readFile(source);
     for (var warning in imported.warnings) {
       out.event('warning', {'message': warning}, text: 'Warning: $warning');
     }
@@ -440,7 +446,7 @@ class DocImportCommand extends CliCommand with _ProjectOption {
           'version': imported.version,
           for (var state in ImportState.values) state.name: plan.countOf(state),
         },
-        text: 'AsyncAPI ${imported.version}: ${plan.countOf(ImportState.added)} new, '
+        text: '${preset == null ? 'AsyncAPI ' : ''}${imported.version}: ${plan.countOf(ImportState.added)} new, '
             '${plan.countOf(ImportState.changed)} changed, ${plan.countOf(ImportState.same)} unchanged, '
             '${plan.countOf(ImportState.conflict)} conflicts.',
         level: OutputLevel.result);
@@ -451,5 +457,28 @@ class DocImportCommand extends CliCommand with _ProjectOption {
       out.event('written', {'file': file}, text: 'Documentation written to $file', level: OutputLevel.result);
     }
     return CliExitCode.ok.code;
+  }
+
+  Future<ImportedDocumentation> _readFile(String path) async {
+    String text;
+    try {
+      text = await File(path).readAsString();
+    } on FileSystemException catch (exc) {
+      throw CliException(CliExitCode.notFound, 'Cannot read $path: ${exc.osError?.message ?? exc.message}');
+    }
+    try {
+      return AsyncApiImporter.read(text);
+    } on FormatException catch (exc) {
+      throw CliException(CliExitCode.invalid, '$path: ${exc.message}');
+    }
+  }
+
+  Future<ImportedDocumentation> _readPreset(VdaVersion version) async {
+    var name = argResults!['interface'] as String? ?? Vda5050Preset.defaultInterfaceName(version);
+    var interfaceName = Vda5050Preset.validInterfaceName(name);
+    if (interfaceName == null) {
+      usageException('--interface must be one topic level without /, + or #.');
+    }
+    return Vda5050Preset.build(version, interfaceName: interfaceName);
   }
 }

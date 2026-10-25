@@ -56,12 +56,12 @@ class _DocumentationCommandBarState extends State<DocumentationCommandBar> {
         Spacer(),
         Tooltip(
           message: 'documentation.import.tooltip'.tr(),
-          child: TextButton.icon(
-              onPressed: vm.isProjectOpen && !vm.isDiscovering
-                  ? () => DocumentationDialogs.importDocumentation(context, vm)
-                  : null,
-              icon: Icon(Icons.file_upload),
-              label: Text('documentation.import.button'.tr())),
+          child: Builder(
+            builder: (buttonContext) => TextButton.icon(
+                onPressed: vm.isProjectOpen && !vm.isDiscovering ? () => _import(buttonContext, vm) : null,
+                icon: Icon(Icons.file_upload),
+                label: Text('documentation.import.button'.tr())),
+          ),
         ),
         Tooltip(
           message: 'documentation.export.tooltip'.tr(),
@@ -85,6 +85,36 @@ class _DocumentationCommandBarState extends State<DocumentationCommandBar> {
       ]),
       Divider(height: 4)
     ]);
+  }
+
+  // an AsyncAPI file or the VDA 5050 preset (doc/vda5050-design.md §9.1); the menu opens below the button
+  Future<void> _import(BuildContext buttonContext, DocumentationViewmodel vm) async {
+    var button = buttonContext.findRenderObject() as RenderBox;
+    var overlay = Overlay.of(buttonContext).context.findRenderObject() as RenderBox;
+    var position = RelativeRect.fromRect(
+        Rect.fromPoints(button.localToGlobal(button.size.bottomLeft(Offset.zero), ancestor: overlay),
+            button.localToGlobal(button.size.bottomRight(Offset.zero), ancestor: overlay)),
+        Offset.zero & overlay.size);
+    var preset = await showMenu<bool>(context: buttonContext, position: position, items: [
+      PopupMenuItem(
+          value: false,
+          child: ListTile(
+              leading: Icon(Icons.description), title: Text('documentation.import.file'.tr()), dense: true)),
+      PopupMenuItem(
+          value: true,
+          child: ListTile(
+              leading: Icon(Icons.precision_manufacturing),
+              title: Text('documentation.import.vda5050'.tr()),
+              dense: true)),
+    ]);
+    if (!buttonContext.mounted || preset == null) {
+      return;
+    }
+    if (preset) {
+      await DocumentationDialogs.addPreset(buttonContext, vm);
+    } else {
+      await DocumentationDialogs.importDocumentation(buttonContext, vm);
+    }
   }
 
   // a new topic goes into the selected namespace, or next to the selected topic

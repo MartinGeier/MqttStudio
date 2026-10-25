@@ -12,6 +12,7 @@ import 'package:mqttstudio/documentation/import_viewmodel.dart';
 import 'package:mqttstudio/documentation/model/topic_documentation.dart';
 import 'package:mqttstudio/documentation/model/topic_spec.dart';
 import 'package:mqttstudio/documentation/schema_json_viewmodel.dart';
+import 'package:mqttstudio/protocol/vda5050/vda5050_model.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 import '../helpers/test_app.dart';
 import '../helpers/test_setup.dart';
@@ -140,6 +141,46 @@ void main() {
       expect(request.options.format, DocExportFormat.asyncapiYaml);
       expect(request.options.scope, isNull);
       expect(request.fileName, 'Demo.asyncapi.yaml');
+    });
+  });
+
+  group('VDA 5050 preset', () {
+    test('compares the preset with the documentation and follows version and interface name', () async {
+      var vm = ImportViewmodel(preset: true);
+      await vm.loadPreset();
+      expect(vm.imported!.documentation.title, 'VDA 5050 3.0 on vda5050');
+      expect(vm.plan!.countOf(ImportState.added), 10);
+      expect(vm.canImport, isTrue);
+
+      vm.form.control(ImportViewmodel.versionField).value = VdaVersion.v2;
+      await pumpEventQueue();
+      expect(vm.form.control(ImportViewmodel.interfaceNameField).value, 'uagv');
+      await pumpEventQueue(times: 50);
+      expect(vm.imported!.documentation.title, 'VDA 5050 2.x on uagv');
+      expect(vm.plan!.countOf(ImportState.added), 8);
+
+      vm.form.control(ImportViewmodel.interfaceNameField).value = 'a/b';
+      await pumpEventQueue();
+      expect(vm.plan, isNull);
+      expect(vm.canImport, isFalse);
+      vm.dispose();
+    });
+
+    testWidgets('IMPORT offers the VDA 5050 documentation', (tester) async {
+      await ignoringOverflowErrors(() async {
+        await tester.binding.setSurfaceSize(Size(1600, 1200));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        await tester.pumpWidget(testApp(DocumentationPage()));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('IMPORT'));
+        await tester.pumpAndSettle();
+        expect(find.text('AsyncAPI file'), findsOneWidget);
+        await tester.tap(find.text('VDA 5050 documentation'));
+        await tester.pump();
+        await tester.pump(Duration(milliseconds: 500));
+        expect(find.text('Add VDA 5050 documentation'), findsOneWidget);
+        expect(find.text('Interface name'), findsOneWidget);
+      });
     });
   });
 

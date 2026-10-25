@@ -103,6 +103,10 @@ flutter:
     - assets/fonts/
     - assets/i18n/
     - assets/cert/
+    # the official VDA 5050 JSON schemas and their licence
+    - assets/vda5050/
+    - assets/vda5050/2.1.0/
+    - assets/vda5050/3.0.0/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware.
