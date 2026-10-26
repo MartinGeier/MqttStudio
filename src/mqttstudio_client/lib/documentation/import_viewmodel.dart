@@ -41,13 +41,14 @@ class ImportViewmodel extends SrxChangeNotifier {
   // the preset requested last; an older one that finishes later is dropped
   int _presetRequest = 0;
 
-  ImportViewmodel({this.preset = false}) {
+  ImportViewmodel({this.preset = false, VdaVersion? presetVersion, String? presetInterfaceName}) {
+    var version = presetVersion ?? VdaVersion.v3;
     form = FormGroup({
       modeField: FormControl<ImportMode>(value: ImportMode.merge),
-      if (preset) versionField: FormControl<VdaVersion>(value: VdaVersion.v3),
+      if (preset) versionField: FormControl<VdaVersion>(value: version),
       if (preset)
         interfaceNameField: FormControl<String>(
-            value: Vda5050Preset.defaultInterfaceName(VdaVersion.v3),
+            value: presetInterfaceName ?? Vda5050Preset.defaultInterfaceName(version),
             validators: [Validators.required, Validators.delegate(_validateInterfaceName)]),
     });
     _subscriptions.add(form.control(modeField).valueChanges.listen((_) => notifyListeners()));

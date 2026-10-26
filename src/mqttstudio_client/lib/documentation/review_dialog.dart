@@ -10,7 +10,8 @@ import 'package:reactive_forms/reactive_forms.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 
 // Shows what a discovery found, in tabs: proposed templates, new topics, changed and not seen documented topics
-// (doc/documentation-design.md §5.6, §12.5). Returns true when the result is to be applied.
+// (doc/documentation-design.md §5.6, §12.5). Returns true when the result is to be applied, or a Vda5050Hint when the
+// VDA 5050 documentation is to be added first (doc/vda5050-design.md §9.2).
 class ReviewDialog extends StatefulWidget {
   final DiscoveryResult result;
 
@@ -81,11 +82,36 @@ class _ReviewDialogState extends State<ReviewDialog> {
       for (var error in result.errors)
         Text(error, style: theme.textTheme.bodySmall!.copyWith(color: theme.colorScheme.error)),
     ];
-    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Icon(Icons.travel_explore, size: 20, color: theme.hintColor),
-      SizedBox(width: 8),
-      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: lines)),
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Icon(Icons.travel_explore, size: 20, color: theme.hintColor),
+        SizedBox(width: 8),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: lines)),
+      ]),
+      if (vm.vda5050Hint != null) _buildVda5050Hint(context, vm.vda5050Hint!),
     ]);
+  }
+
+  // VDA 5050 topics are documented best by the preset; the rest is discovered again afterwards
+  Widget _buildVda5050Hint(BuildContext context, Vda5050Hint hint) {
+    var theme = Theme.of(context);
+    return Container(
+      margin: EdgeInsets.only(top: 12),
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(border: Border.all(color: theme.dividerColor), borderRadius: BorderRadius.circular(4)),
+      child: Row(children: [
+        Icon(Icons.precision_manufacturing, size: 20, color: theme.hintColor),
+        SizedBox(width: 8),
+        Expanded(
+            child: Text('docreview.vda5050.hint'.tr(args: ['VDA 5050 ${hint.version.isV3 ? '3.0' : '2.x'}']),
+                style: theme.textTheme.bodyMedium)),
+        SizedBox(width: 12),
+        TextButton.icon(
+            onPressed: () => GetIt.I.get<SrxNavigationService>().pop(hint),
+            icon: Icon(Icons.library_add),
+            label: Text('docreview.vda5050.button'.tr())),
+      ]),
+    );
   }
 
   Widget _buildTabs(BuildContext context, ReviewViewmodel vm) {

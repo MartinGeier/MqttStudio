@@ -359,6 +359,9 @@ them are templates), the changed ones and the documented topics that didn't send
 undocumented topics, wrong payload formats, JSON that breaks the schema, values out of range or
 not allowed, parameters that break their pattern, a different QoS or retain flag, topics that
 stay silent longer than documented, use of deprecated topics and differing MQTT 5 properties.
+On VDA 5050 topics it also checks the protocol: the header against the topic, header id gaps,
+timestamps, the structure and updates of orders, duplicate action ids, the state heartbeat of each
+robot and, for 3.0, requests and responses. These findings are named `vda5050.<rule>`.
 
 ```
 mqttstudio doc check -p "Demo factory" --duration 10m

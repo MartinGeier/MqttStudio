@@ -13,6 +13,8 @@ import 'package:mqttstudio/documentation/engine/schema_paths.dart';
 import 'package:mqttstudio/documentation/model/observed_topic.dart';
 import 'package:mqttstudio/documentation/model/topic_documentation.dart';
 import 'package:mqttstudio/documentation/model/topic_spec.dart';
+import 'package:mqttstudio/documentation/review_viewmodel.dart';
+import 'package:mqttstudio/protocol/vda5050/vda5050_model.dart';
 import 'package:mqttstudio/message_viewer/message_viewer.dart';
 import 'package:mqttstudio/model/mqtt_protocol_version.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
@@ -339,6 +341,27 @@ void main() {
       await GetIt.I.get<ProjectManager>().closeProject();
       expect(discovery.state, DiscoveryState.idle);
       expect(discovery.lastResult, isNull);
+    });
+  });
+
+  group('VDA 5050 hint', () {
+    ReviewViewmodel review(List<RecordedMessage> messages) => ReviewViewmodel(DiscoveryMerger.build(
+        TopicDocumentation(), analyzed(messages), DiscoverySettings(filters: [RecorderFilter('#')])));
+
+    test('offers the preset of the version and interface name the topics use', () {
+      var vm = review([
+        at(0, 'plant/temp', '21'),
+        for (var robot in ['R1', 'R2']) at(1, 'agv/v2/Acme/$robot/state', '{"headerId":1}'),
+      ]);
+      expect(vm.vda5050Hint!.version, VdaVersion.v2);
+      expect(vm.vda5050Hint!.interfaceName, 'agv');
+      vm.dispose();
+    });
+
+    test('no hint without VDA 5050 topics', () {
+      var vm = review([at(0, 'plant/temp', '21'), at(1, 'agv/v2/Acme/R1/temperature', '1')]);
+      expect(vm.vda5050Hint, isNull);
+      vm.dispose();
     });
   });
 }

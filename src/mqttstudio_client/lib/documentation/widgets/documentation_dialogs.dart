@@ -23,6 +23,8 @@ import 'package:mqttstudio/documentation/schema_field_dialog.dart';
 import 'package:mqttstudio/documentation/schema_json_dialog.dart';
 import 'package:mqttstudio/documentation/schema_field_viewmodel.dart';
 import 'package:srx_flutter/srx_flutter.dart';
+import 'package:mqttstudio/documentation/review_viewmodel.dart';
+import 'package:mqttstudio/protocol/vda5050/vda5050_model.dart';
 
 enum _NodeAction { addTopic, addNamespace, move, duplicate, toTopic, toNamespace, createSimulation, delete }
 
@@ -47,9 +49,11 @@ class DocumentationDialogs {
   }
 
   static Future review(BuildContext context, DocumentationViewmodel vm, DiscoveryResult result) async {
-    var apply = await _show<bool>(context, ReviewDialog(result: result));
-    if (apply == true) {
+    var answer = await _show<Object>(context, ReviewDialog(result: result));
+    if (answer == true) {
       vm.applyDiscovery(result);
+    } else if (answer is Vda5050Hint && context.mounted) {
+      await addPreset(context, vm, version: answer.version, interfaceName: answer.interfaceName);
     }
   }
 
@@ -113,8 +117,10 @@ class DocumentationDialogs {
   }
 
   // the VDA 5050 documentation preset, reviewed like an import (doc/vda5050-design.md §9.1)
-  static Future addPreset(BuildContext context, DocumentationViewmodel vm) async {
-    var request = await _show<DocImportRequest>(context, ImportDialog(preset: true));
+  static Future addPreset(BuildContext context, DocumentationViewmodel vm,
+      {VdaVersion? version, String? interfaceName}) async {
+    var request = await _show<DocImportRequest>(
+        context, ImportDialog(preset: true, presetVersion: version, presetInterfaceName: interfaceName));
     if (request != null) {
       vm.importDocumentation(request);
     }

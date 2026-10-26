@@ -5,6 +5,8 @@ import 'package:mqttstudio/documentation/engine/documentation_analyzer.dart';
 import 'package:mqttstudio/documentation/engine/schema_validator.dart';
 import 'package:mqttstudio/documentation/model/topic_documentation.dart';
 import 'package:mqttstudio/documentation/model/topic_spec.dart';
+import 'package:mqttstudio/protocol/protocol_profile.dart';
+import 'package:mqttstudio/protocol/protocol_registry.dart';
 import 'package:mqttstudio/recorder/engine/recorder_rules.dart';
 import 'package:mqttstudio/recorder/model/recorded_message.dart';
 
@@ -20,6 +22,8 @@ enum FindingRule {
   stale,
   deprecatedInUse,
   mqtt5Differs,
+  // a rule of a protocol profile, e.g. VDA 5050; the finding names it (doc/vda5050-design.md §9.3)
+  protocol,
 }
 
 enum FindingSeverity { error, warning }
@@ -38,9 +42,17 @@ class Finding {
   DateTime last;
   String? examplePayload;
 
-  Finding(this.rule, this.topic, this.node, this.detail, this.first) : last = first;
+  // for FindingRule.protocol: the profile's rule, e.g. vda5050.headerIdGap, and its severity
+  final String? protocolRule;
+  final FindingSeverity? protocolSeverity;
 
-  FindingSeverity get severity => severityOf(rule);
+  Finding(this.rule, this.topic, this.node, this.detail, this.first, {this.protocolRule, this.protocolSeverity})
+      : last = first;
+
+  FindingSeverity get severity => protocolSeverity ?? severityOf(rule);
+
+  // the rule's name in exports and the CLI
+  String get ruleId => protocolRule ?? rule.name;
 
   static FindingSeverity severityOf(FindingRule rule) => switch (rule) {
         FindingRule.formatMismatch ||
@@ -54,7 +66,7 @@ class Finding {
 
   Map<String, Object?> toJson() => {
         'severity': severity.name,
-        'rule': rule.name,
+        'rule': ruleId,
         'topic': topic,
         if (node != null) 'documented': node!.path,
         'count': count,
@@ -76,14 +88,17 @@ class ConformanceChecker {
   final List<String> ignoreFilters;
   final DocIndex _index;
   final DocIndex _loose;
+  final ProtocolRegistry _protocols;
+  final Map<ProtocolProfile, ProtocolChecker> _protocolCheckers = {};
   final Map<String, Finding> _findings = {};
   final Map<DocNode, DateTime> _lastSeen = {};
   DateTime? _startedAt;
   int messages = 0;
 
-  ConformanceChecker(this.documentation, {this.isMqtt5 = true, this.ignoreFilters = const []})
+  ConformanceChecker(this.documentation, {this.isMqtt5 = true, this.ignoreFilters = const [], ProtocolRegistry? protocols})
       : _index = DocIndex(documentation.nodes),
-        _loose = DocIndex(documentation.nodes, patterns: false);
+        _loose = DocIndex(documentation.nodes, patterns: false),
+        _protocols = protocols ?? ProtocolRegistry.standard();
 
   List<Finding> get findings => _findings.values.toList()
     ..sort((a, b) {
@@ -111,6 +126,7 @@ class ConformanceChecker {
     start(at);
     messages++;
     var match = _index.match(message.topic);
+    _checkProtocol(message, at, match?.node ?? _loose.match(message.topic)?.node);
     if (match == null) {
       _unmatched(message, at);
       return;
@@ -135,8 +151,14 @@ class ConformanceChecker {
     _checkMqtt5(topic.mqtt5, message, at, node);
   }
 
-  // documented topics with a stale threshold that sent nothing for that long; once the check has run that long
+  // documented topics with a stale threshold that sent nothing for that long; once the check has run that long. The
+  // protocol rules that fire on time run here too.
   void checkStale(DateTime now) {
+    for (var checker in _protocolCheckers.values) {
+      for (var (topic, finding) in checker.tick(now)) {
+        _addProtocol(finding, topic, _index.match(topic)?.node, now, null);
+      }
+    }
     var startedAt = _startedAt;
     if (startedAt == null) {
       return;
@@ -159,6 +181,46 @@ class ConformanceChecker {
           ..last = now
           ..count = 1;
       }
+    }
+  }
+
+  // the rules of the protocol the topic belongs to, documented or not (doc/vda5050-design.md §9.3)
+  void _checkProtocol(RecordedMessage message, DateTime at, DocNode? node) {
+    if (message.payload.isEmpty) {
+      return;
+    }
+    var match = _protocols.match(message.topic);
+    if (match == null) {
+      return;
+    }
+    var json = ClassifiedPayload.of(message.payload).json;
+    if (json == null) {
+      return;
+    }
+    var checker = _protocolCheckers.putIfAbsent(match.profile, match.profile.createChecker);
+    for (var finding in checker.check(message.topic, match, json, at)) {
+      _addProtocol(finding, message.topic, node, at, message);
+    }
+  }
+
+  void _addProtocol(ProtocolFinding finding, String topic, DocNode? node, DateTime at, RecordedMessage? message) {
+    var id = '${finding.rule}|$topic|${finding.key}';
+    var existing = _findings[id];
+    if (existing == null) {
+      if (_findings.length >= maxFindings) {
+        return;
+      }
+      existing = _findings[id] = Finding(FindingRule.protocol, topic, node, finding.detail, at,
+          protocolRule: finding.rule,
+          protocolSeverity:
+              finding.severity == ProtocolSeverity.error ? FindingSeverity.error : FindingSeverity.warning);
+    }
+    existing
+      ..count += 1
+      ..last = at
+      ..detail = finding.detail;
+    if (message != null) {
+      existing.examplePayload = _payloadText(message);
     }
   }
 

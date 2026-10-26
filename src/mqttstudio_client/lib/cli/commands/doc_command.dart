@@ -312,7 +312,7 @@ class DocCheckCommand extends CliCommand with BrokerOptions, _ProjectOption {
     for (var finding in checker.findings) {
       out.event('finding', finding.toJson(),
           text: '${finding.severity == FindingSeverity.error ? 'ERROR  ' : 'WARNING'} ${finding.topic}  '
-              '${finding.rule.name}  ×${finding.count}  ${finding.detail}',
+              '${finding.ruleId}  ×${finding.count}  ${finding.detail}',
           level: OutputLevel.result);
     }
     var errors = checker.countOf(FindingSeverity.error);

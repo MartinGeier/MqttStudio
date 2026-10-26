@@ -77,7 +77,9 @@ class DocFormat {
 
   static String count(int value) => _count.format(value);
 
-  static String findingRule(FindingRule rule) => 'docfindings.rule.${rule.name}'.tr();
+  static String findingRule(Finding finding) => finding.protocolRule != null
+      ? 'docfindings.rule.${finding.protocolRule}'.tr()
+      : 'docfindings.rule.${finding.rule.name}'.tr();
 
   static String difference(DifferenceKind kind, String? subject) =>
       'docreview.difference.${kind.name}'.tr(args: [subject ?? '']);

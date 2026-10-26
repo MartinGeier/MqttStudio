@@ -108,7 +108,7 @@ class FindingsPanel extends StatelessWidget {
         child: _row(context, [
           Icon(iconOf(finding.severity), size: 18, color: colorOf(context, finding.severity)),
           Text(finding.topic, overflow: TextOverflow.ellipsis, style: TextStyle(fontFamily: 'Consolas', fontSize: 13)),
-          Text(DocFormat.findingRule(finding.rule), overflow: TextOverflow.ellipsis),
+          Text(DocFormat.findingRule(finding), overflow: TextOverflow.ellipsis),
           Text(DocFormat.count(finding.count)),
           Text(time),
           Text(finding.detail, overflow: TextOverflow.ellipsis),

@@ -1,7 +1,8 @@
 # VDA 5050 Support – Detailed Design
 
 Status: **Draft**. Scope and the former open questions are decided (V1, V5, V7, V13, V14, V16, V17); the other
-decisions are proposed, see §2 and §18. Phases 0 (simulated robots) and 1 (presets) are implemented, see §16.1 · Branch: `mqtt5` · Last updated: 2026-10-25
+decisions are proposed, see §2 and §18. Phases 0 (simulated robots), 1 (presets) and 2 (profile engine and rules)
+are implemented, see §16.1 · Branch: `mqtt5` · Last updated: 2026-10-26
 
 Related: `documentation-design.md` (presets go through the AsyncAPI import, protocol rules extend the check, T19),
 `recorder-design.md` (JSON paths and conditions, §10; `MessageSource`, §7.2), `simulator-design.md` (no
@@ -410,6 +411,7 @@ a preset. Findings are aggregated like the others (per concrete topic and rule).
 | Response without request | warning | 3.0 | A `responses` entry whose `requestId` was never in the robot's state during the check |
 | Unanswered request | warning | 3.0 | A zone or edge request still without a response after 10 s (setting) |
 | Visualization ahead of state | warning | 3.0 | `referenceStateHeaderId` is greater than the last state header id seen |
+| Heartbeat missing | error | all | A robot whose last connection state is `ONLINE` (or that sent none) sends no `state` for more than 35 s. Reported once per silence; offline, broken or hibernating robots may be silent |
 
 Schema, QoS, retain and stale findings come from the presets through the existing rules (V10). The rules' texts are
 English like the other check details.
@@ -687,6 +689,32 @@ Changed for the viewers: `message_viewer_viewmodel.dart` (`interpret`, raw toggl
 - **2.1.0 schemas have no units**, so only 3.0 fields carry `x-unit`.
 - **CLI:** `doc import --preset vda5050-v2|vda5050-v3 [--interface <name>]` instead of a file; `run_cli` already
   initializes the binding the asset bundle needs.
+
+**Phase 2 (profile engine and rules)** is implemented as designed in §5, §6, §9.2 and §9.3, with these differences:
+
+- **Engine:** `lib/protocol/protocol_profile.dart` (profile, topic, interpretation with sections and values,
+  `ProtocolChecker`), `protocol_registry.dart` (`ProtocolRegistry.standard()` with the VDA 5050 profile, topic cache;
+  not a GetIt service yet, the topic viewer phase can register it), `vda5050/vda5050_profile.dart` and
+  `vda5050_rules.dart` (`Vda5050Checker`).
+- **Texts:** summaries, section titles and labels are English strings made by the engine, so it stays free of Flutter
+  and the CLI could print them; the app is English only. Localizing them would mean keys in the engine.
+- **Order progress:** the state summary says how many nodes are still to go (`order o7#2 at N3, 4 nodes to go`)
+  instead of `done/total`, which would need every update of the order.
+- **No receive-time offset** in the Header section yet: the interpreter doesn't get the receive time; the detail view
+  can add it in phase 3.
+- **New rule `heartbeatMissing`** (§9.3): the documentation's stale rule works per template, so one silent robot among
+  others that keep sending wasn't found. The rule checks every robot.
+- **Findings:** protocol rules are `FindingRule.protocol` with the profile's rule id (`vda5050.headerIdGap`) and
+  severity; the findings panel, CSV and the CLI show the id. The check runs the rules on every message it receives,
+  documented or not.
+- **Discovery hint:** the review dialog shows the hint when a new topic is a VDA 5050 topic. Its button closes the
+  review without applying and opens the preset dialog with the version and interface name of the topics; after the
+  import, the user discovers again for the other topics, so the discovered VDA 5050 topics don't compete with the
+  preset's templates.
+- **Tests:** `test/protocol/vda5050_profile_test.dart` (detection, interpretation, every rule failing and passing) and
+  `test/documentation/vda5050_check_test.dart`: a simulated fleet of both versions through the real
+  `ConformanceChecker` with the preset gives no findings, each protocol fault exactly its rule, and robot and
+  connection faults none.
 
 ## 17. Known limitations
 

@@ -13,8 +13,11 @@ import 'package:srx_flutter/srx_flutter.dart';
 // name is imported the same way. Returns a DocImportRequest or null.
 class ImportDialog extends StatefulWidget {
   final bool preset;
+  // the preset's version and interface name to start with, e.g. from a discovery
+  final VdaVersion? presetVersion;
+  final String? presetInterfaceName;
 
-  const ImportDialog({Key? key, this.preset = false}) : super(key: key);
+  const ImportDialog({Key? key, this.preset = false, this.presetVersion, this.presetInterfaceName}) : super(key: key);
 
   @override
   State<ImportDialog> createState() => _ImportDialogState();
@@ -27,7 +30,8 @@ class _ImportDialogState extends State<ImportDialog> {
   @override
   void initState() {
     super.initState();
-    _viewmodel = ImportViewmodel(preset: widget.preset);
+    _viewmodel = ImportViewmodel(
+        preset: widget.preset, presetVersion: widget.presetVersion, presetInterfaceName: widget.presetInterfaceName);
     if (widget.preset) {
       _viewmodel.loadPreset();
     }

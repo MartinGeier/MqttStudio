@@ -53,7 +53,7 @@ class CsvExporter {
     for (var finding in findings) {
       out.writeln([
         finding.severity.name,
-        finding.rule.name,
+        finding.ruleId,
         finding.topic,
         finding.node?.path ?? '',
         '${finding.count}',
