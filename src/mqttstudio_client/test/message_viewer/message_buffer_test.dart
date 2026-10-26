@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mqttstudio/message_viewer/message_buffer.dart';
+import 'package:mqttstudio/message_viewer/message_filter.dart';
 import '../helpers/test_setup.dart';
 
 void main() {
@@ -22,8 +23,8 @@ void main() {
       buffer.storeMessage(message('home/Kitchen/temp', '1'));
       buffer.storeMessage(message('office/printer', '2'));
 
-      expect(buffer.getMessages('kitchen').map((x) => x.topicName), ['home/Kitchen/temp']);
-      expect(buffer.getMessages('nothing'), isEmpty);
+      expect(buffer.getMessages(MessageFilter('kitchen')).map((x) => x.topicName), ['home/Kitchen/temp']);
+      expect(buffer.getMessages(MessageFilter('nothing')), isEmpty);
     });
 
     test('returns at most 2000 messages to the view', () {
@@ -99,7 +100,7 @@ void main() {
       buffer.storeMessage(message('home/temp', '1', receivedOn: start));
       buffer.storeMessage(message('office/temp', '2', receivedOn: start.add(Duration(seconds: 30))));
 
-      var groups = buffer.getGroupMessages(MessageGroupTimePeriod.tenSeconds, 'home');
+      var groups = buffer.getGroupMessages(MessageGroupTimePeriod.tenSeconds, MessageFilter('home'));
 
       expect(groups.single.messages.single.topicName, 'home/temp');
     });
@@ -137,7 +138,7 @@ void main() {
       buffer.storeMessage(message('home/kitchen/temp', '1'));
       buffer.storeMessage(message('office/printer', '2'));
 
-      var tree = buffer.getMessagesTree('kitchen');
+      var tree = buffer.getMessagesTree(MessageFilter('kitchen'));
 
       expect(tree.children.map((x) => x.topicLevelName), ['home']);
       expect(tree.children.single.children.single.topicLevelName, 'kitchen');
@@ -147,10 +148,10 @@ void main() {
       buffer.storeMessage(message('home/kitchen/temp', '1'));
       buffer.storeMessage(message('office/printer', '2'));
 
-      buffer.getMessagesTree('kitchen');
+      buffer.getMessagesTree(MessageFilter('kitchen'));
 
       expect(buffer.getMessagesTree(null).children.length, 2);
-      expect(buffer.getMessagesTree('  ').children.length, 2);
+      expect(buffer.getMessagesTree(MessageFilter.create('  ')).children.length, 2);
     });
   });
 }

@@ -1,5 +1,12 @@
 import 'dart:convert';
+import 'package:darq/darq.dart' show Tuple2;
 import 'package:flutter/foundation.dart';
+import 'package:mqttstudio/common/utils/json_diff.dart';
+import 'package:mqttstudio/common/utils/payload_decoder.dart';
+import 'package:mqttstudio/common/widgets/payload_diff_view.dart';
+import 'package:mqttstudio/message_viewer/compare_messages_dialog.dart';
+import 'package:mqttstudio/message_viewer/publish_topic_dialog.dart';
+import 'package:mqttstudio/message_viewer/topic_stats.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:mqtt5_client/mqtt5_client.dart';
 import 'package:typed_data/typed_buffers.dart';
@@ -10,6 +17,8 @@ import 'package:mqttstudio/common/widgets/topic_chip.dart';
 import 'package:mqttstudio/model/mqtt_message_properties.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
 import 'package:mqttstudio/message_viewer/message_viewer_viewmodel.dart';
+import 'package:mqttstudio/protocol/protocol_profile.dart';
+import 'package:mqttstudio/protocol/widgets/interpreted_payload_view.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/services.dart';
 import 'package:mqttstudio/custom_theme.dart';
@@ -26,6 +35,9 @@ class MessageDetailView extends StatefulWidget {
 }
 
 class _MessageDetailViewState extends State<MessageDetailView> {
+  // the detail view is 500 px wide
+  static const int _hexBytesPerLine = 8;
+
   final _scrollController = ScrollController();
   final _mapController = MapController();
   ReceivedMqttMessage? _centeredMessage;
@@ -51,16 +63,7 @@ class _MessageDetailViewState extends State<MessageDetailView> {
           padding: EdgeInsets.all(6),
           decoration: BoxDecoration(border: Border(left: BorderSide(color: Theme.of(context).dividerColor))),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              // a recorded message gets no new ones and is not published from here
-              if (viewmodel.isLive) ...[
-                _buildAutoSelectButton(viewmodel, context),
-                _buildClearRetainedButton(viewmodel),
-                _buildRepublishButton(viewmodel),
-              ],
-              Spacer(),
-              IconButton(onPressed: () => viewmodel.selectedMessage = null, icon: Icon(Icons.close))
-            ]),
+            _buildToolbar(context, viewmodel, topic),
             SizedBox(height: 12),
             _buildTopicChip(topic, context),
             SizedBox(height: 24),
@@ -77,11 +80,75 @@ class _MessageDetailViewState extends State<MessageDetailView> {
             ],
             _buildPayload(context, topic, viewmodel),
             SizedBox(height: 12),
-            chartValues.length > 1
-                ? Container(height: 300, child: TopicChart(values: chartValues, topic: topic))
-                : SizedBox(),
+            chartValues.length > 1 ? _buildChart(context, viewmodel, chartValues, topic) : SizedBox(),
           ]));
     });
+  }
+
+  Widget _buildToolbar(BuildContext context, MessageViewerViewmodel viewmodel, ReceivedMqttMessage message) {
+    return Row(children: [
+      // a recorded message gets no new ones and is not published from here
+      if (viewmodel.isLive) _buildAutoSelectButton(viewmodel, context),
+      Spacer(),
+      if (viewmodel.isLive) ...[
+        IconButton(
+            onPressed: () => viewmodel.rePublish(),
+            icon: Icon(Icons.send),
+            tooltip: 'messagedetailview.republishbutton.tooltip'.tr()),
+        IconButton(
+            onPressed: viewmodel.canEditPayload(message) ? () => _editAndPublish(message) : null,
+            icon: Icon(Icons.edit_note),
+            tooltip: viewmodel.canEditPayload(message)
+                ? 'messagedetailview.editbutton.tooltip'.tr()
+                : 'messagedetailview.editbutton.binary.tooltip'.tr()),
+        IconButton(
+            onPressed: message.retain ? () => viewmodel.clearRetainedTopic() : null,
+            icon: Icon(Icons.unpublished_outlined),
+            tooltip: 'messagedetailview.clearretainedbutton.tooltip'.tr()),
+      ],
+      _buildMarkButton(context, viewmodel, message),
+      _buildCompareButton(viewmodel, message),
+      IconButton(
+          onPressed: () => viewmodel.selectedMessage = null,
+          icon: Icon(Icons.close),
+          tooltip: 'messagedetailview.close.tooltip'.tr())
+    ]);
+  }
+
+  Widget _buildMarkButton(BuildContext context, MessageViewerViewmodel viewmodel, ReceivedMqttMessage message) {
+    var marked = viewmodel.markedMessage;
+    var isMarked = identical(marked, message);
+    return IconButton(
+        onPressed: isMarked ? viewmodel.clearMark : viewmodel.markForCompare,
+        icon: Icon(marked == null ? Icons.push_pin_outlined : Icons.push_pin),
+        color: isMarked ? Theme.of(context).colorScheme.secondary : null,
+        tooltip: isMarked
+            ? 'messagedetailview.unmark.tooltip'.tr()
+            : marked == null
+                ? 'messagedetailview.mark.tooltip'.tr()
+                : 'messagedetailview.remark.tooltip'.tr());
+  }
+
+  Widget _buildCompareButton(MessageViewerViewmodel viewmodel, ReceivedMqttMessage message) {
+    var marked = viewmodel.markedMessage;
+    var canCompare = marked != null && !identical(marked, message);
+    return IconButton(
+        onPressed: canCompare ? () => _compare(viewmodel, marked, message) : null,
+        icon: Icon(Icons.compare_arrows),
+        tooltip: canCompare
+            ? 'messagedetailview.compare.tooltip'
+                .tr(args: [marked.topicName, DateFormat('HH:mm:ss.SSS').format(marked.receivedOn)])
+            : 'messagedetailview.compare.nomark.tooltip'.tr());
+  }
+
+  Future<void> _compare(MessageViewerViewmodel viewmodel, ReceivedMqttMessage marked, ReceivedMqttMessage message) async {
+    ComparedMessage side(ReceivedMqttMessage msg) =>
+        ComparedMessage(msg, viewmodel.decode(msg).comparable, viewmodel.getTopicColor(msg.topicName));
+    await showDialog(context: context, builder: (_) => CompareMessagesDialog(side(marked), side(message)));
+  }
+
+  Future<void> _editAndPublish(ReceivedMqttMessage message) async {
+    await showDialog(context: context, builder: (_) => PublishTopicDialog(message: message));
   }
 
   Widget _buildAutoSelectButton(MessageViewerViewmodel viewmodel, BuildContext context) {
@@ -106,38 +173,6 @@ class _MessageDetailViewState extends State<MessageDetailView> {
             ),
           )
         ]);
-  }
-
-  Widget _buildClearRetainedButton(MessageViewerViewmodel viewmodel) {
-    return Tooltip(
-      message: "messagedetailview.clearretainedbutton.tooltip".tr(),
-      child: TextButton(
-          onPressed: viewmodel.selectedMessage?.retain ?? false ? () => viewmodel.clearRetainedTopic() : null,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(children: [
-              Icon(Icons.unpublished_outlined),
-              SizedBox(width: 12),
-              Text('messagedetailview.clearretainedbutton.label'.tr())
-            ]),
-          )),
-    );
-  }
-
-  Widget _buildRepublishButton(MessageViewerViewmodel viewmodel) {
-    return Tooltip(
-      message: "messagedetailview.republishbutton.tooltip".tr(),
-      child: TextButton(
-          onPressed: () => viewmodel.rePublish(),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(children: [
-              Icon(Icons.send),
-              SizedBox(width: 12),
-              Text('messagedetailview.republishbutton.label'.tr())
-            ]),
-          )),
-    );
   }
 
   Widget _buildTopicChip(ReceivedMqttMessage topic, BuildContext context) {
@@ -282,58 +317,94 @@ class _MessageDetailViewState extends State<MessageDetailView> {
     ]);
   }
 
+  // an interpreted topic charts one of its values, chosen above the chart
+  Widget _buildChart(BuildContext context, MessageViewerViewmodel viewmodel, List<Tuple2<DateTime, double>> values,
+      ReceivedMqttMessage topic) {
+    var series = viewmodel.chartSeries;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      if (series.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.only(left: 12),
+          child: Tooltip(
+            message: 'messagedetailview.chartseries.tooltip'.tr(),
+            child: DropdownButton<String>(
+                isDense: true,
+                value: viewmodel.selectedChartSeries,
+                onChanged: (value) => viewmodel.selectedChartSeries = value,
+                items: [for (var name in series) DropdownMenuItem(value: name, child: Text(name))]),
+          ),
+        ),
+      Container(height: 300, child: TopicChart(values: values, topic: topic)),
+    ]);
+  }
+
   Widget _buildPayload(BuildContext context, ReceivedMqttMessage topic, MessageViewerViewmodel viewmodel) {
-    var payLoadType = PayloadUtils.detectPayloadType(topic.payload);
-    String payloadString = PayloadUtils.safePayloadToString(topic.payload);
+    var decoder = viewmodel.decoderOf(topic.topicName);
+    var decoded = viewmodel.decode(topic);
+    // a protocol like VDA 5050: what the message means instead of its JSON (doc/vda5050-design.md §7)
+    var interpretation = viewmodel.interpret(topic);
+    var anyway = viewmodel.interpretAnyway(topic);
+    // base64 and gzip unpack the bytes, the viewers then pick by the content as for auto
+    var shownBytes = decoder == PayloadDecoder.base64 || decoder == PayloadDecoder.gzip
+        ? (Uint8Buffer()..addAll(decoded.bytes))
+        : topic.payload;
+    var byContent = decoder == PayloadDecoder.auto || decoder == PayloadDecoder.base64 || decoder == PayloadDecoder.gzip;
+    var payLoadType = PayloadUtils.detectPayloadType(shownBytes);
+    var binary = byContent && payLoadType == PayloadType.Text && !PayloadDecoding.isUtf8(shownBytes);
+    var isImage = byContent && payLoadType == PayloadType.Image;
 
     Widget viewer;
-    switch (payLoadType) {
-      case PayloadType.Json:
-        viewer = _buildJsonViewer(payloadString, context);
-        break;
-
-      case PayloadType.Image:
-        viewer = _buildImageViewer(topic.payload, context);
-        break;
-
-      case PayloadType.GnssCoordinates:
-        viewer = _buildMapViewer(topic, payloadString, context, viewmodel);
-        break;
-
-      case PayloadType.Number:
-        viewer = _buildNumberViewer(payloadString, viewmodel, context);
-        break;
-
-      default:
-        viewer = _buildTextViewer(payloadString, context);
-        break;
+    if (viewmodel.showChanges) {
+      viewer = _buildChanges(context, viewmodel, topic);
+    } else if (interpretation != null) {
+      viewer = Expanded(
+          child: InterpretedPayloadView(
+              interpretation: interpretation,
+              isCollapsed: viewmodel.isSectionCollapsed,
+              onToggle: viewmodel.toggleSection,
+              controller: _scrollController));
+    } else if (decoded.error != null) {
+      viewer = _buildDecodeError(context, decoded.error!);
+    } else if (byContent) {
+      viewer = binary ? _buildHexViewer(decoded.bytes, context) : _buildViewerByType(context, topic, shownBytes, payLoadType, viewmodel);
+    } else if (decoder == PayloadDecoder.hex) {
+      viewer = _buildHexViewer(decoded.bytes, context);
+    } else if (decoder == PayloadDecoder.text) {
+      viewer = _buildTextViewer(utf8.decode(decoded.bytes, allowMalformed: true), context);
+    } else {
+      viewer = _buildDecodedValueViewer(decoded.value, context);
     }
 
+    var kind = binary
+        ? 'messagedetailview.binary.label'.tr()
+        : byContent
+            ? payLoadType.name
+            : 'payloaddecoder.${decoder.name}'.tr();
     return Expanded(
       child: Padding(
         padding: const EdgeInsets.only(left: 12, right: 12),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Text('messagedetailview.payload.label'.tr(), style: Theme.of(context).textTheme.titleMedium),
-                  SizedBox(width: 32),
-                  Chip(
-                    label: Text(payLoadType.name),
-                  ),
-                ],
-              ),
+              Text('messagedetailview.payload.label'.tr(), style: Theme.of(context).textTheme.titleMedium),
+              SizedBox(width: 16),
+              // an interpretable message names its protocol in the toggle instead of the chip, the panel is narrow
+              anyway != null ? _buildInterpretedToggle(context, viewmodel, topic, anyway) : Chip(label: Text(kind)),
+              Spacer(),
+              if (interpretation == null) _buildDecoderDropDown(viewmodel, topic, decoder),
+              IconButton(
+                  tooltip: 'messagedetailview.changes.tooltip'.tr(),
+                  color: viewmodel.showChanges ? Theme.of(context).colorScheme.secondary : null,
+                  onPressed: () => viewmodel.showChanges = !viewmodel.showChanges,
+                  icon: Icon(Icons.difference_outlined)),
               Visibility(
-                visible: payLoadType != PayloadType.Image,
+                visible: !isImage,
                 maintainSize: true,
                 maintainAnimation: true,
                 maintainState: true,
                 child: IconButton(
                     tooltip: 'messagedetailview.copypayload.label'.tr(),
-                    onPressed: () =>
-                        Clipboard.setData(ClipboardData(text: PayloadUtils.safePayloadToString(topic.payload))),
+                    onPressed: () => Clipboard.setData(ClipboardData(text: _copyText(topic, decoder, decoded, binary))),
                     icon: Icon(Icons.copy)),
               ),
             ],
@@ -341,6 +412,132 @@ class _MessageDetailViewState extends State<MessageDetailView> {
           viewer
         ]),
       ),
+    );
+  }
+
+  // the protocol's view or the payload as it is, for this topic and session
+  Widget _buildInterpretedToggle(
+      BuildContext context, MessageViewerViewmodel viewmodel, ReceivedMqttMessage message, Interpretation interpretation) {
+    var raw = viewmodel.isRaw(message.topicName);
+    return Tooltip(
+      message: 'messagedetailview.interpreted.tooltip'.tr(),
+      child: ToggleButtons(
+        constraints: BoxConstraints(minHeight: 28, minWidth: 48),
+        textStyle: Theme.of(context).textTheme.labelLarge,
+        isSelected: [!raw, raw],
+        onPressed: (index) => viewmodel.setRaw(message.topicName, index == 1),
+        children: [
+          Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Text('${viewmodel.protocolOf(message.topicName)!.profile.name} ${interpretation.protocolVersion}')),
+          Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8), child: Text('messagedetailview.raw.label'.tr())),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDecoderDropDown(MessageViewerViewmodel viewmodel, ReceivedMqttMessage message, PayloadDecoder decoder) {
+    return Tooltip(
+      message: 'messagedetailview.decoder.tooltip'.tr(),
+      child: DropdownButton<PayloadDecoder>(
+          isDense: true,
+          value: decoder,
+          onChanged: (value) => viewmodel.setDecoder(message.topicName, value!),
+          items: [
+            for (var item in PayloadDecoder.values)
+              DropdownMenuItem(value: item, child: Text('payloaddecoder.${item.name}'.tr()))
+          ]),
+    );
+  }
+
+  Widget _buildViewerByType(BuildContext context, ReceivedMqttMessage message, Uint8Buffer payload, PayloadType type,
+      MessageViewerViewmodel viewmodel) {
+    String payloadString = PayloadUtils.safePayloadToString(payload);
+    switch (type) {
+      case PayloadType.Json:
+        return _buildJsonViewer(payloadString, context);
+      case PayloadType.Image:
+        return _buildImageViewer(payload, context);
+      case PayloadType.GnssCoordinates:
+        return _buildMapViewer(message, payloadString, context, viewmodel);
+      case PayloadType.Number:
+        return _buildNumberViewer(payloadString, viewmodel, context);
+      default:
+        return _buildTextViewer(payloadString, context);
+    }
+  }
+
+  String _copyText(ReceivedMqttMessage message, PayloadDecoder decoder, DecodedPayload decoded, bool binary) {
+    if (decoded.error != null) {
+      return PayloadUtils.safePayloadToString(message.payload);
+    }
+    if (decoder == PayloadDecoder.hex || binary) {
+      return PayloadDecoding.hexDump(decoded.bytes);
+    }
+    if (decoder == PayloadDecoder.messagePack || decoder == PayloadDecoder.cbor) {
+      return JsonEncoder.withIndent('  ', (value) => '$value').convert(decoded.value);
+    }
+    return utf8.decode(decoded.bytes, allowMalformed: true);
+  }
+
+  Widget _buildDecodeError(BuildContext context, String error) {
+    return Expanded(
+        child: Text('messagedetailview.decodeerror.label'.tr(args: [error]),
+            style: Theme.of(context).textTheme.bodyLarge!.copyWith(color: Theme.of(context).colorScheme.error)));
+  }
+
+  Widget _buildHexViewer(Uint8List bytes, BuildContext context) {
+    var hidden = bytes.length - PayloadDecoding.maxHexDumpBytes;
+    return Expanded(
+        child: SingleChildScrollView(
+            controller: _scrollController,
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              SelectableText(PayloadDecoding.hexDump(bytes, bytesPerLine: _hexBytesPerLine), style: diffTextStyle),
+              if (hidden > 0)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text('messagedetailview.hextruncated.label'.tr(args: ['$hidden']),
+                      style: Theme.of(context).textTheme.labelLarge),
+                ),
+            ])));
+  }
+
+  // MessagePack and CBOR data
+  Widget _buildDecodedValueViewer(Object? value, BuildContext context) {
+    if (value is Map || value is List) {
+      return Expanded(child: SingleChildScrollView(controller: _scrollController, child: JsonViewer(value)));
+    }
+    return _buildTextViewer(value is String ? value : JsonDiff.compact(value), context);
+  }
+
+  // what changed since the previous message of the topic, decoded with the topic's decoder
+  Widget _buildChanges(BuildContext context, MessageViewerViewmodel viewmodel, ReceivedMqttMessage message) {
+    var previous = viewmodel.previousOfSelected;
+    var style = Theme.of(context).textTheme.labelLarge;
+    if (previous == null) {
+      return Expanded(child: Text('messagedetailview.changes.first'.tr(), style: style));
+    }
+    var oldValue = viewmodel.decode(previous).comparable;
+    var newValue = viewmodel.decode(message).comparable;
+    var earlier = TopicStats.formatDuration(message.receivedOn.difference(previous.receivedOn));
+    String summary;
+    if (PayloadDiffView.isStructured(oldValue) && PayloadDiffView.isStructured(newValue)) {
+      var changes = JsonDiff.compare(oldValue, newValue).length;
+      summary = changes == 0
+          ? 'messagedetailview.changes.none'.tr(args: [earlier])
+          : 'messagedetailview.changes.summary'.plural(changes, namedArgs: {'earlier': earlier});
+    } else {
+      summary = JsonDiff.equal(oldValue, newValue)
+          ? 'messagedetailview.changes.none'.tr(args: [earlier])
+          : 'messagedetailview.changes.text'.tr(args: [earlier]);
+    }
+    return Expanded(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text(summary, style: style),
+        SizedBox(height: 8),
+        Expanded(child: PayloadDiffView(oldValue: oldValue, newValue: newValue)),
+      ]),
     );
   }
 

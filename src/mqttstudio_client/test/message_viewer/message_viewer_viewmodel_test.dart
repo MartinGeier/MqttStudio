@@ -49,11 +49,11 @@ void main() {
 
       viewmodel.topicViewMode = TopicViewMode.Tree;
       viewmodel.groupTimePeriod = MessageGroupTimePeriod.minute;
-      viewmodel.filter = 'home';
+      viewmodel.setFilter('home');
       viewmodel.autoSelect = true;
 
       expect(notified, 4);
-      expect(viewmodel.filter, 'home');
+      expect(viewmodel.filter!.text, 'home');
     });
   });
 

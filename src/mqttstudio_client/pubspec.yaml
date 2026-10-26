@@ -69,6 +69,8 @@ dependencies:
   web: ^1.1.1
   # reading AsyncAPI documents into the documentation
   yaml: ^3.1.4
+  # gzip and zlib payloads in the message detail view, also in the browser
+  archive: ^4.0.0
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.

@@ -1,3 +1,5 @@
+import 'package:mqttstudio/message_viewer/message_filter.dart';
+import 'package:mqttstudio/message_viewer/topic_stats.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
 import 'package:darq/darq.dart';
 
@@ -32,20 +34,20 @@ class MQTTMessageBuffer {
   // every stored message, oldest first, without the display limit
   List<ReceivedMqttMessage> get allMessages => List.of(_buffer.reversed);
 
-  MessageNode getMessagesTree(String? filter) {
-    if (filter == null || filter.trim().isEmpty) {
+  MessageNode getMessagesTree(MessageFilter? filter) {
+    if (filter == null) {
       return _messagesTree;
     }
 
-    // create a filtered copy of the messages tre
-    return _getFilteredMessagesTree(filter)!;
+    // create a filtered copy of the messages tree
+    return _getFilteredMessagesTree(filter, _messagesTree, '') ?? MessageNode('', null);
   }
 
-  List<ReceivedMqttMessage> getMessages(String? filter) {
+  List<ReceivedMqttMessage> getMessages(MessageFilter? filter) {
     if (filter == null) {
       return _buffer.take(_maxDisplayMessages).toList();
     } else {
-      return _buffer.where((x) => x.topicName.toLowerCase().contains(filter.toLowerCase())).take(_maxDisplayMessages).toList();
+      return _buffer.where(filter.matches).take(_maxDisplayMessages).toList();
     }
   }
 
@@ -65,7 +67,34 @@ class MQTTMessageBuffer {
     return _buffer.where((x) => x.topicName == topicName).toList();
   }
 
-  List<MessageGroup> getGroupMessages(MessageGroupTimePeriod period, String? filter) {
+  // the message received on the same topic before the given one, null for the first one
+  ReceivedMqttMessage? getPreviousMessage(ReceivedMqttMessage message) {
+    var index = _buffer.indexWhere((x) => identical(x, message));
+    if (index < 0) {
+      return null;
+    }
+    for (var i = index + 1; i < _buffer.length; i++) {
+      if (_buffer[i].topicName == message.topicName) {
+        return _buffer[i];
+      }
+    }
+    return null;
+  }
+
+  // the node of a topic or topic level, null when no message arrived below it
+  MessageNode? findNode(String topic) {
+    var node = _messagesTree;
+    for (var level in topic.split('/')) {
+      var child = node.children.firstWhereOrDefault((x) => x.topicLevelName == level);
+      if (child == null) {
+        return null;
+      }
+      node = child;
+    }
+    return node;
+  }
+
+  List<MessageGroup> getGroupMessages(MessageGroupTimePeriod period, MessageFilter? filter) {
     _groupedMessages = [];
     if (_buffer.isEmpty) {
       return _groupedMessages;
@@ -167,23 +196,20 @@ class MQTTMessageBuffer {
     }
   }
 
-  MessageNode? _getFilteredMessagesTree(String filter, [MessageNode? node, String topicPath = ""]) {
-    bool rootNode = node == null;
-    if (node == null) {
-      node = _messagesTree;
-    }
-
+  // Keeps the topics that match and the levels above them. Payload filters test the last message of a topic.
+  MessageNode? _getFilteredMessagesTree(MessageFilter filter, MessageNode node, String topicPath) {
     var newNode = node.clone();
     for (var childNode in node.children) {
-      var clonedChild = _getFilteredMessagesTree(filter, childNode, topicPath + childNode.topicLevelName);
+      var childPath = topicPath.isEmpty ? childNode.topicLevelName : '$topicPath/${childNode.topicLevelName}';
+      var clonedChild = _getFilteredMessagesTree(filter, childNode, childPath);
       if (clonedChild != null) {
         newNode.children.add(clonedChild);
       }
     }
 
-    return ((topicPath + newNode.topicLevelName).toLowerCase().contains(filter.toLowerCase()) || newNode.children.isNotEmpty || rootNode)
-        ? newNode
-        : null;
+    var matches = node.isTopic &&
+        (filter.filtersPayload ? filter.matches(node.message!) : filter.matchesTopic(topicPath));
+    return matches || newNode.children.isNotEmpty ? newNode : null;
   }
 }
 
@@ -198,20 +224,28 @@ enum MessageGroupTimePeriod { second, tenSeconds, minute, hour }
 
 class MessageNode {
   String topicLevelName;
+  // the last message of the topic; for a level without messages of its own the first message below it
   ReceivedMqttMessage? message;
   int messageCount = 0;
   final List<MessageNode> children = [];
+  // shared with the clones of a filtered tree
+  TopicStats stats = TopicStats();
 
   MessageNode(this.topicLevelName, this.message);
 
-  void messageReceived(msg) {
+  // false for a topic level that only has topics below it
+  bool get isTopic => messageCount > 0;
+
+  void messageReceived(ReceivedMqttMessage msg) {
     message = msg;
     messageCount++;
+    stats.add(msg.receivedOn, msg.payload.length, retained: msg.retain);
   }
 
   MessageNode clone() {
     var newNode = MessageNode(topicLevelName, message);
     newNode.messageCount = messageCount;
+    newNode.stats = stats;
     return newNode;
   }
 }

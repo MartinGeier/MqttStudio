@@ -723,6 +723,23 @@ Changed for the viewers: `message_viewer_viewmodel.dart` (`interpret`, raw toggl
   `ConformanceChecker` with the preset gives no findings, each protocol fault exactly its rule, and robot and
   connection faults none.
 
+**Phase 3 (topic viewer)** is implemented as designed in §7, with these differences:
+
+- **No GetIt service:** `MessageViewerViewmodel` holds its own `ProtocolRegistry.standard()`. It caches the
+  interpretation per message in an `Expando` (dropped when the topic's decoder changes, so a gzip-compressed state is
+  interpreted after choosing the decoder) and gives the interpreter the buffer's last message of the device's other
+  topics for correlation (§6.5). The recorder's MESSAGES tab gets the same through `MessageSource`.
+- **Detail view header:** the 500 px panel has no room for a version tag, the toggle and the decoder. The toggle's
+  first button carries the version (`VDA 5050 3.0.0 | Raw`) and replaces the kind chip, and the decoder dropdown is
+  shown only in Raw. Changes since the previous message (the diff button) show the raw JSON diff, also for an
+  interpreted topic.
+- **Sections** fold by their key for the session, so a folded "Paths" stays folded while new states arrive.
+- **Chart:** the series dropdown sits above the chart; the first value of the message type (state of charge for a
+  state) is charted until another is chosen.
+- **Filter help:** the Condition tooltip is already long, so the VDA 5050 examples of §7 are not added to it.
+- **Tests:** `test/message_viewer/vda5050_viewer_test.dart` (summaries in the sequential and tree viewers, marker and
+  tooltip of grouped chips, sections, folding, raw toggle, chart series).
+
 ## 17. Known limitations
 
 - Positions are local coordinates without a layout, so the canvas shows only robots, trails, order nodes, paths and

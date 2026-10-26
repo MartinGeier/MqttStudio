@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mqttstudio/common/widgets/broker_info_button.dart';
+import 'package:mqttstudio/common/widgets/broker_stats_button.dart';
 import 'package:mqttstudio/common/widgets/connect_button.dart';
 import 'package:mqttstudio/project/project_viewmodel.dart';
 import 'package:mqttstudio/recorder/widgets/rec_indicator.dart';
@@ -66,6 +67,7 @@ class _MainAppBarState extends State<MainAppBar> {
       ),
       actions: [
         RecIndicator(recorderTab: MainAppBar.recorderTab),
+        BrokerStatsButton(),
         BrokerInfoButton(),
         SizedBox(width: 6),
         ConnectButton(key: coachKey)

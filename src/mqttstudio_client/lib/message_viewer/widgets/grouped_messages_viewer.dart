@@ -5,6 +5,7 @@ import 'package:mqttstudio/message_viewer/message_viewer_viewmodel.dart';
 import 'package:provider/provider.dart';
 
 import '../../common/widgets/fast_topic_chip.dart';
+import 'package:mqttstudio/protocol/widgets/interpreted_payload_view.dart';
 
 class GroupedMessagesViewer extends StatelessWidget {
   GroupedMessagesViewer({Key? key}) : super(key: key);
@@ -44,13 +45,20 @@ class GroupedMessagesViewerRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    var topics = List<FastTopicChip>.generate(messageGroup.messages.length, (index) {
-      var topicName = messageGroup.messages[index].topicName;
-      return FastTopicChip(
+    var topics = List<Widget>.generate(messageGroup.messages.length, (index) {
+      var message = messageGroup.messages[index];
+      var topicName = message.topicName;
+      // the chips stay small: an interpreted message adds its summary as tooltip and a line for its level
+      var interpretation = viewmodel.interpret(message);
+      var chip = FastTopicChip(
           topic: topicName,
           topicColor: context.read<MessageViewerViewmodel>().getTopicColor(topicName),
-          selected: viewmodel.selectedMessage == messageGroup.messages[index],
-          onPressed: () => viewmodel.selectedMessage = messageGroup.messages[index]);
+          selected: viewmodel.selectedMessage == message,
+          marker: interpretation == null ? null : InterpretationStyle.colorOf(context, interpretation.level),
+          onPressed: () => viewmodel.selectedMessage = message);
+      return interpretation == null || interpretation.summary.isEmpty
+          ? chip
+          : Tooltip(message: interpretation.summary, child: chip);
     });
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 4, 32, 4),

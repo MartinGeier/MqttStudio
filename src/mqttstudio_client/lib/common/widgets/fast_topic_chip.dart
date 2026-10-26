@@ -10,6 +10,8 @@ class FastTopicChip extends StatelessWidget {
   final bool selected;
   final double height;
   final void Function()? onPressed;
+  // a line along the bottom, e.g. a device that reports an error
+  final Color? marker;
 
   const FastTopicChip({
     Key? key,
@@ -20,6 +22,7 @@ class FastTopicChip extends StatelessWidget {
     this.height = 28,
     this.dense = true,
     this.receivedTime,
+    this.marker,
   }) : super(key: key);
 
   @override
@@ -34,7 +37,7 @@ class FastTopicChip extends StatelessWidget {
           height: height,
           width: width,
           child: CustomPaint(
-            painter: ChipPainter(topic, bgColor, textStyle, width),
+            painter: ChipPainter(topic, bgColor, textStyle, width, marker: marker),
           )),
     );
   }
@@ -54,8 +57,9 @@ class ChipPainter extends CustomPainter {
   final Color backgroundColor;
   final TextStyle labelStyle;
   final double width;
+  final Color? marker;
 
-  const ChipPainter(this.label, this.backgroundColor, this.labelStyle, this.width);
+  const ChipPainter(this.label, this.backgroundColor, this.labelStyle, this.width, {this.marker});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -64,6 +68,12 @@ class ChipPainter extends CustomPainter {
     final RRect roundedRect = RRect.fromRectAndRadius(rect, Radius.circular(borderRadius));
     final Paint paint = Paint()..color = backgroundColor;
     canvas.drawRRect(roundedRect, paint);
+    if (marker != null) {
+      canvas.drawLine(Offset(borderRadius / 2, size.height - 1.5), Offset(width + 20 - borderRadius / 2, size.height - 1.5),
+          Paint()
+            ..color = marker!
+            ..strokeWidth = 3);
+    }
 
     final TextPainter textPainter = TextPainter(
       text: TextSpan(

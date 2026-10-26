@@ -76,4 +76,8 @@ class CustomColors {
   Color topicGroup = Colors.grey;
   // findings of the documentation check that are warnings; errors use the theme's error color. Icons only.
   Color warning = Color(0xffef6c00);
+  // line backgrounds of the message diff: added, changed and removed (struck out) values
+  Color diffAdded = Color(0x3843a047);
+  Color diffChanged = Color(0x4cffb300);
+  Color diffRemoved = Color(0x2ee53935);
 }
