@@ -276,12 +276,27 @@ class DocumentationViewmodel extends SrxChangeNotifier {
 
   FindingSeverity? severityOf(String path) => _check.checker?.severityByPath[path];
 
-  // throws when the broker can't be reached
-  Future<void> startCheck() => _check.start();
+  // throws when the broker can't be reached. With a branch only the documented topics at or below it are checked and
+  // listened to.
+  Future<void> startCheck({String? branch}) async {
+    if (branch == null) {
+      await _check.start();
+      return;
+    }
+    var documentation = _service.documentation!;
+    await _check.start(
+        documentation: TopicDocumentation(
+            title: documentation.title,
+            nodes: _service.nodesAtOrBelow(branch),
+            ignoreFilters: documentation.ignoreFilters));
+  }
 
   void stopCheck() => _check.stop();
 
   void clearFindings() => _check.clear();
+
+  // empties the findings and keeps checking
+  void restartFindings() => _check.clearFindings();
 
   String findingsCsv() => CsvExporter.findings(findings ?? []);
 

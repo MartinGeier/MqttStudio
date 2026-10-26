@@ -707,6 +707,13 @@ Changed for the viewers: `message_viewer_viewmodel.dart` (`interpret`, raw toggl
 - **Findings:** protocol rules are `FindingRule.protocol` with the profile's rule id (`vda5050.headerIdGap`) and
   severity; the findings panel, CSV and the CLI show the id. The check runs the rules on every message it receives,
   documented or not.
+- **A check that starts after the robots:** retained messages the broker sends on subscribing (`snapshot`) are not
+  checked for timestamp skew, they are as old as they are. "A new order starts with update id 0" is only reported
+  when the robot's last state showed another order, since the first update a check sees may belong to an order that
+  began before it. Header id gaps stay warnings: QoS 0 messages do get lost, e.g. on a busy public broker.
+- **Check filters:** a check listened only to the last discovery's filters once a discovery was applied, so the
+  topics of an imported preset outside them were never checked. `ConformanceChecker.filtersOf` now listens to the
+  documented topics and the discovery's filters (documentation-design §7).
 - **Discovery hint:** the review dialog shows the hint when a new topic is a VDA 5050 topic. Its button closes the
   review without applying and opens the preset dialog with the version and interface name of the topics; after the
   import, the user discovers again for the other topics, so the discovered VDA 5050 topics don't compete with the

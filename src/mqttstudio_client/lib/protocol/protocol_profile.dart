@@ -112,7 +112,9 @@ class ProtocolFinding {
 
 // Checks the protocol over one check run; it keeps state, e.g. the last header id per topic
 abstract class ProtocolChecker {
-  List<ProtocolFinding> check(String topic, ProtocolTopic match, Object? data, DateTime receivedAt);
+  // snapshot: a retained message the broker sent because the check subscribed; it was published earlier
+  List<ProtocolFinding> check(String topic, ProtocolTopic match, Object? data, DateTime receivedAt,
+      {bool snapshot = false});
 
   // rules that fire on time, e.g. an unanswered request; returns the topic each finding belongs to
   List<(String, ProtocolFinding)> tick(DateTime now) => const [];

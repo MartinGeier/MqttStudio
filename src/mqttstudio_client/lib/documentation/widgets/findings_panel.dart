@@ -63,6 +63,11 @@ class FindingsPanel extends StatelessWidget {
         ),
         TextButton.icon(
             style: TextButton.styleFrom(minimumSize: Size(0, 36)),
+            onPressed: findings.isEmpty ? null : vm.restartFindings,
+            icon: Icon(Icons.clear_all),
+            label: Text('docfindings.clear.button'.tr())),
+        TextButton.icon(
+            style: TextButton.styleFrom(minimumSize: Size(0, 36)),
             onPressed: findings.isEmpty ? null : () => DocumentationDialogs.exportFindings(context, vm),
             icon: Icon(Icons.file_download),
             label: Text('docfindings.export.button'.tr())),

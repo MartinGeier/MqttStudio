@@ -139,9 +139,10 @@ void main() {
     setUp(() => checker = Vda5050Checker(_profile));
 
     List<String> check(String type, VdaMessage message,
-            {DateTime? at, String prefix = 'vda5050/v3/Acme/R1', VdaVersion version = VdaVersion.v3}) =>
+            {DateTime? at, String prefix = 'vda5050/v3/Acme/R1', VdaVersion version = VdaVersion.v3, bool snapshot = false}) =>
         checker
-            .check('$prefix/$type', _topic(type, prefix: prefix), _json(message, version), at ?? _start)
+            .check('$prefix/$type', _topic(type, prefix: prefix), _json(message, version), at ?? _start,
+                snapshot: snapshot)
             .map((finding) => finding.rule)
             .toList();
 
@@ -154,6 +155,10 @@ void main() {
       expect(check('connection', VdaConnection(header: _header(7, version: '2.1.0'))), [Vda5050Rule.headerDiffers]);
       expect(check('connection', VdaConnection(header: _header(8)), at: _start.add(Duration(seconds: 6))),
           [Vda5050Rule.timestampSkew]);
+      // a retained message sent on subscribing is old
+      expect(
+          check('connection', VdaConnection(header: _header(9)), at: _start.add(Duration(minutes: 5)), snapshot: true),
+          isEmpty);
     });
 
     test('order structure', () {
@@ -174,7 +179,10 @@ void main() {
       expect(check('order', _order('o1', 2, [('A', true), ('D', true)], header: 2)), [Vda5050Rule.orderUpdate]);
       expect(check('order', _order('o1', 1, [('B', true), ('C', true)], firstSequence: 2, header: 3)),
           [Vda5050Rule.orderUpdate]);
-      expect(check('order', _order('o9', 3, [('A', true)], header: 4)), [Vda5050Rule.orderUpdateContent]);
+      // an order the robot is already driving began before the check; a new one must start at 0
+      check('state', VdaState(header: _header(0), orderId: 'o8'));
+      expect(check('order', _order('o8', 3, [('A', true)], header: 4)), isEmpty);
+      expect(check('order', _order('o9', 3, [('A', true)], header: 5)), [Vda5050Rule.orderUpdateContent]);
     });
 
     test('3.0: repeated update ids keep their content, cancelled orders are not updated', () {

@@ -40,6 +40,8 @@ class _Device {
   // the robot's state topic, for findings that come from a tick
   String? stateTopic;
   int? lastStateHeaderId;
+  // the order the robot reported last, to tell a new order from one that began before the check
+  String? lastStateOrderId;
   DateTime? lastStateAt;
   // the last connection state, null before the first connection message
   String? connectionState;
@@ -70,7 +72,8 @@ class Vda5050Checker extends ProtocolChecker {
   Vda5050Checker(this.profile);
 
   @override
-  List<ProtocolFinding> check(String topic, ProtocolTopic match, Object? data, DateTime receivedAt) {
+  List<ProtocolFinding> check(String topic, ProtocolTopic match, Object? data, DateTime receivedAt,
+      {bool snapshot = false}) {
     if (!Vda5050Profile.hasHeader(data)) {
       return const [];
     }
@@ -82,7 +85,7 @@ class Vda5050Checker extends ProtocolChecker {
       return const [];
     }
     var device = _devices.putIfAbsent(match.deviceKey, () => _Device());
-    _header(topic, match, message.header, receivedAt, findings);
+    _header(topic, match, message.header, receivedAt, findings, snapshot: snapshot);
     switch (message) {
       case VdaOrder order:
         _order(device, order, version, json, findings);
@@ -96,6 +99,7 @@ class Vda5050Checker extends ProtocolChecker {
         device
           ..stateTopic = topic
           ..lastStateHeaderId = state.header.headerId
+          ..lastStateOrderId = state.orderId
           ..lastStateAt = receivedAt
           ..reportedSilence = false;
         for (var id in [
@@ -167,7 +171,8 @@ class Vda5050Checker extends ProtocolChecker {
     ));
   }
 
-  void _header(String topic, ProtocolTopic match, VdaHeader header, DateTime receivedAt, List<ProtocolFinding> findings) {
+  void _header(String topic, ProtocolTopic match, VdaHeader header, DateTime receivedAt, List<ProtocolFinding> findings,
+      {required bool snapshot}) {
     var differences = [
       if (header.manufacturer != match.parameters[Vda5050Profile.manufacturerKey])
         'manufacturer ${header.manufacturer}',
@@ -194,8 +199,9 @@ class Vda5050Checker extends ProtocolChecker {
       }
     }
     _lastHeaderIds[topic] = id;
+    // a retained message sent on subscribing is as old as it is, e.g. the connection message
     var skew = header.timestamp.difference(receivedAt);
-    if (header.timestamp.millisecondsSinceEpoch > 0 && skew.abs() > maxSkew) {
+    if (!snapshot && header.timestamp.millisecondsSinceEpoch > 0 && skew.abs() > maxSkew) {
       findings.add(ProtocolFinding(Vda5050Rule.timestampSkew, ProtocolSeverity.warning,
           'The timestamp is ${(skew.inMilliseconds.abs() / 1000).toStringAsFixed(1)} s '
           '${skew.isNegative ? 'behind' : 'ahead of'} the time it was received'));
@@ -227,7 +233,10 @@ class Vda5050Checker extends ProtocolChecker {
     var seen = _OrderSeen(order.orderUpdateId, released.lastOrNull?.nodeId, released.lastOrNull?.sequenceId, content);
     var previous = device.orders[order.orderId];
     if (previous == null) {
-      if (version.isV3 && order.orderUpdateId != 0) {
+      // the first update the check sees may belong to an order that began before; only a robot that reported another
+      // order shows that this one is new
+      var isNew = device.lastStateOrderId != null && device.lastStateOrderId != order.orderId;
+      if (version.isV3 && order.orderUpdateId != 0 && isNew) {
         findings.add(ProtocolFinding(Vda5050Rule.orderUpdateContent, ProtocolSeverity.error,
             'Order ${order.orderId} starts with update id ${order.orderUpdateId} instead of 0'));
       }

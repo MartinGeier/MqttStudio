@@ -122,6 +122,16 @@ class ConformanceChecker {
 
   void start(DateTime at) => _startedAt ??= at;
 
+  // forgets the findings so far; stale topics count again from now. The protocol rules keep what they know, e.g. the
+  // last header ids.
+  void clearFindings(DateTime now) {
+    _findings.clear();
+    _lastSeen.clear();
+    if (_startedAt != null) {
+      _startedAt = now;
+    }
+  }
+
   void check(RecordedMessage message, DateTime at) {
     start(at);
     messages++;
@@ -198,7 +208,7 @@ class ConformanceChecker {
       return;
     }
     var checker = _protocolCheckers.putIfAbsent(match.profile, match.profile.createChecker);
-    for (var finding in checker.check(message.topic, match, json, at)) {
+    for (var finding in checker.check(message.topic, match, json, at, snapshot: message.snapshot)) {
       _addProtocol(finding, message.topic, node, at, message);
     }
   }
@@ -365,17 +375,17 @@ class ConformanceChecker {
     }
   }
 
-  // the filters a check listens to: those of the last applied discovery, else the documented topics with their
-  // parameters as +
+  // the filters a check listens to: the documented topics with their parameters as +, and those of the last applied
+  // discovery for undocumented topics. Documented topics are always checked, also those a discovery's filters miss,
+  // e.g. after importing a preset.
   static List<String> filtersOf(TopicDocumentation documentation) {
-    if (documentation.lastDiscoveryAt != null &&
-        documentation.discoverySettings.filters.any((filter) => !filter.exclude)) {
-      return [
+    var filters = {
+      if (documentation.lastDiscoveryAt != null)
         for (var filter in documentation.discoverySettings.filters)
-          if (!filter.exclude) filter.filter
-      ];
-    }
-    var filters = {for (var node in documentation.topics) DiscoveryMerger.ignoreFilterOf(node.path)}.toList()..sort();
+          if (!filter.exclude) filter.filter,
+      for (var node in documentation.topics) DiscoveryMerger.ignoreFilterOf(node.path),
+    }.toList()
+      ..sort();
     return filters
         .where((filter) => !filters.any((other) => other != filter && RecorderRules.covers(other, filter)))
         .toList();

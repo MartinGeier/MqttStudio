@@ -140,6 +140,12 @@ class CheckService {
     finishedEvent.broadcast();
   }
 
+  // starts the findings over, also while the check runs
+  void clearFindings() {
+    _checker?.clearFindings(clock.now());
+    statsChangedEvent.broadcast();
+  }
+
   // the findings panel was closed
   void clear() {
     if (!isRunning) {

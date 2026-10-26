@@ -608,8 +608,11 @@ Fields with a difference to the observed value show the helper text "Observed: â
 While a check runs or after it, a 280 px panel docks under the editor and observed panel
 (`FindingsPanel`): a sortable table with severity icon (`error` in `error`, `warning_amber` in
 the new `warning` color, T16), topic, rule, count, last seen and the detail text. Selecting a
-row selects the node; the tree shows a small severity icon on affected nodes. EXPORT and `close`
-in the panel header.
+row selects the node; the tree shows a small severity icon on affected nodes. CLEAR, EXPORT and
+`close` in the panel header: CLEAR empties the findings and the check goes on (stale topics count
+from then), `close` hides the panel after the check stopped. A namespace's menu in the tree has
+**Check this branch**: a check of only the documented topics at or below it, listening only to
+them. A check listens to the documented topics and the filters of the last applied discovery.
 
 ### 12.7 Detail view section (topic viewer, dropped)
 Under the topic chip in `MessageDetailView`: "Documentation" (`titleMedium`) with the status tag,

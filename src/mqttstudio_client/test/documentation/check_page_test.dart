@@ -84,6 +84,38 @@ void main() {
     });
   });
 
+  testWidgets('Check this branch checks only the topics below it, CLEAR empties the findings', (tester) async {
+    await ignoringOverflowErrors(() async {
+      await pumpPage(tester);
+      GetIt.I.get<DocumentationService>().addNode(
+          DocNode(path: 'office/light', topic: TopicSpec(payload: PayloadSpec(format: PayloadFormat.boolean))));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('plant'), buttons: kSecondaryButton);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Check this branch'));
+      await tester.pumpAndSettle();
+      var connection = connections.single;
+      expect(connection.subscribed, ['plant/on']);
+      expect(find.text('Checked topics: plant/on'), findsOneWidget);
+
+      connection.messageReceivedEvent.broadcast(received('plant/on', 'maybe'));
+      await tester.pump(Duration(seconds: 1));
+      expect(find.text('Wrong format'), findsOneWidget);
+
+      // CLEAR starts over and the check keeps running
+      await tester.tap(find.text('CLEAR'));
+      await tester.pump(Duration(seconds: 1));
+      expect(find.text('Wrong format'), findsNothing);
+      expect(find.textContaining('CHECKING'), findsOneWidget);
+      connection.messageReceivedEvent.broadcast(received('plant/on', 'still not'));
+      await tester.pump(Duration(seconds: 1));
+      expect(find.text('Wrong format'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Stop the check'));
+      await tester.pumpAndSettle();
+    });
+  });
+
   testWidgets('Create simulation adds a device per documented topic', (tester) async {
     await ignoringOverflowErrors(() async {
       await pumpPage(tester);

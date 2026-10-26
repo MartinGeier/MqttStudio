@@ -26,7 +26,7 @@ import 'package:srx_flutter/srx_flutter.dart';
 import 'package:mqttstudio/documentation/review_viewmodel.dart';
 import 'package:mqttstudio/protocol/vda5050/vda5050_model.dart';
 
-enum _NodeAction { addTopic, addNamespace, move, duplicate, toTopic, toNamespace, createSimulation, delete }
+enum _NodeAction { addTopic, addNamespace, move, duplicate, toTopic, toNamespace, checkBranch, createSimulation, delete }
 
 // Opens the dialogs and menus of the documentation tab and applies their result
 class DocumentationDialogs {
@@ -84,9 +84,9 @@ class DocumentationDialogs {
     }
   }
 
-  static Future startCheck(BuildContext context, DocumentationViewmodel vm) async {
+  static Future startCheck(BuildContext context, DocumentationViewmodel vm, {String? branch}) async {
     try {
-      await vm.startCheck();
+      await vm.startCheck(branch: branch);
     } catch (exc) {
       if (context.mounted) {
         await _show(context, SrxDialog.error(title: 'documentation.cannotcheck.title'.tr(), bodyText: exc.toString()));
@@ -198,8 +198,10 @@ class DocumentationDialogs {
     var path = entry.path!;
     var node = entry.node;
     var overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
-    PopupMenuItem<_NodeAction> item(_NodeAction action, IconData icon, String key) =>
-        PopupMenuItem(value: action, child: ListTile(leading: Icon(icon), title: Text(key.tr()), dense: true));
+    PopupMenuItem<_NodeAction> item(_NodeAction action, IconData icon, String key, {bool enabled = true}) => PopupMenuItem(
+        value: action,
+        enabled: enabled,
+        child: ListTile(leading: Icon(icon), title: Text(key.tr()), dense: true, enabled: enabled));
     var action = await showMenu<_NodeAction>(
         context: context,
         position: RelativeRect.fromRect(position & Size(1, 1), Offset.zero & overlay.size),
@@ -211,6 +213,9 @@ class DocumentationDialogs {
           if (node != null && !node.isTopic) item(_NodeAction.toTopic, Icons.topic, 'documentation.menu.totopic'),
           if (node != null && node.isTopic)
             item(_NodeAction.toNamespace, Icons.folder, 'documentation.menu.tonamespace'),
+          // a branch: a namespace, or a topic with topics below it
+          if (entry.children.isNotEmpty && vm.topicCountAtOrBelow(path) > 0)
+            item(_NodeAction.checkBranch, Icons.rule, 'documentation.menu.checkbranch', enabled: vm.canCheck),
           if (vm.topicCountAtOrBelow(path) > 0)
             item(_NodeAction.createSimulation, Icons.precision_manufacturing, 'documentation.menu.createsimulation'),
           item(_NodeAction.delete, Icons.delete, 'documentation.menu.delete')
@@ -231,6 +236,8 @@ class DocumentationDialogs {
         vm.setTopic(node!, true);
       case _NodeAction.toNamespace:
         await _confirmToNamespace(context, vm, node!);
+      case _NodeAction.checkBranch:
+        await startCheck(context, vm, branch: path);
       case _NodeAction.createSimulation:
         createSimulation(context, vm, path);
       case _NodeAction.delete:

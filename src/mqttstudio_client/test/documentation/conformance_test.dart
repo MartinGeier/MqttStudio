@@ -161,7 +161,7 @@ void main() {
       expect(fresh.severityByPath, isEmpty);
     });
 
-    test('the filters come from the last discovery, else from the documented topics', () {
+    test('the filters are the documented topics and those of the last discovery', () {
       var docs = documentation();
       expect(ConformanceChecker.filtersOf(docs), ['plant/+/status', 'plant/mode', 'plant/on', 'plant/speed']);
       docs
@@ -169,6 +169,12 @@ void main() {
         ..discoverySettings =
             DiscoverySettings(filters: [RecorderFilter('plant/#'), RecorderFilter('plant/x/#', exclude: true)]);
       expect(ConformanceChecker.filtersOf(docs), ['plant/#']);
+      // documented topics outside the discovery's filters are still checked, e.g. after a preset import
+      docs
+        ..discoverySettings = DiscoverySettings(filters: [RecorderFilter('+')])
+        ..nodes.add(DocNode(path: 'vda5050/v3/{manufacturer}/{serialNumber}/state', topic: TopicSpec()));
+      expect(ConformanceChecker.filtersOf(docs),
+          ['+', 'plant/+/status', 'plant/mode', 'plant/on', 'plant/speed', 'vda5050/v3/+/+/state']);
     });
   });
 }

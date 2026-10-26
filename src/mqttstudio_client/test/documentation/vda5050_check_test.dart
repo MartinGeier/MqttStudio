@@ -25,29 +25,55 @@ class _CheckingPublisher implements SimulatorPublisher {
   bool isConnected = true;
   @override
   bool supportsProperties = true;
+  // false until the check subscribes; the broker keeps the retained messages meanwhile
+  bool checking;
+  final Map<String, RecordedMessage> _retained = {};
 
-  _CheckingPublisher(this.checker);
+  _CheckingPublisher(this.checker, {this.checking = true});
 
   @override
   void publish(String topic, Uint8Buffer payload, MqttQos qos, bool retain, MqttMessageProperties? properties) {
-    checker.check(
-        RecordedMessage(
-            offsetMicros: 0,
-            topic: topic,
-            payload: Uint8List.fromList(payload),
-            qos: qos,
-            retain: retain,
-            properties: properties),
-        clock.now());
+    var message = RecordedMessage(
+        offsetMicros: 0,
+        topic: topic,
+        payload: Uint8List.fromList(payload),
+        qos: qos,
+        retain: retain,
+        properties: properties);
+    if (retain) {
+      _retained[topic] = message;
+    }
+    if (checking) {
+      checker.check(message, clock.now());
+    }
+  }
+
+  // the check subscribes: the broker sends the retained messages first
+  void startChecking() {
+    checking = true;
+    for (var message in _retained.values) {
+      checker.check(
+          RecordedMessage(
+              offsetMicros: 0,
+              topic: message.topic,
+              payload: message.payload,
+              qos: message.qos,
+              retain: true,
+              snapshot: true,
+              properties: message.properties),
+          clock.now());
+    }
   }
 }
 
 // runs a simulated fleet through the check against the preset; the faults are injected into the first robot
-List<Finding> _check(VdaVersion version, TopicDocumentation documentation, {List<RobotFault> faults = const []}) {
+List<Finding> _check(VdaVersion version, TopicDocumentation documentation,
+    {List<RobotFault> faults = const [], Duration checkLater = Duration.zero}) {
   late List<Finding> findings;
   fakeAsync((async) {
     var checker = ConformanceChecker(documentation);
-    var runner = SimulatorRunner(_CheckingPublisher(checker), seed: 1);
+    var publisher = _CheckingPublisher(checker, checking: checkLater == Duration.zero);
+    var runner = SimulatorRunner(publisher, seed: 1);
     var device = SimulatedDevice(
         name: 'fleet',
         kind: DeviceKind.vda5050,
@@ -63,6 +89,10 @@ List<Finding> _check(VdaVersion version, TopicDocumentation documentation, {List
             actionProbability: 0.5,
             seed: 5));
     runner.startDevice(device);
+    if (checkLater > Duration.zero) {
+      async.elapse(checkLater);
+      publisher.startChecking();
+    }
     void tick(Duration time) {
       for (var i = 0; i < time.inSeconds; i++) {
         async.elapse(const Duration(seconds: 1));
@@ -98,6 +128,12 @@ void main() {
 
       test('a clean simulation gives no findings', () {
         var findings = _check(version, documentation);
+        expect(findings.map((finding) => '${finding.ruleId} ${finding.topic}: ${finding.detail}'), isEmpty);
+      });
+
+      // old retained connection messages and orders that began before the check are fine
+      test('a check that starts after the robots gives no findings', () {
+        var findings = _check(version, documentation, checkLater: const Duration(seconds: 77));
         expect(findings.map((finding) => '${finding.ruleId} ${finding.topic}: ${finding.detail}'), isEmpty);
       });
 
