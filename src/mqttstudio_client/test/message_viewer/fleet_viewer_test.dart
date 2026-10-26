@@ -131,8 +131,10 @@ void main() {
       );
       await tapFleetButton(tester);
 
-      expect(find.text('Acme R1'), findsOneWidget);
-      expect(find.text('Acme R2'), findsOneWidget);
+      // robots of one manufacturer show their serial numbers, the full name is the tooltip
+      expect(find.text('R1'), findsOneWidget);
+      expect(find.byTooltip('Acme R1'), findsOneWidget);
+      expect(find.text('R2'), findsOneWidget);
       expect(find.text('2.1.0'), findsOneWidget);
       expect(find.byTooltip('ONLINE'), findsOneWidget);
       expect(find.byTooltip('No connection message received'), findsOneWidget);
@@ -146,7 +148,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(viewmodel.sortedVehicles.map((vehicle) => vehicle.serialNumber), ['R2', 'R1']);
 
-      await tester.tap(find.text('Acme R2'));
+      await tester.tap(find.text('R2'));
       await tester.pumpAndSettle();
       expect(viewmodel.selectedMessage!.topicName, 'uagv/v2/Acme/R2/state');
       expect(viewmodel.selectedRobot, 'uagv/v2/Acme/R2');

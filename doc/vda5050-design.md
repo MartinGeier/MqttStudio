@@ -751,8 +751,10 @@ Changed for the viewers: `message_viewer_viewmodel.dart` (`interpret`, raw toggl
   tooltip and ignores clicks until a robot sent its connection, state or visualization.
 - **Table:** robot, connection (a dot in the connection's color; the state as sent only when it isn't `ONLINE`), mode,
   drive (driving, paused or standing icon), battery (with a charging icon), errors (count and highest level), the
-  state's age, order and update id with the last node, open requests and version. What tells whether a robot is fine
-  comes first, since the columns after it may need the horizontal scrollbar at 600 px. Clicking a header sorts, clicking a row selects the robot's last state (else its
+  state's age, order and update id with the last node, open requests and version. The table takes the width of its
+  columns, at most 55 % of the view, instead of a fixed 600 px; what tells whether a robot is fine comes first, as the
+  last columns need the horizontal scrollbar while the detail view is open. Robots of a single manufacturer show only
+  their serial number, with the full name as tooltip. Clicking a header sorts, clicking a row selects the robot's last state (else its
   last visualization or connection). Selecting any message of a robot in another mode selects the robot too.
 - **Canvas:** its own pan (drag) and zoom (mouse wheel, around the pointer) instead of an `InteractiveViewer`, so robots
   and labels keep their size. It fits all robots, order nodes and zones until the user moves it; the Fit button fits

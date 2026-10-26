@@ -11,7 +11,8 @@ import 'package:provider/provider.dart';
 // The Fleet view mode of the topic viewer (doc/vda5050-design.md §8): every VDA 5050 robot in a table and on its map.
 // A robot is selected through its last state, so the detail view shows it.
 class FleetViewer extends StatefulWidget {
-  static const double tableWidth = 600;
+  // the table takes the width of its columns, at most this share of the view; the map gets the rest
+  static const double maxTableShare = 0.55;
 
   const FleetViewer({Key? key}) : super(key: key);
 
@@ -46,13 +47,18 @@ class _FleetViewerState extends State<FleetViewer> {
       );
     }
     return Expanded(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SizedBox(width: FleetViewer.tableWidth, child: _buildTable(context, viewmodel)),
-          VerticalDivider(width: 1),
-          Expanded(child: _buildMap(context, viewmodel, fleet)),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) => Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: constraints.maxWidth * FleetViewer.maxTableShare),
+              child: _buildTable(context, viewmodel),
+            ),
+            VerticalDivider(width: 1),
+            Expanded(child: _buildMap(context, viewmodel, fleet)),
+          ],
+        ),
       ),
     );
   }
@@ -61,6 +67,9 @@ class _FleetViewerState extends State<FleetViewer> {
     var theme = Theme.of(context);
     var now = viewmodel.statsReference;
     var selected = viewmodel.selectedRobot;
+    var vehicles = viewmodel.sortedVehicles;
+    // robots of one manufacturer are told apart by their serial numbers, the table stays narrow
+    var oneManufacturer = vehicles.map((vehicle) => vehicle.manufacturer).toSet().length == 1;
     var columns = [
       for (var column in FleetColumn.values)
         DataColumn(
@@ -69,7 +78,7 @@ class _FleetViewerState extends State<FleetViewer> {
           onSort: (_, ascending) => viewmodel.sortFleet(column, ascending),
         ),
     ];
-    // the columns after the order may lie outside the 600 px, the horizontal scrollbar shows that
+    // in a narrow view the last columns lie outside, the horizontal scrollbar shows that
     return Scrollbar(
       controller: _tableHorizontalScroll,
       thumbVisibility: true,
@@ -93,11 +102,14 @@ class _FleetViewerState extends State<FleetViewer> {
               headingTextStyle: theme.textTheme.labelLarge!.copyWith(color: theme.hintColor),
               columns: columns,
               rows: [
-                for (var vehicle in viewmodel.sortedVehicles)
+                for (var vehicle in vehicles)
                   DataRow(
                     selected: vehicle.deviceKey == selected,
                     onSelectChanged: (_) => viewmodel.selectRobot(vehicle),
-                    cells: [for (var column in FleetColumn.values) DataCell(_buildCell(context, vehicle, column, now))],
+                    cells: [
+                      for (var column in FleetColumn.values)
+                        DataCell(_buildCell(context, vehicle, column, now, oneManufacturer)),
+                    ],
                   ),
               ],
             ),
@@ -107,13 +119,25 @@ class _FleetViewerState extends State<FleetViewer> {
     );
   }
 
-  Widget _buildCell(BuildContext context, VehicleState<ReceivedMqttMessage> vehicle, FleetColumn column, DateTime now) {
+  Widget _buildCell(
+    BuildContext context,
+    VehicleState<ReceivedMqttMessage> vehicle,
+    FleetColumn column,
+    DateTime now,
+    bool oneManufacturer,
+  ) {
     var theme = Theme.of(context);
     var state = vehicle.state;
     var none = Text('—', style: TextStyle(color: theme.hintColor));
     switch (column) {
       case FleetColumn.robot:
-        return Text(vehicle.name, style: const TextStyle(fontWeight: FontWeight.w600));
+        return Tooltip(
+          message: vehicle.name,
+          child: Text(
+            oneManufacturer ? vehicle.serialNumber : vehicle.name,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+        );
       case FleetColumn.version:
         return Text(vehicle.version);
       case FleetColumn.connection:
