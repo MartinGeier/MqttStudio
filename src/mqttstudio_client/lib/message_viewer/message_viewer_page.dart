@@ -25,6 +25,7 @@ import 'package:srx_flutter/srx_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:mqttstudio/common/widgets/navigation_drawer.dart' as navDrawer;
 import 'package:flutter/foundation.dart';
+import 'package:mqttstudio/protocol/widgets/fleet_viewer.dart';
 import 'package:mqttstudio/common/leave_page_guard.dart'
     if (dart.library.js_interop) 'package:mqttstudio/common/leave_page_guard_web.dart';
 
@@ -97,11 +98,12 @@ class _MessageViewerPageState extends State<MessageViewerPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               projectViewmodel.isProjectOpen
-                  ? viewmodel.topicViewMode == TopicViewMode.Grouped
-                      ? GroupedMessagesViewer()
-                      : viewmodel.topicViewMode == TopicViewMode.Tree
-                          ? TreeMessagesViewer()
-                          : SequentialMessagesViewer()
+                  ? switch (viewmodel.topicViewMode) {
+                      TopicViewMode.Grouped => GroupedMessagesViewer(),
+                      TopicViewMode.Tree => TreeMessagesViewer(),
+                      TopicViewMode.Sequential => SequentialMessagesViewer(),
+                      TopicViewMode.Fleet => FleetViewer(),
+                    }
                   : Container(),
               projectViewmodel.isProjectOpen
                   ? viewmodel.selectedMessage != null

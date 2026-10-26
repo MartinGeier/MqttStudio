@@ -236,7 +236,8 @@ class _TopicsViewCommandBarState extends State<TopicsViewCommandBar> {
         isSelected: [
           viewmodel.topicViewMode == TopicViewMode.Grouped,
           viewmodel.topicViewMode == TopicViewMode.Tree,
-          viewmodel.topicViewMode == TopicViewMode.Sequential
+          viewmodel.topicViewMode == TopicViewMode.Sequential,
+          viewmodel.topicViewMode == TopicViewMode.Fleet
         ],
         renderBorder: false,
         onPressed: _canView(viewmodel, projectViewmodel)
@@ -251,14 +252,30 @@ class _TopicsViewCommandBarState extends State<TopicsViewCommandBar> {
                   case 2:
                     viewmodel.topicViewMode = TopicViewMode.Sequential;
                     break;
+                  case 3:
+                    // offered once a VDA 5050 robot was received; ToggleButtons can't disable a single button
+                    if (viewmodel.canShowFleet) {
+                      viewmodel.topicViewMode = TopicViewMode.Fleet;
+                    }
+                    break;
                 }
               }
             : null,
         children: [
           Tooltip(message: 'topicsviewer_commandbar.groupedviewer.tooltip'.tr(), child: Icon(Icons.view_agenda)),
           Tooltip(message: 'topicsviewer_commandbar.treeviewer.tooltip'.tr(), child: Icon(Icons.account_tree)),
-          Tooltip(message: 'topicsviewer_commandbar.sequentialviewer.tooltip'.tr(), child: Icon(Icons.format_list_bulleted))
+          Tooltip(message: 'topicsviewer_commandbar.sequentialviewer.tooltip'.tr(), child: Icon(Icons.format_list_bulleted)),
+          _buildFleetButton(viewmodel),
         ]);
+  }
+
+  Widget _buildFleetButton(MessageViewerViewmodel viewmodel) {
+    var available = viewmodel.canShowFleet;
+    return Tooltip(
+        message: available
+            ? 'topicsviewer_commandbar.fleetviewer.tooltip'.tr()
+            : 'topicsviewer_commandbar.fleetviewer.disabled.tooltip'.tr(),
+        child: Icon(Icons.precision_manufacturing, color: available ? null : Theme.of(context).disabledColor));
   }
 
   // recorded messages can be viewed without a project

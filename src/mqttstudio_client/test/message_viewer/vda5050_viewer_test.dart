@@ -10,6 +10,7 @@ import 'package:mqttstudio/message_viewer/widgets/sequential_messages_viewer.dar
 import 'package:mqttstudio/message_viewer/widgets/tree_messages_viewer.dart';
 import 'package:mqttstudio/protocol/vda5050/vda5050_model.dart';
 import 'package:mqttstudio/protocol/vda5050/vda5050_writer.dart';
+import 'package:mqttstudio/protocol/widgets/fleet_viewer.dart';
 import 'package:mqttstudio/protocol/widgets/interpreted_payload_view.dart';
 import 'package:provider/provider.dart';
 import 'package:srx_flutter/srx_flutter.dart';
@@ -59,6 +60,7 @@ void main() {
             TopicViewMode.Tree => TreeMessagesViewer(),
             TopicViewMode.Grouped => GroupedMessagesViewer(),
             TopicViewMode.Sequential => SequentialMessagesViewer(),
+            TopicViewMode.Fleet => FleetViewer(),
           },
           if (vm.selectedMessage != null) MessageDetailView(),
         ]),

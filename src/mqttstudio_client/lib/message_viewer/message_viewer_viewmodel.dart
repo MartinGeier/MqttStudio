@@ -20,6 +20,7 @@ import 'package:mqttstudio/message_viewer/message_buffer.dart';
 import 'package:mqttstudio/project/project_manager.dart';
 import 'package:mqttstudio/protocol/protocol_profile.dart';
 import 'package:mqttstudio/protocol/protocol_registry.dart';
+import 'package:mqttstudio/protocol/vda5050/fleet_state.dart';
 import 'package:mqttstudio/recorder/engine/recorder_service.dart';
 import 'package:mqttstudio/recorder/model/recording_header.dart';
 import 'package:mqttstudio/recorder/storage/recording_library.dart';
@@ -77,6 +78,14 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
   final Set<String> _rawTopics = {};
   final Map<String, String> _chartSeries = {};
   final Set<String> _collapsedSections = {};
+  // the fleet view (doc/vda5050-design.md §8): built from the buffer while the mode is shown, null otherwise
+  FleetState<ReceivedMqttMessage>? _fleet;
+  bool? _hasRobots;
+  String? _fleetMap;
+  bool _showZones = true;
+  bool _showFleetLegend = true;
+  FleetColumn _fleetSortColumn = FleetColumn.robot;
+  bool _fleetSortAscending = true;
   // ticks the time since the last message in the tree
   Timer? _statsTimer;
   // lives here because the page creates a new tree viewer widget on every update
@@ -234,6 +243,115 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
     return match == null ? message.topicName : '${match.profile.id}/${match.messageType}';
   }
 
+  // ---------- fleet view ----------
+
+  // the Fleet mode is offered once a robot sent its connection, state or visualization
+  bool get canShowFleet => _hasRobots ??= messageBuffer.allMessages.any((message) => _showsRobot(message.topicName));
+
+  bool _showsRobot(String topic) {
+    var match = _protocols.match(topic);
+    return match != null && FleetState.showsRobot(match);
+  }
+
+  FleetState<ReceivedMqttMessage> get fleet {
+    var fleet = _fleet;
+    if (fleet == null) {
+      fleet = _fleet = FleetState();
+      for (var message in messageBuffer.allMessages) {
+        _addToFleet(fleet, message);
+      }
+    }
+    return fleet;
+  }
+
+  bool _addToFleet(FleetState<ReceivedMqttMessage> fleet, ReceivedMqttMessage message) {
+    var match = _protocols.match(message.topicName);
+    if (match == null) {
+      return false;
+    }
+    var decoded = decode(message);
+    return decoded.hasValue && fleet.add(match, decoded.value, message.receivedOn, message);
+  }
+
+  // the robot of the selected message, of whatever type
+  String? get selectedRobot {
+    var message = _selectedMessage;
+    var match = message == null ? null : _protocols.match(message.topicName);
+    return match == null || fleet.vehicle(match.deviceKey) == null ? null : match.deviceKey;
+  }
+
+  // shows the robot's last state in the detail view, else its last message
+  void selectRobot(VehicleState<ReceivedMqttMessage> vehicle) {
+    selectedMessage = vehicle.stateMessage ??
+        messageBuffer.getLastMessageForTopic('${vehicle.deviceKey}/visualization') ??
+        vehicle.connectionMessage;
+  }
+
+  // the map shown: the chosen one, else the selected robot's, else the one with the most robots
+  String? get fleetMap {
+    var maps = fleet.maps;
+    if (maps.contains(_fleetMap)) {
+      return _fleetMap;
+    }
+    var robot = selectedRobot;
+    var robotMap = robot == null ? null : fleet.vehicle(robot)?.position?.mapId;
+    return maps.contains(robotMap) ? robotMap : maps.firstOrNull;
+  }
+
+  set fleetMap(String? mapId) {
+    _fleetMap = mapId;
+    notifyListeners();
+  }
+
+  bool get showZones => _showZones;
+
+  set showZones(bool value) {
+    _showZones = value;
+    notifyListeners();
+  }
+
+  bool get showFleetLegend => _showFleetLegend;
+
+  set showFleetLegend(bool value) {
+    _showFleetLegend = value;
+    notifyListeners();
+  }
+
+  FleetColumn get fleetSortColumn => _fleetSortColumn;
+
+  bool get fleetSortAscending => _fleetSortAscending;
+
+  void sortFleet(FleetColumn column, bool ascending) {
+    _fleetSortColumn = column;
+    _fleetSortAscending = ascending;
+    notifyListeners();
+  }
+
+  List<VehicleState<ReceivedMqttMessage>> get sortedVehicles {
+    var now = statsReference;
+    Comparable<Object> key(VehicleState<ReceivedMqttMessage> vehicle) => switch (_fleetSortColumn) {
+          FleetColumn.robot => vehicle.name,
+          FleetColumn.version => vehicle.version,
+          FleetColumn.connection => vehicle.connectionState ?? '',
+          FleetColumn.mode => vehicle.state?.operatingMode ?? '',
+          FleetColumn.driving => vehicle.status.index,
+          FleetColumn.charge => vehicle.state?.powerSupply.stateOfCharge ?? -1,
+          FleetColumn.order => vehicle.state?.orderId ?? '',
+          FleetColumn.errors => vehicle.state?.errors.length ?? 0,
+          FleetColumn.requests => vehicle.openRequests,
+          FleetColumn.age => vehicle.stateAge(now)?.inMilliseconds ?? 1 << 40,
+        };
+    var vehicles = fleet.vehicles;
+    vehicles.sort((a, b) {
+      var result = key(a).compareTo(key(b));
+      if (result == 0) {
+        result = a.name.compareTo(b.name);
+      }
+      return _fleetSortAscending ? result : -result;
+    });
+    return vehicles;
+  }
+
   DecodedPayload decode(ReceivedMqttMessage message) {
     var decoder = decoderOf(message.topicName);
     var cache = _decoded.putIfAbsent(decoder, Expando.new);
@@ -278,7 +396,9 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
   DateTime get statsReference => isLive ? DateTime.now() : messageBuffer.getLastMessage()?.receivedOn ?? DateTime.now();
 
   void _updateStatsTimer() {
-    var needed = isLive && _showTopicStats && _topicViewMode == TopicViewMode.Tree;
+    // the fleet view's ages tick too
+    var needed = isLive &&
+        ((_showTopicStats && _topicViewMode == TopicViewMode.Tree) || _topicViewMode == TopicViewMode.Fleet);
     if (needed && _statsTimer == null) {
       _statsTimer = Timer.periodic(Duration(seconds: 1), (_) {
         if (messageBuffer.length > 0) {
@@ -437,6 +557,9 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
 
   set topicViewMode(TopicViewMode value) {
     _topicViewMode = value;
+    if (value != TopicViewMode.Fleet) {
+      _fleet = null;
+    }
     _updateStatsTimer();
     notifyListeners();
   }
@@ -516,6 +639,13 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
   MessageGroupTimePeriod get groupTimePeriod => _groupTimePeriod;
 
   void _onMessageReceived(ReceivedMqttMessage msg) {
+    if (_hasRobots == false && _showsRobot(msg.topicName)) {
+      _hasRobots = true;
+    }
+    var fleet = _fleet;
+    if (fleet != null) {
+      _addToFleet(fleet, msg);
+    }
     if (autoSelect && _selectedMessage != null && msg.topicName == _selectedMessage!.topicName) {
       if (msg.receivedOn != _selectedMessage!.receivedOn) {
         selectedMessage = msg;
@@ -541,13 +671,20 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
   void _messagesCleared(EventArgs _) {
     _markedMessage = null;
     _protocols.clearCache();
+    _fleet = null;
+    _hasRobots = null;
     notifyListeners();
   }
 
   void _projectClosed(EventArgs _) {
     _markedMessage = null;
+    _fleet = null;
+    _hasRobots = null;
     selectedMessage = null;
   }
 }
 
-enum TopicViewMode { Grouped, Tree, Sequential }
+enum TopicViewMode { Grouped, Tree, Sequential, Fleet }
+
+// in the order of the fleet table; what tells whether a robot is fine comes first, the version last
+enum FleetColumn { robot, connection, mode, driving, charge, errors, age, order, requests, version }

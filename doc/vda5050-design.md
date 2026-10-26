@@ -1,8 +1,8 @@
 # VDA 5050 Support – Detailed Design
 
 Status: **Draft**. Scope and the former open questions are decided (V1, V5, V7, V13, V14, V16, V17); the other
-decisions are proposed, see §2 and §18. Phases 0 (simulated robots), 1 (presets) and 2 (profile engine and rules)
-are implemented, see §16.1 · Branch: `mqtt5` · Last updated: 2026-10-26
+decisions are proposed, see §2 and §18. Phases 0 (simulated robots), 1 (presets), 2 (profile engine and rules),
+3 (topic viewer) and 4 (fleet view) are implemented, see §16.1 · Branch: `mqtt5` · Last updated: 2026-10-26
 
 Related: `documentation-design.md` (presets go through the AsyncAPI import, protocol rules extend the check, T19),
 `recorder-design.md` (JSON paths and conditions, §10; `MessageSource`, §7.2), `simulator-design.md` (no
@@ -55,7 +55,7 @@ in a running plant.
 - Converting messages between 2.x and 3.0.
 - Layout backgrounds (VDMA LIF files, CAD drawings) in the fleet view.
 - Robot-specific extensions beyond showing unknown fields as raw JSON.
-- Fleet view for recordings (later, §16).
+- A time slider for the fleet view of recordings (later, §16).
 
 ## 2. Decisions
 
@@ -642,8 +642,8 @@ Changed for the viewers: `message_viewer_viewmodel.dart` (`interpret`, raw toggl
    finding.
 3. **Topic viewer:** summaries, markers, interpreted detail view, raw toggle, chart series.
 4. **Fleet view**, including 3.0 paths and zones.
-5. **Later:** external orders and real last will for simulated robots (§10.7), fleet view for recordings, LIF
-   layouts, a Sparkplug B profile.
+5. **Later:** external orders and real last will for simulated robots (§10.7), a time slider for the fleet view of
+   recordings, LIF layouts, a Sparkplug B profile.
 
 ## 16.1 Implementation notes (2026-10-25)
 
@@ -739,6 +739,40 @@ Changed for the viewers: `message_viewer_viewmodel.dart` (`interpret`, raw toggl
 - **Filter help:** the Condition tooltip is already long, so the VDA 5050 examples of §7 are not added to it.
 - **Tests:** `test/message_viewer/vda5050_viewer_test.dart` (summaries in the sequential and tree viewers, marker and
   tooltip of grouped chips, sections, folding, raw toggle, chart series).
+
+**Phase 4 (fleet view)** is implemented as designed in §8, with these differences:
+
+- **Data:** `FleetState` and `VehicleState` (`lib/protocol/vda5050/fleet_state.dart`) are plain Dart and generic over
+  the message type, so the view can select a robot's last state. `MessageViewerViewmodel` builds the fleet from the
+  buffer only while the Fleet mode is shown and adds each new message to it; leaving the mode drops it. Updates follow
+  the viewmodel's 500 ms refresh, twice a second instead of four times. An `order` alone doesn't add a robot (it may be
+  addressed to one that never answers), zone sets are kept per map and zone set id.
+- **Fleet button:** `ToggleButtons` can't disable a single button, so the Fleet button is greyed out with its own
+  tooltip and ignores clicks until a robot sent its connection, state or visualization.
+- **Table:** robot, connection (a dot in the connection's color; the state as sent only when it isn't `ONLINE`), mode,
+  drive (driving, paused or standing icon), battery (with a charging icon), errors (count and highest level), the
+  state's age, order and update id with the last node, open requests and version. What tells whether a robot is fine
+  comes first, since the columns after it may need the horizontal scrollbar at 600 px. Clicking a header sorts, clicking a row selects the robot's last state (else its
+  last visualization or connection). Selecting any message of a robot in another mode selects the robot too.
+- **Canvas:** its own pan (drag) and zoom (mouse wheel, around the pointer) instead of an `InteractiveViewer`, so robots
+  and labels keep their size. It fits all robots, order nodes and zones until the user moves it; the Fit button fits
+  again. A grid label in the corner gives the grid step; there are no axis lines. Lines are drawn **only for the
+  selected robot**, as trails of every robot made the map unreadable: its trail (thin grey), its order (dark grey,
+  released edges solid, horizon dashed, reached nodes filled) and for 3.0 its planned path (dotted) and intermediate
+  path in the accent color. Robots keep their status color; idle robots are drawn grey with an outline, as the watermark
+  color disappears on white, and robots that are offline or lost the connection are only a red outline, so they don't
+  look like robots that report an error. Zones carry their id and type as a label instead of a tooltip.
+- **Legend:** a legend in the canvas's lower right corner explains the robot colors and the lines; the map bar's legend
+  button hides it. A map at least three legend widths wide fits the robots left of it.
+- **Disabled controls say why:** the map dropdown is disabled while the robots report a single map, the Zones checkbox
+  (then unchecked) while no zone set of the map was received. Zone sets aren't retained, so a topic viewer that
+  subscribes after the robots started never sees them; the checkbox's tooltip says so.
+- **Recordings:** the recorder's MESSAGES tab offers the Fleet mode too: the robots as they were at the end of the
+  recording, without a time slider.
+- **Filter:** the command bar's filter doesn't apply to the fleet view.
+- **Tests:** `test/protocol/fleet_state_test.dart` (folding both versions, status, trail, zones and maps, a simulated
+  fleet of both versions) and `test/message_viewer/fleet_viewer_test.dart` (the Fleet button, table, sorting,
+  selection, map choice and selecting by a click on the map, clearing).
 
 ## 17. Known limitations
 
