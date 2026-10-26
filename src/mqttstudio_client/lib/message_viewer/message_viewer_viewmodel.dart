@@ -665,6 +665,15 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
   }
 
   void _topicSubriptionsChanged(EventArgs _) {
+    // a recording replaces the buffer and announces it as changed subscriptions: the fleet is built again
+    if (!isLive) {
+      _fleet = null;
+      _hasRobots = null;
+      if (_topicViewMode == TopicViewMode.Fleet && !canShowFleet) {
+        topicViewMode = TopicViewMode.Sequential;
+        return;
+      }
+    }
     notifyListeners();
   }
 

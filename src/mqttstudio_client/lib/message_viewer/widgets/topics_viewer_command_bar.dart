@@ -232,12 +232,14 @@ class _TopicsViewCommandBarState extends State<TopicsViewCommandBar> {
   }
 
   ToggleButtons _buildViewModeSelectionButtons(MessageViewerViewmodel viewmodel, ProjectViewmodel projectViewmodel) {
+    // live robots may still come, a recording without robots doesn't need the Fleet button
+    var showFleet = viewmodel.isLive || viewmodel.canShowFleet;
     return ToggleButtons(
         isSelected: [
           viewmodel.topicViewMode == TopicViewMode.Grouped,
           viewmodel.topicViewMode == TopicViewMode.Tree,
           viewmodel.topicViewMode == TopicViewMode.Sequential,
-          viewmodel.topicViewMode == TopicViewMode.Fleet
+          if (showFleet) viewmodel.topicViewMode == TopicViewMode.Fleet
         ],
         renderBorder: false,
         onPressed: _canView(viewmodel, projectViewmodel)
@@ -265,7 +267,7 @@ class _TopicsViewCommandBarState extends State<TopicsViewCommandBar> {
           Tooltip(message: 'topicsviewer_commandbar.groupedviewer.tooltip'.tr(), child: Icon(Icons.view_agenda)),
           Tooltip(message: 'topicsviewer_commandbar.treeviewer.tooltip'.tr(), child: Icon(Icons.account_tree)),
           Tooltip(message: 'topicsviewer_commandbar.sequentialviewer.tooltip'.tr(), child: Icon(Icons.format_list_bulleted)),
-          _buildFleetButton(viewmodel),
+          if (showFleet) _buildFleetButton(viewmodel),
         ]);
   }
 

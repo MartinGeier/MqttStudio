@@ -11,6 +11,9 @@ import 'package:mqttstudio/protocol/vda5050/vda5050_writer.dart';
 import 'package:mqttstudio/protocol/widgets/fleet_canvas.dart';
 import 'package:mqttstudio/protocol/widgets/fleet_viewer.dart';
 import 'package:mqttstudio/protocol/widgets/interpreted_payload_view.dart';
+import 'package:mqttstudio/recorder/analysis/recording_message_source.dart';
+import 'package:mqttstudio/recorder/storage/recording_library.dart';
+import 'package:mqttstudio/recorder/storage/recording_storage.dart';
 import 'package:provider/provider.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 import '../helpers/fake_mqtt_adapter.dart';
@@ -204,5 +207,57 @@ void main() {
       expect(find.text('No VDA 5050 robots received'), findsOneWidget);
       expect(viewmodel.canShowFleet, isFalse);
     });
+  });
+
+  testWidgets('a recording offers the Fleet mode only when it has robots', (tester) async {
+    var library = RecordingLibrary(MemoryRecordingStore());
+    var source = RecordingMessageSource();
+    Future<void> load(String name, List<Object> entries) => tester.runAsync(() async {
+      var info = await writeRecording(library, name, entries, durationMicros: 10000000);
+      var reader = await library.open(info);
+      try {
+        await source.load(reader);
+      } finally {
+        await reader.close();
+      }
+    });
+
+    await tester.binding.setSurfaceSize(Size(1700, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await openNewProject();
+    await tester.pumpWidget(
+      testApp(
+        ChangeNotifierProvider(
+          create: (_) => viewmodel = MessageViewerViewmodel(source: source),
+          child: Consumer<MessageViewerViewmodel>(
+            builder: (context, vm, child) => Column(
+              children: [
+                TopicsViewCommandBar(),
+                Expanded(
+                  child: Row(
+                    children: [vm.topicViewMode == TopicViewMode.Fleet ? FleetViewer() : SequentialMessagesViewer()],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    var fleetButton = find.byIcon(Icons.precision_manufacturing);
+    expect(fleetButton, findsNothing);
+
+    var robot = jsonEncode(Vda5050Writer(VdaVersion.v3).toJson(state('R1')));
+    await load('Robots', [recorded(1, 'uagv/v3/Acme/R1/state', robot)]);
+    await tester.pumpAndSettle();
+    expect(viewmodel.canShowFleet, isTrue);
+    await tapFleetButton(tester);
+    expect(find.text('R1'), findsOneWidget);
+
+    // another recording without robots leaves the Fleet mode
+    await load('Plant', [recorded(1, 'plant/temp', '21')]);
+    await tester.pumpAndSettle();
+    expect(viewmodel.topicViewMode, TopicViewMode.Sequential);
+    expect(fleetButton, findsNothing);
   });
 }

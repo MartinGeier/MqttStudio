@@ -770,7 +770,8 @@ Changed for the viewers: `message_viewer_viewmodel.dart` (`interpret`, raw toggl
   (then unchecked) while no zone set of the map was received. Zone sets aren't retained, so a topic viewer that
   subscribes after the robots started never sees them; the checkbox's tooltip says so.
 - **Recordings:** the recorder's MESSAGES tab offers the Fleet mode too: the robots as they were at the end of the
-  recording, without a time slider.
+  recording, without a time slider. There the Fleet button is hidden instead of greyed out when the recording has no
+  robots, as none can come; loading another recording rebuilds the fleet and leaves the Fleet mode when it has none.
 - **Filter:** the command bar's filter doesn't apply to the fleet view.
 - **Tests:** `test/protocol/fleet_state_test.dart` (folding both versions, status, trail, zones and maps, a simulated
   fleet of both versions) and `test/message_viewer/fleet_viewer_test.dart` (the Fleet button, table, sorting,
