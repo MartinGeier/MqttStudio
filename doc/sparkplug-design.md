@@ -1,7 +1,8 @@
 # Sparkplug B Support – Design
 
 Status: **Phase 1 implemented** (profile, topic viewer, protocol rules). Later phases are proposals, see §8; the
-simulated edge nodes (phase 2, §10) are implemented, see §10.10 and §10.11 ·
+simulated edge nodes (phase 2, §10), the rebirth request (phase 3, §12) and the Sparkplug view (phase 4, §13)
+are implemented, see the implementation notes in §10.10, §10.11, §12.6 and §13.6 ·
 Branch: `mqtt5` · Last updated: 2026-10-27
 
 Related: `vda5050-design.md` (the protocol profile layer this builds on, §5), `documentation-design.md` (T18: discovery
@@ -113,10 +114,10 @@ rules get the payload, not the delivery.
 
 Ordered by value for the effort:
 
-1. **Rebirth request.** A "Request rebirth" action in the detail view and the tree's context menu of an edge node:
+1. **Rebirth request** (phase 3, §12). A "Request rebirth" action in the detail view and the tree's context menu of an edge node:
    publishes `NCMD` with `Node Control/Rebirth = true`. Solves the most common problem, metrics shown by alias after
    subscribing late. Needs the writer (exists) and a confirmation, as it acts on a real system.
-2. **Sparkplug view mode** (like the VDA 5050 fleet view): groups, edge nodes and devices in a tree with online
+2. **Sparkplug view mode** (phase 4, §13) (like the VDA 5050 fleet view): groups, edge nodes and devices in a tree with online
    state from births and deaths, bdSeq, seq health, last message, and a live metric table per node or device that
    merges the birth with all data since (current value, unit, timestamp, quality). The most useful view for
    commissioning; a host application in miniature.
@@ -377,3 +378,185 @@ All proposals were accepted as written.
 | Q9 | Limits: edge nodes per device, devices per edge node, metrics per device? | 20 edge nodes (connections), 20 devices, 200 metrics; at most 2000 metric changes per second in total |
 | Q10 | Offer compressed payloads? | Yes, a checkbox (GZIP); it tests the receivers' decompression |
 | Q11 | Should "Request rebirth" (§8.1) come with this phase, since the simulator answers it? | Yes; it is small and the simulator makes it testable |
+
+## 12. Rebirth request (phase 3)
+
+Q11 decided that "Request rebirth" (§8.1) comes with phase 2; it wasn't built then and follows here as phase 3.
+
+### 12.1 Purpose
+
+Births are not retained (§2). A topic viewer that subscribes while edge nodes are online shows their data by alias
+until the next birth, and the documentation check can't run its session rules. Sparkplug's answer is the rebirth
+request: `NCMD` with the metric `Node Control/Rebirth = true`, after which the edge node publishes its NBIRTH and all
+DBIRTHs again. Host applications send it whenever they miss a birth. MQTT Studio offers it where the user notices
+the problem, but never sends it on its own: it acts on a real system.
+
+### 12.2 Where
+
+- **The missing-birth warning** in the interpreted detail view ("No NBIRTH received yet, metrics are shown by alias")
+  gets a "Request rebirth" button next to it.
+- **The detail view's toolbar** of any edge node or device message (`spBv1.0/…`): an icon button (`Icons.autorenew`,
+  tooltip "Request rebirth of Edge1"). A device message asks its edge node; Sparkplug has no rebirth per device.
+- **The tree's context menu** on a branch or topic that belongs to one edge node (`spBv1.0/G/<type>/E` and below):
+  "Request rebirth of E". On a group branch (`spBv1.0/G`) or a message type branch below it: "Request rebirth of all
+  edge nodes" of that group, one NCMD per edge node the buffer knows (R2).
+- **The Sparkplug view** (§13): a button in the header of the selected edge node or device.
+
+All of them are disabled, not hidden, while the main connection is down, and absent for recorded messages (R4): a
+recording is history, and its edge nodes may not exist any more.
+
+### 12.3 What is sent
+
+`spBv1.0/{group}/NCMD/{edge node}`, QoS 0, not retained (R5), payload: timestamp now and one metric
+`Node Control/Rebirth`, Boolean, `true`, by name (an alias needs the birth, which is what is missing). No `seq`:
+commands have none. It goes out on the main connection through `MessageViewer.publishTopic`, like republishing a
+message, and is written with `SparkplugWriter`.
+
+### 12.4 Confirmation and feedback
+
+- Before sending, `SrxDialog.yesNo`: "Edge node E1 in group Plant1 publishes its birth certificates again. Its host
+  applications see a new NBIRTH. Continue?" With several edge nodes, their number. A checkbox "Don't ask again in this
+  session" (R1).
+- After sending, a snackbar "Rebirth requested from E1". The missing-birth warning shows "Rebirth requested at
+  12:00:01" until the NBIRTH arrives; it doesn't time out or retry.
+- The broker may refuse the publish (ACLs); with QoS 0 MQTT Studio doesn't learn it. The warning simply stays.
+
+### 12.5 Files and tests
+
+- `lib/protocol/sparkplug/sparkplug_commands.dart`: `SparkplugCommands.rebirth(group, edgeNode)` builds topic and
+  payload, `edgeNodeOf(topic)` and `edgeNodesIn(branch, buffer topics)` find the targets. No Flutter.
+- `MessageViewerViewmodel.requestRebirth(...)`, `canRequestRebirth`; the detail view, the tree's `_TreeAction`
+  `rebirth`/`rebirthAll`, localized texts `sparkplug.rebirth.*`.
+- Tests: the payload (decoded with `SparkplugReader`), the targets of topics and branches, the confirmation and the
+  session checkbox in a widget test, disabled without connection, absent for recordings. End to end with the fake
+  broker: a simulated edge node answers the request with NBIRTH and DBIRTHs (phase 2 already implements the answer).
+
+### 12.6 Implementation notes (2026-10-27)
+
+- **Generic hook:** `InterpretedValue` got an optional `action` name; the Sparkplug profile puts
+  `SparkplugProfile.rebirthAction` on the missing-birth warning, and `InterpretedPayloadView` asks an `actionBuilder`
+  of the detail view for the widget. The profile layer stays free of Flutter.
+- **Toolbar:** the detail view's toolbar has no room for one more button at 500 px. Sparkplug node and device messages
+  are never retained, so for them the rebirth button takes the place of "Clear retained"; a retained one (which breaks
+  the specification) keeps "Clear retained".
+- **Tree:** the menu item is on branches, from the group down to an edge node's topics; one edge node is named
+  ("Request rebirth of Edge1"), several are counted. Leaf topics keep their chip's own click, as before.
+- **Feedback:** "Rebirth requested at …" replaces the button until an NBIRTH of that edge node arrives; nothing times
+  out or retries. The session's "don't ask again" lives in the topic viewer's viewmodel.
+- **Files:** `lib/protocol/sparkplug/sparkplug_commands.dart` (`SparkplugEdgeNode`, the targets of topics and branches,
+  the NCMD), `lib/protocol/widgets/rebirth_request.dart` (confirmation, sending, snackbar), the viewmodel's
+  `requestRebirth`, `canRequestRebirth`, `rebirthRequestedAt`, `confirmRebirth`.
+- **Tests:** `test/protocol/sparkplug_commands_test.dart` (targets, payload, a simulated edge node answering with its
+  births) and `test/message_viewer/sparkplug_rebirth_test.dart` (the warning's button with confirmation and the
+  session checkbox, the toolbar, No sends nothing, disabled without a connection, the tree for a group and a single
+  edge node).
+
+## 13. Sparkplug view (phase 4)
+
+### 13.1 Purpose
+
+The topic viewer shows messages; a Sparkplug user thinks in edge nodes, devices and metrics. The Sparkplug view shows
+the current state of every edge node and device, with all their metrics and current values, merged from the births
+and every data message since: a host application in miniature, for commissioning and support ("is Pump 3 online, what
+does it report right now, which metrics never change?").
+
+### 13.2 Where
+
+A fifth view mode of the topic viewer, "Sparkplug" (`Icons.hub`), next to Fleet (V1). Like Fleet: greyed out with a
+tooltip until a Sparkplug message was received, hidden in the recorder for recordings without one, and in the
+recorder it shows the state at the end of the recording. The command bar's filter doesn't apply to it; the view has a
+metric filter of its own.
+
+### 13.3 Data (`lib/protocol/sparkplug/sparkplug_state.dart`)
+
+`SparkplugState<M>`, plain Dart and generic over the message type like `FleetState`, folds Sparkplug messages:
+
+- **Hosts:** host id, online or offline from STATE, its timestamp.
+- **Edge nodes** per group: state `online` (NBIRTH seen), `offline` (NDEATH), `unknown` (only data seen, the birth was
+  missed); bdSeq, the seq of the last message, the number of seq gaps, time of the birth and of the last message,
+  messages received, its last message (for selecting it).
+- **Devices** per edge node: the same states from DBIRTH and DDEATH; an NDEATH makes the devices offline too.
+- **Metrics** per edge node and device: name, alias, data type, unit, current value, timestamp of the value, the
+  message it came in, how often it changed, properties (e.g. Quality), historical and transient flags. A birth
+  replaces the metric list (V5); data updates the value by name or alias. Data by alias without a birth adds
+  `alias N` metrics, marked as unknown.
+
+It is built from the buffer when the view opens and updated by every new message, like the fleet, and dropped when
+another mode is shown.
+
+### 13.4 Layout
+
+```
+┌───────────────────────────────┬────────────────────────────────────────────────────────────────────────┐
+│ Hosts                         │ Pump  · device of Edge1 in Plant1 · online since 12:00:01   [⟳] [≡]    │
+│  ● scada          online      │ ─────────────────────────────────────────────────────────────────────  │
+│ Plant1                        │ [filter metrics…]                                    17 metrics        │
+│  ● Edge1      bdSeq 3  seq 41 │ Name            Value        Type     Updated   Changes  Properties    │
+│     ● Pump        5 metrics   │ Mode            AUTO         String   2 min     3                      │
+│     ○ Valve       offline     │ Pressure        2.41 bar     Float    1 s       812     Quality=192    │
+│  ? Edge2      no birth seen   │ Running         true         Boolean  12 min    1                      │
+│  ○ Edge3      offline         │ Motor/Speed     1452 rpm     Int32    1 s       430                    │
+└───────────────────────────────┴────────────────────────────────────────────────────────────────────────┘
+```
+
+- **Left, 320 px:** hosts, then groups with their edge nodes and devices as a tree. A dot in the state's color
+  (`connectedColor` online, `disconnectedColor` offline, grey unknown), the bdSeq and last seq of edge nodes, a warning
+  icon for seq gaps, the metric count of devices. Clicking an entry selects it.
+- **Right:** a header with the selected edge node or device, its state since when, and two buttons: Request rebirth
+  (§12) and Show last message (selects it in the detail view). Below, a metric filter field and the metrics as a
+  virtualized list (thousands of metrics are normal): name (folders of `/` names in a muted prefix, V2), value with
+  unit, data type, age of the value, number of changes, properties. Columns sort; metrics that never changed can be
+  sorted to the top, which answers "what is stuck". DataSets and Templates show their summary, the detail view their
+  table.
+- **Clicking a metric** selects the last message that carried it and sets the detail view's chart series to that
+  metric, so its chart appears there (V3). The detail view stays docked on the right as in the other modes.
+- **No birth seen:** the edge node shows "?", its metrics by alias, and the header the warning with the rebirth button.
+
+### 13.5 Files and tests
+
+- `lib/protocol/sparkplug/sparkplug_state.dart`; `lib/protocol/widgets/sparkplug_viewer.dart` (tree and table);
+  `TopicViewMode.sparkplug` and the fold in `MessageViewerViewmodel` (built only while shown, like the fleet); the
+  command bar button; texts `sparkplugview.*`.
+- Tests: folding births, data by alias and name, deaths of nodes and devices, the unknown state, hosts, seq gaps, a
+  rebirth that replaces metrics, the state from a buffer; widget tests of the view mode button, tree, table, filter,
+  sorting, selecting a metric and its chart; a simulated fleet of edge nodes through the fake broker into the view.
+
+### 13.6 Implementation notes (2026-10-27)
+
+- **Data:** `SparkplugState` as designed; commands (NCMD, DCMD) don't change it. "Changes" counts the data messages
+  that changed a value, "Updated" is the age of the last value received. An NDEATH makes the edge node's devices
+  offline too; a new NBIRTH leaves the devices as they are until their DBIRTH or DDEATH.
+- **View:** `TopicViewMode.Sparkplug` with `Icons.hub` after Fleet. The command bar now builds its view mode buttons
+  from the list of modes shown, so a hidden Fleet button doesn't shift the Sparkplug one. The view's own metric filter
+  is a plain field (like the command bar's), sorting by Changes ascending puts the stuck metrics first, the clicked
+  metric stays highlighted (one message often carries several). Ages tick like the fleet's.
+- **Selection:** without a choice, the view shows the edge node or device of the selected message, else the first
+  edge node.
+- **Recorder:** the MESSAGES tab offers the mode for recordings with Sparkplug messages and shows the state at the end
+  of the recording, without rebirth requests (R4).
+- **Files:** `lib/protocol/sparkplug/sparkplug_state.dart`, `lib/protocol/widgets/sparkplug_viewer.dart`, the viewmodel
+  (`sparkplug`, `canShowSparkplug`, `selectedSparkplugEntry`, `metricsOf`, `selectMetric`), the command bar, the page
+  and the recorder's MESSAGES view.
+- **Tests:** `test/protocol/sparkplug_state_test.dart` (births, data by alias with the birth's types, devices, deaths,
+  seq gaps, rebirth, missed births, hosts, simulated edge nodes and host) and `test/message_viewer/sparkplug_view_test.dart`
+  (the mode button, tree, table, sorting, filter, a metric's message and chart, the rebirth request of an edge node
+  without birth, clearing).
+
+## 14. Questions of phases 3 and 4 (decided 2026-10-27)
+
+All proposals were accepted as written.
+
+| # | Question | Decision |
+|---|---|---|
+| R1 | Confirm every rebirth request, once per session, or never? | Confirm, with "Don't ask again in this session" |
+| R2 | Offer a rebirth of all edge nodes of a group? | Yes, in the tree's menu of a group branch, with their number in the confirmation |
+| R3 | Request a rebirth automatically when data arrives without a birth? | No: it acts on a real system; the warning offers the button |
+| R4 | Rebirth requests in the recorder's MESSAGES tab too? | No: recordings are history |
+| R5 | NCMD with QoS 0 or 1? | QoS 0, not retained, as the specification has NCMD |
+| R6 | Other node controls (`Node Control/Reboot`, `Next Server`, `Scan Rate`) next to rebirth? | No; they belong to writing metrics (§8.3) |
+| V1 | A Sparkplug view mode of its own, or one "Devices" mode for VDA 5050 robots and Sparkplug edge nodes? | Its own, next to Fleet; the two show different things |
+| V2 | Metric folders (`Motor/Speed`): a flat list with the path, or a tree? | Flat, sortable and filterable, the folder part muted; a tree later |
+| V3 | A history per metric in the table (sparkline)? | No; clicking a metric charts it in the detail view |
+| V4 | Show host applications (STATE) in the view? | Yes, at the top of the tree |
+| V5 | After a rebirth: keep the old metrics or replace them with the birth's? | Replace; the birth is the definition |
+| V6 | Writing metrics (§8.3) from the table already in phase 4? | No; a later phase, the table leaves room for a write action |

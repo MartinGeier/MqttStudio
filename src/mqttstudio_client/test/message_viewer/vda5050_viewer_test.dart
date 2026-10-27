@@ -17,6 +17,7 @@ import 'package:srx_flutter/srx_flutter.dart';
 import '../helpers/fake_mqtt_adapter.dart';
 import '../helpers/test_app.dart';
 import '../helpers/test_setup.dart';
+import 'package:mqttstudio/protocol/widgets/sparkplug_viewer.dart';
 
 const _state = 'vda5050/v3/Acme/R1/state';
 
@@ -61,6 +62,7 @@ void main() {
             TopicViewMode.Grouped => GroupedMessagesViewer(),
             TopicViewMode.Sequential => SequentialMessagesViewer(),
             TopicViewMode.Fleet => FleetViewer(),
+            TopicViewMode.Sparkplug => SparkplugViewer(),
           },
           if (vm.selectedMessage != null) MessageDetailView(),
         ]),

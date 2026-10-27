@@ -232,43 +232,50 @@ class _TopicsViewCommandBarState extends State<TopicsViewCommandBar> {
   }
 
   ToggleButtons _buildViewModeSelectionButtons(MessageViewerViewmodel viewmodel, ProjectViewmodel projectViewmodel) {
-    // live robots may still come, a recording without robots doesn't need the Fleet button
-    var showFleet = viewmodel.isLive || viewmodel.canShowFleet;
+    // live robots and edge nodes may still come, a recording without them doesn't need their buttons
+    var modes = [
+      TopicViewMode.Grouped,
+      TopicViewMode.Tree,
+      TopicViewMode.Sequential,
+      if (viewmodel.isLive || viewmodel.canShowFleet) TopicViewMode.Fleet,
+      if (viewmodel.isLive || viewmodel.canShowSparkplug) TopicViewMode.Sparkplug,
+    ];
     return ToggleButtons(
-        isSelected: [
-          viewmodel.topicViewMode == TopicViewMode.Grouped,
-          viewmodel.topicViewMode == TopicViewMode.Tree,
-          viewmodel.topicViewMode == TopicViewMode.Sequential,
-          if (showFleet) viewmodel.topicViewMode == TopicViewMode.Fleet
-        ],
+        isSelected: [for (var mode in modes) viewmodel.topicViewMode == mode],
         renderBorder: false,
         onPressed: _canView(viewmodel, projectViewmodel)
             ? (index) {
-                switch (index) {
-                  case 0:
-                    viewmodel.topicViewMode = TopicViewMode.Grouped;
-                    break;
-                  case 1:
-                    viewmodel.topicViewMode = TopicViewMode.Tree;
-                    break;
-                  case 2:
-                    viewmodel.topicViewMode = TopicViewMode.Sequential;
-                    break;
-                  case 3:
-                    // offered once a VDA 5050 robot was received; ToggleButtons can't disable a single button
-                    if (viewmodel.canShowFleet) {
-                      viewmodel.topicViewMode = TopicViewMode.Fleet;
-                    }
-                    break;
+                var mode = modes[index];
+                // offered once robots or edge nodes were received; ToggleButtons can't disable a single button
+                if ((mode != TopicViewMode.Fleet || viewmodel.canShowFleet) &&
+                    (mode != TopicViewMode.Sparkplug || viewmodel.canShowSparkplug)) {
+                  viewmodel.topicViewMode = mode;
                 }
               }
             : null,
         children: [
-          Tooltip(message: 'topicsviewer_commandbar.groupedviewer.tooltip'.tr(), child: Icon(Icons.view_agenda)),
-          Tooltip(message: 'topicsviewer_commandbar.treeviewer.tooltip'.tr(), child: Icon(Icons.account_tree)),
-          Tooltip(message: 'topicsviewer_commandbar.sequentialviewer.tooltip'.tr(), child: Icon(Icons.format_list_bulleted)),
-          if (showFleet) _buildFleetButton(viewmodel),
+          for (var mode in modes)
+            switch (mode) {
+              TopicViewMode.Grouped =>
+                Tooltip(message: 'topicsviewer_commandbar.groupedviewer.tooltip'.tr(), child: Icon(Icons.view_agenda)),
+              TopicViewMode.Tree =>
+                Tooltip(message: 'topicsviewer_commandbar.treeviewer.tooltip'.tr(), child: Icon(Icons.account_tree)),
+              TopicViewMode.Sequential => Tooltip(
+                  message: 'topicsviewer_commandbar.sequentialviewer.tooltip'.tr(),
+                  child: Icon(Icons.format_list_bulleted)),
+              TopicViewMode.Fleet => _buildFleetButton(viewmodel),
+              TopicViewMode.Sparkplug => _buildSparkplugButton(viewmodel),
+            },
         ]);
+  }
+
+  Widget _buildSparkplugButton(MessageViewerViewmodel viewmodel) {
+    var available = viewmodel.canShowSparkplug;
+    return Tooltip(
+        message: available
+            ? 'topicsviewer_commandbar.sparkplugviewer.tooltip'.tr()
+            : 'topicsviewer_commandbar.sparkplugviewer.disabled.tooltip'.tr(),
+        child: Icon(Icons.hub, color: available ? null : Theme.of(context).disabledColor));
   }
 
   Widget _buildFleetButton(MessageViewerViewmodel viewmodel) {

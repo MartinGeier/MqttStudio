@@ -26,9 +26,16 @@ class InterpretedPayloadView extends StatelessWidget {
   final bool Function(String key) isCollapsed;
   final void Function(String key) onToggle;
   final ScrollController? controller;
+  // the widget for an InterpretedValue's action, e.g. a button; null shows nothing
+  final Widget? Function(String action)? actionBuilder;
 
   const InterpretedPayloadView(
-      {Key? key, required this.interpretation, required this.isCollapsed, required this.onToggle, this.controller})
+      {Key? key,
+      required this.interpretation,
+      required this.isCollapsed,
+      required this.onToggle,
+      this.controller,
+      this.actionBuilder})
       : super(key: key);
 
   @override
@@ -89,6 +96,10 @@ class InterpretedPayloadView extends StatelessWidget {
               Expanded(
                   child: SelectableText(value.value,
                       style: theme.textTheme.bodyLarge!.copyWith(color: InterpretationStyle.colorOf(context, value.level)))),
+              if (value.action != null && actionBuilder?.call(value.action!) != null) ...[
+                SizedBox(width: 8),
+                actionBuilder!(value.action!)!,
+              ],
             ]),
           ]),
       ],

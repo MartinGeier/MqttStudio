@@ -20,11 +20,15 @@ import 'package:mqttstudio/message_viewer/message_buffer.dart';
 import 'package:mqttstudio/project/project_manager.dart';
 import 'package:mqttstudio/protocol/protocol_profile.dart';
 import 'package:mqttstudio/protocol/protocol_registry.dart';
+import 'package:mqttstudio/protocol/sparkplug/sparkplug_commands.dart';
+import 'package:mqttstudio/protocol/sparkplug/sparkplug_profile.dart';
+import 'package:mqttstudio/protocol/sparkplug/sparkplug_state.dart';
 import 'package:mqttstudio/protocol/vda5050/fleet_state.dart';
 import 'package:mqttstudio/recorder/engine/recorder_service.dart';
 import 'package:mqttstudio/recorder/model/recording_header.dart';
 import 'package:mqttstudio/recorder/storage/recording_library.dart';
 import 'package:srx_flutter/srx_flutter.dart';
+import 'package:typed_data/typed_buffers.dart';
 import 'package:mqttstudio/common/utils/payload_utils.dart';
 
 // an interpretation or none; Expando can't hold null
@@ -80,7 +84,19 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
   String? _fleetMap;
   bool _showZones = true;
   bool _showFleetLegend = true;
+  // the Sparkplug view (doc/sparkplug-design.md §13): built from the buffer while the mode is shown, null otherwise
+  SparkplugState<ReceivedMqttMessage>? _sparkplug;
+  bool? _hasSparkplug;
+  String? _sparkplugEntry;
+  String _metricFilter = '';
+  SparkplugMetricColumn _metricSortColumn = SparkplugMetricColumn.name;
+  bool _metricSortAscending = true;
+  SparkplugMetricState<ReceivedMqttMessage>? _selectedMetric;
   FleetColumn _fleetSortColumn = FleetColumn.robot;
+  // rebirth requests (doc/sparkplug-design.md §12): asked before sending until the user turns it off for the session,
+  // and when they were sent, until the edge node's NBIRTH arrives
+  bool _confirmRebirth = true;
+  final Map<SparkplugEdgeNode, DateTime> _rebirthRequested = {};
   bool _fleetSortAscending = true;
   // ticks the time since the last message in the tree
   Timer? _statsTimer;
@@ -244,6 +260,161 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
     return match == null ? message.topicName : '${match.profile.id}/${match.messageType}';
   }
 
+  // ---------- Sparkplug rebirth requests ----------
+
+  // the edge node of a Sparkplug node or device message, null for other messages
+  SparkplugEdgeNode? edgeNodeOf(ReceivedMqttMessage message) => SparkplugCommands.edgeNodeOf(message.topicName);
+
+  // the edge nodes of the topics in a branch of the tree
+  List<SparkplugEdgeNode> edgeNodesIn(String branch) {
+    var topics = <String>[];
+    void collect(MessageNode node, String path) {
+      if (node.isTopic) {
+        topics.add(path);
+      }
+      for (var child in node.children) {
+        collect(child, '$path/${child.topicLevelName}');
+      }
+    }
+
+    var node = messageBuffer.findNode(branch);
+    if (node != null) {
+      collect(node, branch);
+    }
+    return SparkplugCommands.edgeNodesIn(branch, topics);
+  }
+
+  // live messages over a connection; recordings are history (R4)
+  bool get canRequestRebirth => isLive && isConnected;
+
+  bool get confirmRebirth => _confirmRebirth;
+
+  set confirmRebirth(bool value) {
+    _confirmRebirth = value;
+    notifyListeners();
+  }
+
+  DateTime? rebirthRequestedAt(SparkplugEdgeNode node) => _rebirthRequested[node];
+
+  // NCMD with Node Control/Rebirth = true to each edge node, QoS 0 and not retained (R5)
+  void requestRebirth(List<SparkplugEdgeNode> nodes) {
+    if (!canRequestRebirth) {
+      return;
+    }
+    for (var node in nodes) {
+      var (topic, payload) = SparkplugCommands.rebirth(node);
+      GetIt.I.get<MessageViewer>().publishTopic(
+        topic,
+        Uint8Buffer()..addAll(payload),
+        MqttPayloadType.binary,
+        false,
+        MqttQos.atMostOnce,
+      );
+      _rebirthRequested[node] = DateTime.now();
+    }
+    notifyListeners();
+  }
+
+  // ---------- Sparkplug view ----------
+
+  // the Sparkplug mode is offered once a Sparkplug message was received
+  bool get canShowSparkplug =>
+      _hasSparkplug ??= messageBuffer.allMessages.any((message) => _isSparkplug(message.topicName));
+
+  bool _isSparkplug(String topic) => _protocols.match(topic)?.profile is SparkplugProfile;
+
+  SparkplugState<ReceivedMqttMessage> get sparkplug {
+    var state = _sparkplug;
+    if (state == null) {
+      state = _sparkplug = SparkplugState();
+      for (var message in messageBuffer.allMessages) {
+        _addToSparkplug(state, message);
+      }
+    }
+    return state;
+  }
+
+  void _addToSparkplug(SparkplugState<ReceivedMqttMessage> state, ReceivedMqttMessage message) {
+    var match = _protocols.match(message.topicName);
+    if (match != null && match.profile is SparkplugProfile) {
+      state.add(match, protocolData(message), message.receivedOn, message);
+    }
+  }
+
+  // the chosen edge node or device, else the one of the selected message, else the first
+  SparkplugEntryState<ReceivedMqttMessage>? get selectedSparkplugEntry {
+    var state = sparkplug;
+    var chosen = _sparkplugEntry == null ? null : state.entry(_sparkplugEntry!);
+    if (chosen != null) {
+      return chosen;
+    }
+    var message = _selectedMessage;
+    var match = message == null ? null : _protocols.match(message.topicName);
+    var ofMessage = match?.profile is SparkplugProfile ? state.entry(match!.deviceKey) : null;
+    return ofMessage ?? state.nodes.firstOrNull;
+  }
+
+  void selectSparkplugEntry(SparkplugEntryState<ReceivedMqttMessage> entry) {
+    _sparkplugEntry = entry.key;
+    notifyListeners();
+  }
+
+  String get metricFilter => _metricFilter;
+
+  set metricFilter(String value) {
+    _metricFilter = value;
+    notifyListeners();
+  }
+
+  SparkplugMetricColumn get metricSortColumn => _metricSortColumn;
+
+  bool get metricSortAscending => _metricSortAscending;
+
+  void sortMetrics(SparkplugMetricColumn column, bool ascending) {
+    _metricSortColumn = column;
+    _metricSortAscending = ascending;
+    notifyListeners();
+  }
+
+  // the metrics of an edge node or device, filtered by name and sorted
+  List<SparkplugMetricState<ReceivedMqttMessage>> metricsOf(SparkplugEntryState<ReceivedMqttMessage> entry) {
+    var filter = _metricFilter.trim().toLowerCase();
+    var metrics = entry.metrics.values.where((metric) => metric.name.toLowerCase().contains(filter)).toList();
+    var now = statsReference;
+    Comparable<Object> key(SparkplugMetricState<ReceivedMqttMessage> metric) => switch (_metricSortColumn) {
+      SparkplugMetricColumn.name => metric.name.toLowerCase(),
+      SparkplugMetricColumn.value => metric.formattedValue,
+      SparkplugMetricColumn.type => metric.type?.label ?? '',
+      SparkplugMetricColumn.updated => now.difference(metric.receivedAt ?? now).inMilliseconds,
+      SparkplugMetricColumn.changes => metric.changes,
+    };
+    metrics.sort((a, b) {
+      var result = key(a).compareTo(key(b));
+      if (result == 0) {
+        result = a.name.compareTo(b.name);
+      }
+      return _metricSortAscending ? result : -result;
+    });
+    return metrics;
+  }
+
+  // the metric clicked last; one message often carries several metrics
+  SparkplugMetricState<ReceivedMqttMessage>? get selectedMetric => _selectedMetric;
+
+  // shows the last message that carried the metric, and charts the metric in the detail view (V3)
+  void selectMetric(SparkplugMetricState<ReceivedMqttMessage> metric) {
+    var message = metric.message;
+    if (message == null) {
+      return;
+    }
+    _selectedMetric = metric;
+    _selectedMessage = message;
+    if (metric.value is num || metric.value is bool) {
+      _chartSeries[_seriesKey(message)] = metric.name;
+    }
+    notifyListeners();
+  }
+
   // ---------- fleet view ----------
 
   // the Fleet mode is offered once a robot sent its connection, state or visualization
@@ -399,7 +570,9 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
   void _updateStatsTimer() {
     // the fleet view's ages tick too
     var needed = isLive &&
-        ((_showTopicStats && _topicViewMode == TopicViewMode.Tree) || _topicViewMode == TopicViewMode.Fleet);
+        ((_showTopicStats && _topicViewMode == TopicViewMode.Tree) ||
+            _topicViewMode == TopicViewMode.Fleet ||
+            _topicViewMode == TopicViewMode.Sparkplug);
     if (needed && _statsTimer == null) {
       _statsTimer = Timer.periodic(Duration(seconds: 1), (_) {
         if (messageBuffer.length > 0) {
@@ -561,6 +734,9 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
     if (value != TopicViewMode.Fleet) {
       _fleet = null;
     }
+    if (value != TopicViewMode.Sparkplug) {
+      _sparkplug = null;
+    }
     _updateStatsTimer();
     notifyListeners();
   }
@@ -640,12 +816,26 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
   MessageGroupTimePeriod get groupTimePeriod => _groupTimePeriod;
 
   void _onMessageReceived(ReceivedMqttMessage msg) {
+    // the birth a rebirth request asked for
+    if (_rebirthRequested.isNotEmpty && msg.topicName.contains('/${SpbMessageType.nBirth}/')) {
+      var node = SparkplugCommands.edgeNodeOf(msg.topicName);
+      if (node != null && _rebirthRequested.remove(node) != null) {
+        notifyListeners();
+      }
+    }
     if (_hasRobots == false && _showsRobot(msg.topicName)) {
       _hasRobots = true;
     }
     var fleet = _fleet;
     if (fleet != null) {
       _addToFleet(fleet, msg);
+    }
+    if (_hasSparkplug == false && _isSparkplug(msg.topicName)) {
+      _hasSparkplug = true;
+    }
+    var sparkplug = _sparkplug;
+    if (sparkplug != null) {
+      _addToSparkplug(sparkplug, msg);
     }
     if (autoSelect && _selectedMessage != null && msg.topicName == _selectedMessage!.topicName) {
       if (msg.receivedOn != _selectedMessage!.receivedOn) {
@@ -670,7 +860,10 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
     if (!isLive) {
       _fleet = null;
       _hasRobots = null;
-      if (_topicViewMode == TopicViewMode.Fleet && !canShowFleet) {
+      _sparkplug = null;
+      _hasSparkplug = null;
+      if ((_topicViewMode == TopicViewMode.Fleet && !canShowFleet) ||
+          (_topicViewMode == TopicViewMode.Sparkplug && !canShowSparkplug)) {
         topicViewMode = TopicViewMode.Sequential;
         return;
       }
@@ -683,6 +876,8 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
     _protocols.clearCache();
     _fleet = null;
     _hasRobots = null;
+    _sparkplug = null;
+    _hasSparkplug = null;
     notifyListeners();
   }
 
@@ -690,11 +885,16 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
     _markedMessage = null;
     _fleet = null;
     _hasRobots = null;
+    _sparkplug = null;
+    _hasSparkplug = null;
     selectedMessage = null;
   }
 }
 
-enum TopicViewMode { Grouped, Tree, Sequential, Fleet }
+enum TopicViewMode { Grouped, Tree, Sequential, Fleet, Sparkplug }
+
+// the columns of the Sparkplug view's metric table that sort
+enum SparkplugMetricColumn { name, value, type, updated, changes }
 
 // in the order of the fleet table; what tells whether a robot is fine comes first, the version last
 enum FleetColumn { robot, connection, mode, driving, charge, errors, age, order, requests, version }

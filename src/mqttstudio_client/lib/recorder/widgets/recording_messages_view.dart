@@ -14,6 +14,7 @@ import 'package:mqttstudio/recorder/recording_messages_viewmodel.dart';
 import 'package:mqttstudio/recorder/widgets/recorder_format.dart';
 import 'package:provider/provider.dart';
 import 'package:mqttstudio/protocol/widgets/fleet_viewer.dart';
+import 'package:mqttstudio/protocol/widgets/sparkplug_viewer.dart';
 
 // The MESSAGES tab (doc/recorder-design.md §7.2): the topic viewer's widgets on the messages of the selected range.
 // Each filter of the recording is a chip that hides or shows its topics.
@@ -36,6 +37,8 @@ class RecordingMessagesView extends StatelessWidget {
             TopicViewMode.Sequential => SequentialMessagesViewer(),
             // the robots as they were at the end of the recording
             TopicViewMode.Fleet => FleetViewer(),
+            // the edge nodes as they were at the end of the recording
+            TopicViewMode.Sparkplug => SparkplugViewer(),
           },
           if (viewer.selectedMessage != null) MessageDetailView(),
         ]),

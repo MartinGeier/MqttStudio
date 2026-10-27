@@ -18,7 +18,9 @@ import 'package:mqttstudio/model/mqtt_message_properties.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
 import 'package:mqttstudio/message_viewer/message_viewer_viewmodel.dart';
 import 'package:mqttstudio/protocol/protocol_profile.dart';
+import 'package:mqttstudio/protocol/sparkplug/sparkplug_profile.dart';
 import 'package:mqttstudio/protocol/widgets/interpreted_payload_view.dart';
+import 'package:mqttstudio/protocol/widgets/rebirth_request.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/services.dart';
 import 'package:mqttstudio/custom_theme.dart';
@@ -101,10 +103,14 @@ class _MessageDetailViewState extends State<MessageDetailView> {
             tooltip: viewmodel.canEditPayload(message)
                 ? 'messagedetailview.editbutton.tooltip'.tr()
                 : 'messagedetailview.editbutton.binary.tooltip'.tr()),
-        IconButton(
-            onPressed: message.retain ? () => viewmodel.clearRetainedTopic() : null,
-            icon: Icon(Icons.unpublished_outlined),
-            tooltip: 'messagedetailview.clearretainedbutton.tooltip'.tr()),
+        // Sparkplug node and device messages are never retained: their place has the rebirth request (§12.2)
+        if (viewmodel.edgeNodeOf(message) != null && !message.retain)
+          _buildRebirthButton(context, viewmodel, message)
+        else
+          IconButton(
+              onPressed: message.retain ? () => viewmodel.clearRetainedTopic() : null,
+              icon: Icon(Icons.unpublished_outlined),
+              tooltip: 'messagedetailview.clearretainedbutton.tooltip'.tr()),
       ],
       _buildMarkButton(context, viewmodel, message),
       _buildCompareButton(viewmodel, message),
@@ -113,6 +119,32 @@ class _MessageDetailViewState extends State<MessageDetailView> {
           icon: Icon(Icons.close),
           tooltip: 'messagedetailview.close.tooltip'.tr())
     ]);
+  }
+
+  Widget _buildRebirthButton(BuildContext context, MessageViewerViewmodel viewmodel, ReceivedMqttMessage message) {
+    var node = viewmodel.edgeNodeOf(message)!;
+    return IconButton(
+        onPressed: viewmodel.canRequestRebirth ? () => RebirthRequest.confirmAndSend(context, viewmodel, [node]) : null,
+        icon: Icon(Icons.autorenew),
+        tooltip: 'sparkplug.rebirth.tooltip'.tr(args: [node.edgeNode]));
+  }
+
+  // the button next to the missing-birth warning, or when it was asked for
+  Widget? _buildInterpretationAction(
+      BuildContext context, MessageViewerViewmodel viewmodel, ReceivedMqttMessage message, String action) {
+    var node = viewmodel.edgeNodeOf(message);
+    if (action != SparkplugProfile.rebirthAction || node == null || !viewmodel.isLive) {
+      return null;
+    }
+    var requested = viewmodel.rebirthRequestedAt(node);
+    if (requested != null) {
+      return Text('sparkplug.rebirth.requested.label'.tr(args: [DateFormat.Hms().format(requested)]),
+          style: Theme.of(context).textTheme.bodySmall!.copyWith(color: Theme.of(context).hintColor));
+    }
+    return TextButton(
+        onPressed: viewmodel.canRequestRebirth ? () => RebirthRequest.confirmAndSend(context, viewmodel, [node]) : null,
+        style: TextButton.styleFrom(minimumSize: Size(0, 32)),
+        child: Text('sparkplug.rebirth.button'.tr()));
   }
 
   Widget _buildMarkButton(BuildContext context, MessageViewerViewmodel viewmodel, ReceivedMqttMessage message) {
@@ -362,7 +394,8 @@ class _MessageDetailViewState extends State<MessageDetailView> {
               interpretation: interpretation,
               isCollapsed: viewmodel.isSectionCollapsed,
               onToggle: viewmodel.toggleSection,
-              controller: _scrollController));
+              controller: _scrollController,
+              actionBuilder: (action) => _buildInterpretationAction(context, viewmodel, topic, action)));
     } else if (decoded.error != null) {
       viewer = _buildDecodeError(context, decoded.error!);
     } else if (byContent) {

@@ -14,6 +14,7 @@ import 'package:flutter_simple_treeview/flutter_simple_treeview.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 import 'package:mqttstudio/protocol/protocol_profile.dart';
 import 'package:mqttstudio/protocol/widgets/interpreted_payload_view.dart';
+import 'package:mqttstudio/protocol/widgets/rebirth_request.dart';
 
 enum _TreeAction {
   copyTopic,
@@ -25,7 +26,8 @@ enum _TreeAction {
   collapseBranch,
   expandAll,
   collapseAll,
-  retained
+  retained,
+  rebirth
 }
 
 class TreeMessagesViewer extends StatelessWidget {
@@ -136,6 +138,7 @@ class TreeMessagesViewer extends StatelessWidget {
     var overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
     var branch = MessageViewerViewmodel.branchFilterOf(path);
     var level = path.contains('/') ? '${path.substring(0, path.lastIndexOf('/'))}/+' : '+';
+    var edgeNodes = viewmodel.edgeNodesIn(path);
     var action = await showMenu<_TreeAction>(
         context: context,
         position: RelativeRect.fromRect(position & Size(1, 1), Offset.zero & overlay.size),
@@ -156,8 +159,21 @@ class TreeMessagesViewer extends StatelessWidget {
             _buildMenuItem(_TreeAction.retained, Icons.inventory_2_outlined, 'treeviewer.menu.retained'.tr(args: [branch]),
                 enabled: viewmodel.isConnected),
           ],
+          // Sparkplug: the edge nodes of the branch (doc/sparkplug-design.md §12.2, R2)
+          if (viewmodel.isLive && edgeNodes.isNotEmpty)
+            _buildMenuItem(
+                _TreeAction.rebirth,
+                Icons.autorenew,
+                edgeNodes.length == 1
+                    ? 'treeviewer.menu.rebirth.one'.tr(args: [edgeNodes.single.edgeNode])
+                    : 'treeviewer.menu.rebirth.other'.tr(args: ['${edgeNodes.length}']),
+                enabled: viewmodel.canRequestRebirth),
         ]);
     if (action == null || !context.mounted) {
+      return;
+    }
+    if (action == _TreeAction.rebirth) {
+      await RebirthRequest.confirmAndSend(context, viewmodel, edgeNodes);
       return;
     }
     await _onAction(context, viewmodel, action, path, branch, level);
@@ -210,6 +226,9 @@ class TreeMessagesViewer extends StatelessWidget {
         viewmodel.collapseAll();
       case _TreeAction.retained:
         await showRetainedMessagesDialog(context, filter: branch);
+      case _TreeAction.rebirth:
+        // sent with the edge nodes of the menu, see _showContextMenu
+        break;
     }
   }
 }

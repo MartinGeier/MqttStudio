@@ -32,8 +32,10 @@ class InterpretedValue {
   final String label;
   final String value;
   final InterpretationLevel level;
+  // something the viewer may offer next to the value, e.g. SparkplugProfile.rebirthAction; the viewer decides how
+  final String? action;
 
-  const InterpretedValue(this.label, this.value, {this.level = InterpretationLevel.none});
+  const InterpretedValue(this.label, this.value, {this.level = InterpretationLevel.none, this.action});
 }
 
 class KeyValueSection extends InterpretedSection {

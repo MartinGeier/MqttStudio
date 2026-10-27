@@ -44,6 +44,8 @@ class SparkplugProfile implements ProtocolProfile {
   // metrics a birth defines and the specification names
   static const String bdSeqMetric = 'bdSeq';
   static const String rebirthMetric = 'Node Control/Rebirth';
+  // the action next to the missing-birth warning (doc/sparkplug-design.md §12.2)
+  static const String rebirthAction = 'sparkplug.rebirth';
   // a table shows at most this many metrics or rows
   static const int maxRows = 500;
 
@@ -350,6 +352,7 @@ class _Builder {
             'Metric names',
             'No ${SpbMessageType.birthOf(type)} received yet, metrics are shown by alias',
             level: InterpretationLevel.warning,
+            action: SparkplugProfile.rebirthAction,
           ),
       ]),
     );
