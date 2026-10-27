@@ -161,6 +161,9 @@ void main() {
       expect(find.text('63 °C'), findsOneWidget);
       expect(find.text('1450 rpm'), findsOneWidget);
       expect(find.textContaining('device of Edge1 in Plant1', findRichText: true), findsOneWidget);
+      // the header's buttons sit at the right edge of the view
+      var viewRight = tester.getTopRight(find.byType(SparkplugViewer)).dx;
+      expect(tester.getTopRight(find.byTooltip('Show the last message')).dx, closeTo(viewRight - 12, 1));
 
       // by changes, the stuck metrics first
       await tester.tap(find.text('Changes'));

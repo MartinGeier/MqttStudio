@@ -232,14 +232,14 @@ class _SparkplugViewerState extends State<SparkplugViewer> {
         SizedBox(width: 8),
         Text(entry.name, style: theme.textTheme.titleLarge),
         SizedBox(width: 12),
-        Flexible(
+        // takes all the free width, so the buttons sit at the right edge
+        Expanded(
           child: Text(
             '$place · $status',
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.bodyMedium!.copyWith(color: theme.hintColor),
           ),
         ),
-        Spacer(),
         if (viewmodel.isLive)
           IconButton(
             onPressed: viewmodel.canRequestRebirth
