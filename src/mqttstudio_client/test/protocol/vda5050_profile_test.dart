@@ -32,7 +32,7 @@ class _Context implements InterpretationContext {
   _Context(this.data);
 
   @override
-  Object? lastData(String deviceKey, String messageType) => data[messageType];
+  Object? lastData(String topic) => data[topic.split('/').last];
 }
 
 void main() {

@@ -1,4 +1,5 @@
 import 'package:mqttstudio/protocol/protocol_profile.dart';
+import 'package:mqttstudio/protocol/sparkplug/sparkplug_profile.dart';
 import 'package:mqttstudio/protocol/vda5050/vda5050_profile.dart';
 
 // The known protocol profiles in a fixed order; the first one that recognizes a topic wins. The result of a topic is
@@ -9,7 +10,7 @@ class ProtocolRegistry {
 
   ProtocolRegistry(this.profiles);
 
-  factory ProtocolRegistry.standard() => ProtocolRegistry([Vda5050Profile()]);
+  factory ProtocolRegistry.standard() => ProtocolRegistry([Vda5050Profile(), SparkplugProfile()]);
 
   ProtocolTopic? match(String topic) => _matches.putIfAbsent(topic, () {
         for (var profile in profiles) {

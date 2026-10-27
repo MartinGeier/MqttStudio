@@ -83,16 +83,17 @@ class Interpretation {
       this.values = const {}});
 }
 
-// what an interpreter may look up: the last message of another type of the same device, decoded
+// what an interpreter may look up: the last message of another topic, e.g. of the same device, as data (see
+// ProtocolProfile.interpret); the profile knows its topic layout
 abstract class InterpretationContext {
-  Object? lastData(String deviceKey, String messageType);
+  Object? lastData(String topic);
 }
 
 class NoContext implements InterpretationContext {
   const NoContext();
 
   @override
-  Object? lastData(String deviceKey, String messageType) => null;
+  Object? lastData(String topic) => null;
 }
 
 enum ProtocolSeverity { error, warning }
@@ -112,7 +113,8 @@ class ProtocolFinding {
 
 // Checks the protocol over one check run; it keeps state, e.g. the last header id per topic
 abstract class ProtocolChecker {
-  // snapshot: a retained message the broker sent because the check subscribed; it was published earlier
+  // data as for ProtocolProfile.interpret; snapshot: a retained message the broker sent because the check subscribed,
+  // it was published earlier
   List<ProtocolFinding> check(String topic, ProtocolTopic match, Object? data, DateTime receivedAt,
       {bool snapshot = false});
 
@@ -130,7 +132,8 @@ abstract class ProtocolProfile {
   // null when the topic can't belong to this profile
   ProtocolTopic? matchTopic(String topic);
 
-  // null when the payload doesn't confirm the match, e.g. no header
+  // data is the decoded JSON (or MessagePack, CBOR) when the payload has it, else the payload's bytes as a Uint8List,
+  // e.g. Protobuf. Null when the payload doesn't confirm the match, e.g. no header.
   Interpretation? interpret(ProtocolTopic topic, Object? data, {InterpretationContext context = const NoContext()});
 
   // a new checker for one check run

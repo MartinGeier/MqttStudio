@@ -247,7 +247,7 @@ class _Builder {
       return 0;
     }
     var answers = <String, String>{};
-    var responses = context.lastData(topic.deviceKey, VdaTopic.responses);
+    var responses = context.lastData('${topic.deviceKey}/${VdaTopic.responses}');
     if (responses is Map) {
       var read = Vda5050Reader.read(VdaTopic.responses, responses.map((key, value) => MapEntry('$key', value)));
       for (var response in (read as VdaResponses).responses) {
@@ -349,7 +349,7 @@ class _Builder {
     _paths(visualization.plannedPath, visualization.intermediatePath);
     var reference = visualization.referenceStateHeaderId;
     if (reference != null) {
-      var state = context.lastData(topic.deviceKey, VdaTopic.state);
+      var state = context.lastData('${topic.deviceKey}/${VdaTopic.state}');
       var stateId = state is Map ? state['headerId'] : null;
       sections.add(KeyValueSection('reference', 'Based on', [
         InterpretedValue('State header id',
@@ -428,7 +428,7 @@ class _Builder {
 
   String _responses(VdaResponses responses) {
     var requests = <String, String>{};
-    var state = context.lastData(topic.deviceKey, VdaTopic.state);
+    var state = context.lastData('${topic.deviceKey}/${VdaTopic.state}');
     if (state is Map) {
       var read = Vda5050Reader.read(VdaTopic.state, state.map((key, value) => MapEntry('$key', value))) as VdaState;
       for (var request in read.zoneRequests) {

@@ -34,20 +34,16 @@ class _Interpreted {
   const _Interpreted(this.value);
 }
 
-// what the interpreters may look up: the last message of another topic of the same device in the buffer
+// what the interpreters may look up: the last message of another topic in the buffer
 class _BufferContext implements InterpretationContext {
   final MessageViewerViewmodel viewmodel;
 
   _BufferContext(this.viewmodel);
 
   @override
-  Object? lastData(String deviceKey, String messageType) {
-    var message = viewmodel.messageBuffer.getLastMessageForTopic('$deviceKey/$messageType');
-    if (message == null) {
-      return null;
-    }
-    var decoded = viewmodel.decode(message);
-    return decoded.hasValue ? decoded.value : null;
+  Object? lastData(String topic) {
+    var message = viewmodel.messageBuffer.getLastMessageForTopic(topic);
+    return message == null ? null : viewmodel.protocolData(message);
   }
 }
 
@@ -202,11 +198,16 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
     if (cached != null) {
       return cached.value;
     }
-    var decoded = decode(message);
-    var result =
-        decoded.hasValue ? match.profile.interpret(match, decoded.value, context: _BufferContext(this)) : null;
+    var result = match.profile.interpret(match, protocolData(message), context: _BufferContext(this));
     _interpreted[message] = _Interpreted(result);
     return result;
+  }
+
+  // what a profile reads: the decoded data, else the bytes, e.g. Protobuf; the same bytes object for the same message,
+  // so profiles can cache what they read from it
+  Object? protocolData(ReceivedMqttMessage message) {
+    var decoded = decode(message);
+    return decoded.hasValue ? decoded.value : decoded.bytes;
   }
 
   bool isSectionCollapsed(String key) => _collapsedSections.contains(key);

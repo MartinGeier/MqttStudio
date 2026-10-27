@@ -643,7 +643,7 @@ Changed for the viewers: `message_viewer_viewmodel.dart` (`interpret`, raw toggl
 3. **Topic viewer:** summaries, markers, interpreted detail view, raw toggle, chart series.
 4. **Fleet view**, including 3.0 paths and zones.
 5. **Later:** external orders and real last will for simulated robots (§10.7), a time slider for the fleet view of
-   recordings, LIF layouts, a Sparkplug B profile.
+   recordings, LIF layouts. The Sparkplug B profile is done, see `sparkplug-design.md`.
 
 ## 16.1 Implementation notes (2026-10-25)
 

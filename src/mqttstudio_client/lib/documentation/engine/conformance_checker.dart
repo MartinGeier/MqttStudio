@@ -203,12 +203,10 @@ class ConformanceChecker {
     if (match == null) {
       return;
     }
-    var json = ClassifiedPayload.of(message.payload).json;
-    if (json == null) {
-      return;
-    }
+    // JSON, else the bytes, e.g. Sparkplug's Protobuf
+    var data = ClassifiedPayload.of(message.payload).json ?? message.payload;
     var checker = _protocolCheckers.putIfAbsent(match.profile, match.profile.createChecker);
-    for (var finding in checker.check(message.topic, match, json, at, snapshot: message.snapshot)) {
+    for (var finding in checker.check(message.topic, match, data, at, snapshot: message.snapshot)) {
       _addProtocol(finding, message.topic, node, at, message);
     }
   }
