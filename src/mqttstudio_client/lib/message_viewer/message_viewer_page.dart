@@ -4,6 +4,7 @@ import 'package:mqttstudio/common/browser_performance_warning.dart';
 import 'package:mqttstudio/common/localstore.dart';
 import 'package:mqttstudio/common/newsletter_signup_dialog.dart';
 import 'package:mqttstudio/common/widgets/main_appbar.dart';
+import 'package:mqttstudio/common/widgets/sarix_banner.dart';
 import 'package:mqttstudio/project/project_viewmodel.dart';
 import 'package:mqttstudio/message_viewer/message_viewer_viewmodel.dart';
 import 'package:mqttstudio/message_viewer/widgets/grouped_messages_viewer.dart';
@@ -104,7 +105,7 @@ class _MessageViewerPageState extends State<MessageViewerPage> {
                       TopicViewMode.Sequential => SequentialMessagesViewer(),
                       TopicViewMode.Fleet => FleetViewer(),
                     }
-                  : Container(),
+                  : Expanded(child: SarixBanner()),
               projectViewmodel.isProjectOpen
                   ? viewmodel.selectedMessage != null
                       ? MessageDetailView()

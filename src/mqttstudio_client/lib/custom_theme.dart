@@ -80,4 +80,7 @@ class CustomColors {
   Color diffAdded = Color(0x3843a047);
   Color diffChanged = Color(0x4cffb300);
   Color diffRemoved = Color(0x2ee53935);
+  // Sarix brand colors, only for the Sarix banner shown while no project is open
+  Color sarixBlue = Color(0xff0b4f8a);
+  Color sarixTint = Color(0xffe7eef5);
 }
