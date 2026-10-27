@@ -281,6 +281,7 @@ class _Builder {
 
   Interpretation build() {
     _readBirth();
+    _retype();
     _header();
     if (payload.metrics.isNotEmpty) {
       _metrics();
@@ -304,6 +305,16 @@ class _Builder {
       for (var metric in birth.metrics)
         if (metric.name != null) metric.name!: metric,
     };
+  }
+
+  // values sent without a data type are read as the birth's type
+  void _retype() {
+    for (var metric in payload.metrics) {
+      var type = _defined(metric)?.type;
+      if (metric.datatype == null && type != null) {
+        SparkplugReader.retype(metric, type);
+      }
+    }
   }
 
   SpbMetric? _defined(SpbMetric metric) => metric.name != null ? _byName[metric.name] : _byAlias[metric.alias];

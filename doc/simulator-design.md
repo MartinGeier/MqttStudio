@@ -247,6 +247,16 @@ number pattern, layout, speed, battery, orders, message intervals, 3.0 zones and
 `SimulatedFleet` per running VDA 5050 device next to its `TopicRun`s and `RecordedDeviceRun`s, publishes through the
 same `SimulatorPublisher`, and adds `robots × (1000 / visualizationMs + 2)` msg/s to the rate estimate (§7.2).
 
+### 4.7 Sparkplug B edge nodes
+
+Designed in `sparkplug-design.md` §10: the `SparkplugSource` settings (group id, edge node id pattern, metrics of the
+edge node and its devices from the generators, scan, aliases, primary host, compression, seed), the
+`SimulatedEdgeNode` engine in `lib/simulator/sparkplug/`, faults and the device dialog. Unlike every other kind, each
+edge node has a connection of its own, because its NDEATH has to be the broker's last will: the runner gets
+`SimulatorConnections` (the project's broker settings and an adapter factory) from the `Simulator` service or the
+CLI, keeps one `SimulatedSparkplugDevice` per running device, and adds `edge nodes × (1 + devices) × 1000 / scan`
+msg/s to the rate estimate.
+
 ## 5. Generators
 
 All numeric generators default to **no prefix or postfix**, so payloads stay pure numbers and

@@ -17,6 +17,7 @@ import 'package:flutter/foundation.dart';
 import 'package:synchronized/synchronized.dart' as lock;
 import 'package:event/event.dart';
 import 'package:typed_data/typed_buffers.dart';
+import 'package:mqttstudio/mqtt/mqtt_will.dart';
 
 class SubscribeFailedEventArgs extends EventArgs {
   final String topic;
@@ -52,7 +53,7 @@ class MqttAdapter {
   // the reason the broker gave for closing the connection, MQTT 5 only
   String? get lastDisconnectReason => _client.lastDisconnectReason;
 
-  Future connect(MqttSettings mqttSettings) async {
+  Future connect(MqttSettings mqttSettings, {MqttWill? will}) async {
     if (_client.isConnected()) {
       _client.disconnect();
     }
@@ -64,12 +65,15 @@ class MqttAdapter {
     _client.onUnsubscribed = _onUnsubscribed;
     _client.onSubscribeFailed = _onSubscribeFailed;
 
-    await _client.connect(mqttSettings);
+    await _client.connect(mqttSettings, will: will);
   }
 
   void disconnect() {
     _client.disconnect();
   }
+
+  // without DISCONNECT, so the broker publishes the will (a simulated Sparkplug edge node's "Drop connection" fault)
+  void dropConnection() => _client.dropConnection();
 
   bool isConnected() {
     return _client.isConnected();

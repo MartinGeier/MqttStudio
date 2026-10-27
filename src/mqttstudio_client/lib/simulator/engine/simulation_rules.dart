@@ -2,6 +2,9 @@ import 'package:mqttstudio/simulator/engine/generator_instances.dart';
 import 'package:mqttstudio/simulator/engine/placeholders.dart';
 import 'package:mqttstudio/simulator/model/payload_generators.dart';
 import 'package:mqttstudio/simulator/model/simulation.dart';
+import 'package:mqttstudio/simulator/model/sparkplug_source.dart';
+import 'package:mqttstudio/simulator/sparkplug/metric_values.dart';
+import 'package:mqttstudio/simulator/sparkplug/simulated_sparkplug_device.dart';
 import 'package:mqttstudio/simulator/vda5050/fleet_layout.dart';
 
 enum SimulationIssueKind {
@@ -26,6 +29,19 @@ enum SimulationIssueKind {
   vdaTooManyRobots,
   vdaLayoutTooSmall,
   vdaSettingOutOfRange,
+  sparkplugNameInvalid,
+  sparkplugNodeNeedsInstance,
+  sparkplugDeviceNeedsNumber,
+  sparkplugTooManyNodes,
+  sparkplugTooManyDevices,
+  sparkplugTooManyMetrics,
+  sparkplugMetricNameInvalid,
+  sparkplugMetricDuplicate,
+  sparkplugGeneratorType,
+  sparkplugTooManyChanges,
+  sparkplugSettingOutOfRange,
+  sparkplugNoConnections,
+  sparkplugHostFailed,
 }
 
 // A rule a simulation breaks. The CLI prints describe(), the app shows a localized text per kind.
@@ -82,6 +98,32 @@ class SimulationIssue {
         return '$where: the layout needs more free nodes than robots';
       case SimulationIssueKind.vdaSettingOutOfRange:
         return '$where: the setting $detail is out of range';
+      case SimulationIssueKind.sparkplugNameInvalid:
+        return '$where: the $detail must not be empty or contain /, + or #';
+      case SimulationIssueKind.sparkplugNodeNeedsInstance:
+        return '$where: with more than one edge node the edge node id must contain {n}';
+      case SimulationIssueKind.sparkplugDeviceNeedsNumber:
+        return '$where: the device $detail is there more than once, its id must contain {d}';
+      case SimulationIssueKind.sparkplugTooManyNodes:
+        return '$where: a Sparkplug device simulates at most ${SimulationRules.maxEdgeNodes} edge nodes';
+      case SimulationIssueKind.sparkplugTooManyDevices:
+        return '$where: an edge node has at most ${SimulationRules.maxSparkplugDevices} devices';
+      case SimulationIssueKind.sparkplugTooManyMetrics:
+        return '$where: $detail has more than ${SimulationRules.maxSparkplugMetrics} metrics';
+      case SimulationIssueKind.sparkplugMetricNameInvalid:
+        return '$where: the metric name "$detail" is empty or reserved';
+      case SimulationIssueKind.sparkplugMetricDuplicate:
+        return '$where: the metric $detail is there more than once';
+      case SimulationIssueKind.sparkplugGeneratorType:
+        return '$where: the generator of metric $detail does not fit its data type';
+      case SimulationIssueKind.sparkplugTooManyChanges:
+        return '$where: more than ${SimulationRules.maxMetricChanges.round()} metric changes per second';
+      case SimulationIssueKind.sparkplugSettingOutOfRange:
+        return '$where: the setting $detail is out of range';
+      case SimulationIssueKind.sparkplugNoConnections:
+        return '$where: Sparkplug edge nodes need connections of their own, which are not available here';
+      case SimulationIssueKind.sparkplugHostFailed:
+        return '$where: the simulated primary host could not connect: $detail';
     }
   }
 
@@ -102,6 +144,12 @@ class SimulationRules {
   static const double maxCliRate = 20000;
   // robots of one VDA 5050 device (D27)
   static const int maxRobots = 200;
+  // Sparkplug (doc/sparkplug-design.md Q9): edge nodes are connections, metric changes are the load
+  static const int maxEdgeNodes = 20;
+  static const int maxSparkplugDevices = 20;
+  static const int maxSparkplugMetrics = 200;
+  static const double maxMetricChanges = 2000;
+  static const int minScanMs = 100;
 
   static double topicRate(SimulatedDevice device, SimulatedTopic topic) =>
       device.instanceCount * 1000 / topic.interval.averageMs;
@@ -167,6 +215,9 @@ class SimulationRules {
     }
     if (device.isRecorded) {
       issues.addAll(validateRecorded(device));
+    }
+    if (device.isSparkplug) {
+      issues.addAll(validateSparkplug(device));
     }
     if (device.isVda5050) {
       issues.addAll(validateVda5050(device));
@@ -242,6 +293,90 @@ class SimulationRules {
       }
     }
     return issues;
+  }
+
+  // names that become topic levels, {n} and {d}, metric names, generators that fit the types and the limits of Q9
+  static List<SimulationIssue> validateSparkplug(SimulatedDevice device) {
+    var source = device.sparkplug;
+    var issues = <SimulationIssue>[];
+    void add(SimulationIssueKind kind, [String detail = '']) =>
+        issues.add(SimulationIssue(kind, device: device.name, detail: detail));
+    if (source == null) {
+      add(SimulationIssueKind.sparkplugSettingOutOfRange, 'sparkplug');
+      return issues;
+    }
+    bool invalidLevel(String value) => value.trim().isEmpty || topicHasWildcard(value) || value.contains('/');
+    for (var (name, value) in [('group id', source.groupId), ('edge node id', source.edgeNodeId)]) {
+      if (invalidLevel(value)) {
+        add(SimulationIssueKind.sparkplugNameInvalid, name);
+      }
+    }
+    var host = source.primaryHostId;
+    if (host != null && host.isNotEmpty && invalidLevel(host)) {
+      add(SimulationIssueKind.sparkplugNameInvalid, 'primary host id');
+    }
+    if (device.instanceCount > 1 && !Placeholders.containsInstance(source.edgeNodeId)) {
+      add(SimulationIssueKind.sparkplugNodeNeedsInstance);
+    }
+    if (device.instanceCount > maxEdgeNodes) {
+      add(SimulationIssueKind.sparkplugTooManyNodes);
+    }
+    if (source.devices.fold(0, (sum, spec) => sum + spec.count) > maxSparkplugDevices) {
+      add(SimulationIssueKind.sparkplugTooManyDevices);
+    }
+    if (source.scanMs < minScanMs) {
+      add(SimulationIssueKind.sparkplugSettingOutOfRange, 'scan');
+    }
+    var deviceIds = <String>{};
+    for (var spec in source.devices) {
+      if (invalidLevel(spec.id.replaceAll('{d}', '1'))) {
+        add(SimulationIssueKind.sparkplugNameInvalid, 'device id');
+      }
+      if (spec.count < 1) {
+        add(SimulationIssueKind.sparkplugSettingOutOfRange, 'device count');
+      }
+      if (spec.count > 1 && !spec.id.contains('{d}')) {
+        add(SimulationIssueKind.sparkplugDeviceNeedsNumber, spec.id);
+      } else {
+        for (var d = 1; d <= spec.count; d++) {
+          if (!deviceIds.add(spec.id.replaceAll('{d}', '$d'))) {
+            add(SimulationIssueKind.sparkplugDeviceNeedsNumber, spec.id);
+            break;
+          }
+        }
+      }
+      _validateMetrics(spec.metrics, 'device ${spec.id}', add);
+    }
+    _validateMetrics(source.nodeMetrics, 'the edge node', add);
+    if (SimulatedSparkplugDevice.changesOf(device) > maxMetricChanges) {
+      add(SimulationIssueKind.sparkplugTooManyChanges);
+    }
+    return issues;
+  }
+
+  static const List<String> _reservedMetrics = ['bdSeq', 'Node Control/Rebirth'];
+
+  static void _validateMetrics(List<SparkplugMetricSpec> metrics, String where,
+      void Function(SimulationIssueKind kind, [String detail]) add) {
+    if (metrics.length > maxSparkplugMetrics) {
+      add(SimulationIssueKind.sparkplugTooManyMetrics, where);
+    }
+    var names = <String>{};
+    for (var metric in metrics) {
+      var name = metric.name.trim();
+      if (name.isEmpty || _reservedMetrics.contains(name)) {
+        add(SimulationIssueKind.sparkplugMetricNameInvalid, name);
+      } else if (!names.add(name)) {
+        add(SimulationIssueKind.sparkplugMetricDuplicate, name);
+      }
+      if (!SparkplugValues.scalarTypes.contains(metric.type) ||
+          !SparkplugValues.generatorFits(metric.type, metric.generator)) {
+        add(SimulationIssueKind.sparkplugGeneratorType, name);
+      }
+      if (metric.deadband < 0) {
+        add(SimulationIssueKind.sparkplugSettingOutOfRange, 'deadband');
+      }
+    }
   }
 
   // the topic a recorded topic is published to, with the placeholders of the remapping still in it

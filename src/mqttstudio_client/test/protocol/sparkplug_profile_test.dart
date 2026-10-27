@@ -119,6 +119,24 @@ void main() {
       expect(row.cells.take(4), ['Temperature', '2', 'Double', '21.5 °C']);
     });
 
+    test('values sent without a data type are read as the type of the birth', () {
+      var birth = nodeBirth(
+        extra: [SpbMetric(name: 'Offset', alias: 7, datatype: SpbDataType.int32.code, value: 0)],
+      );
+      var data = SparkplugWriter.write(
+        SpbPayload(
+          timestamp: _time,
+          seq: 1,
+          metrics: [SpbMetric(alias: 7, value: -5, encodeAs: SpbDataType.int32)],
+        ),
+      );
+      // without the birth the bits read as an unsigned number
+      expect(SparkplugReader.read(data).metrics.single.value, 4294967291);
+      var interpreted = interpret('spBv1.0/Plant1/NDATA/Edge1', data, {'spBv1.0/Plant1/NBIRTH/Edge1': birth});
+      expect(interpreted.summary, 'Edge1 | Offset = -5 | seq 1');
+      expect(interpreted.values, {'Offset': -5});
+    });
+
     test('without the birth the metrics are shown by alias', () {
       var data = interpret('spBv1.0/Plant1/NDATA/Edge1', nodeData(1));
       expect(data.summary, 'Edge1 | alias 2 = 21.5 | seq 1');

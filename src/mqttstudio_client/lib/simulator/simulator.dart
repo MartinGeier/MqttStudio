@@ -15,7 +15,11 @@ import 'package:mqttstudio/simulator/engine/simulation_rules.dart';
 import 'package:mqttstudio/simulator/engine/simulator_publisher.dart';
 import 'package:mqttstudio/simulator/engine/simulator_runner.dart';
 import 'package:mqttstudio/simulator/model/simulation.dart';
+import 'package:mqttstudio/simulator/model/sparkplug_source.dart';
 import 'package:mqttstudio/simulator/model/vda5050_source.dart';
+import 'package:mqttstudio/simulator/sparkplug/simulated_edge_node.dart';
+import 'package:mqttstudio/simulator/sparkplug/simulated_sparkplug_device.dart';
+import 'package:mqttstudio/simulator/sparkplug/sparkplug_fault.dart';
 import 'package:mqttstudio/simulator/vda5050/robot_fault.dart';
 import 'package:mqttstudio/simulator/vda5050/simulated_fleet.dart';
 import 'package:mqttstudio/simulator/vda5050/simulated_robot.dart';
@@ -41,8 +45,15 @@ class Simulator {
   // the recordings of the recorded devices, by device id; null while it is missing
   final Map<String, RecordingInfo?> _recordings = {};
 
-  Simulator({SimulatorRunner? runner}) {
-    this.runner = runner ?? SimulatorRunner(MqttAdapterPublisher(_mqttAdapter), openRecording: _openRecording);
+  // connectionFactory: the connections of Sparkplug edge nodes; tests pass fake ones
+  Simulator({SimulatorRunner? runner, MqttAdapter Function()? connectionFactory}) {
+    this.runner = runner ??
+        SimulatorRunner(MqttAdapterPublisher(_mqttAdapter),
+            openRecording: _openRecording,
+            // Sparkplug edge nodes connect with the project's broker settings, each on its own connection
+            connections: SimulatorConnections(
+                settings: () => _projectManager.currentProject!.mqttSettings,
+                factory: connectionFactory ?? MqttAdapter.new));
     _projectManager.projectClosedEvent.subscribe(_onProjectClosed);
     _projectManager.projectOpenedEvent.subscribe(_onProjectOpened);
     _mqttAdapter.onDisconnectedEvent.subscribe(_onDisconnected);
@@ -132,6 +143,7 @@ class Simulator {
   double _deviceRate(SimulatedDevice device) => switch (device.kind) {
         DeviceKind.recorded => _recordedRate(device),
         DeviceKind.vda5050 => SimulatedFleet.rateOf(device),
+        DeviceKind.sparkplug => SimulatedSparkplugDevice.rateOf(device),
         DeviceKind.generated => 0,
       };
 
@@ -178,8 +190,8 @@ class Simulator {
         runner.startRecorded(edited);
       }
       refreshRecordings();
-    } else if (edited.isVda5050) {
-      // D19: running robots start again with the new settings
+    } else if (edited.isVda5050 || edited.isSparkplug) {
+      // D19: running robots and edge nodes start again with the new settings
       if (runner.isDeviceRunning(edited.id)) {
         runner.startDevice(edited);
       }
@@ -284,6 +296,22 @@ class Simulator {
 
   SimulatedFleet? fleetOf(SimulatedDevice device) => runner.fleetOf(device.id);
 
+  // a device of Sparkplug B edge nodes, named uniquely, from the example (doc/sparkplug-design.md §10.3)
+  SimulatedDevice newSparkplugDevice() => SimulatedDevice(
+      name: uniqueNewDeviceName('Sparkplug edge nodes'),
+      kind: DeviceKind.sparkplug,
+      instanceCount: 2,
+      sparkplug: SparkplugSource.example());
+
+  SimulatedSparkplugDevice? sparkplugOf(SimulatedDevice device) => runner.sparkplugOf(device.id);
+
+  void injectSparkplugFault(SimulatedDevice device, SimulatedEdgeNode node, SparkplugFault fault) {
+    var run = runner.sparkplugOf(device.id);
+    if (run != null && run.isRunning) {
+      run.inject(node, fault);
+    }
+  }
+
   void injectFault(SimulatedDevice device, SimulatedRobot robot, RobotFault fault) {
     var fleet = runner.fleetOf(device.id);
     if (fleet != null && fleet.isRunning && fleet.robots.contains(robot)) {
@@ -291,23 +319,30 @@ class Simulator {
     }
   }
 
-  // the Topic Viewer subscription that receives every topic of the robots of a VDA 5050 device
-  String vda5050SubscriptionOf(SimulatedDevice device) {
-    var source = device.vda5050!;
-    return '${source.interfaceName}/${source.version.topicLevel}/${source.manufacturer}/+/#';
+  // the Topic Viewer subscription that receives every topic of the robots of a VDA 5050 device or of the edge nodes
+  // of a Sparkplug device; null for the other kinds
+  String? viewerSubscriptionOf(SimulatedDevice device) {
+    var vda5050 = device.vda5050;
+    if (device.isVda5050 && vda5050 != null) {
+      return '${vda5050.interfaceName}/${vda5050.version.topicLevel}/${vda5050.manufacturer}/+/#';
+    }
+    var sparkplug = device.sparkplug;
+    if (device.isSparkplug && sparkplug != null) {
+      return 'spBv1.0/${sparkplug.groupId}/#';
+    }
+    return null;
   }
 
-  bool isVda5050SubscribedInViewer(SimulatedDevice device) {
-    var subscription = vda5050SubscriptionOf(device);
+  bool isDeviceSubscribedInViewer(SimulatedDevice device) {
+    var subscription = viewerSubscriptionOf(device);
     return (_projectManager.currentProject?.topicSubscriptions ?? <TopicSubscription>[])
         .any((sub) => sub.topic == subscription);
   }
 
-  void subscribeVda5050InViewer(SimulatedDevice device) {
-    if (!isVda5050SubscribedInViewer(device)) {
-      GetIt.I
-          .get<MessageViewer>()
-          .addTopicSubscription(TopicSubscription(vda5050SubscriptionOf(device), MqttQos.atLeastOnce));
+  void subscribeDeviceInViewer(SimulatedDevice device) {
+    var subscription = viewerSubscriptionOf(device);
+    if (subscription != null && !isDeviceSubscribedInViewer(device)) {
+      GetIt.I.get<MessageViewer>().addTopicSubscription(TopicSubscription(subscription, MqttQos.atLeastOnce));
     }
   }
 

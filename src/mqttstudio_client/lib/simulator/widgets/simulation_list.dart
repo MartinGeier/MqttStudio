@@ -10,6 +10,9 @@ import 'package:mqttstudio/simulator/engine/simulator_runner.dart';
 import 'package:mqttstudio/simulator/engine/placeholders.dart';
 import 'package:mqttstudio/simulator/model/simulation.dart';
 import 'package:mqttstudio/simulator/simulator_viewmodel.dart';
+import 'package:mqttstudio/simulator/sparkplug/simulated_edge_node.dart';
+import 'package:mqttstudio/simulator/sparkplug/sparkplug_fault.dart';
+import 'package:mqttstudio/simulator/widgets/sparkplug_fault_menu.dart';
 import 'package:mqttstudio/simulator/widgets/simulator_dialogs.dart';
 import 'package:mqttstudio/simulator/vda5050/robot_fault.dart';
 import 'package:mqttstudio/simulator/vda5050/simulated_robot.dart';
@@ -91,6 +94,17 @@ class SimulationList extends StatelessWidget {
   }
 
   List<Widget> _buildDevice(BuildContext context, SimulatorViewmodel vm, SimulatedDevice device) {
+    if (device.isSparkplug) {
+      var nodes = vm.sparkplugOf(device)?.nodes;
+      return [
+        _DeviceHeader(device: device),
+        if (vm.isExpanded(device))
+          if (nodes != null)
+            for (var node in nodes) _EdgeNodeRow(device: device, node: node)
+          else
+            for (var n in device.instanceNumbers) _EdgeNodeRow(device: device, instance: n),
+      ];
+    }
     if (device.isVda5050) {
       var robots = vm.fleetOf(device)?.robots;
       return [
@@ -163,9 +177,15 @@ class _DeviceHeader extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: Tooltip(
-                    message: (device.isRecorded ? 'simulator.recorded.tooltip' : 'simulator.vda5050.tooltip').tr(),
-                    child: Icon(device.isRecorded ? Icons.history : Icons.precision_manufacturing,
-                        size: 20, color: theme.unselectedWidgetColor)),
+                    message: 'simulator.${device.kind.name}.tooltip'.tr(),
+                    child: Icon(
+                        switch (device.kind) {
+                          DeviceKind.recorded => Icons.history,
+                          DeviceKind.sparkplug => Icons.hub,
+                          _ => Icons.precision_manufacturing,
+                        },
+                        size: 20,
+                        color: theme.unselectedWidgetColor)),
               ),
             Expanded(
               child: Row(children: [
@@ -190,6 +210,9 @@ class _DeviceHeader extends StatelessWidget {
     }
     if (device.isVda5050) {
       return _vda5050Caption(vm);
+    }
+    if (device.isSparkplug) {
+      return _sparkplugCaption(vm);
     }
     var total = device.topics.length;
     var errors = vm.errorCountOf(device);
@@ -244,18 +267,39 @@ class _DeviceHeader extends StatelessWidget {
     ].join(' · ');
   }
 
+  // Sparkplug B · spBv1.0/Plant1 · waits for host scada, or why it stopped
+  String _sparkplugCaption(SimulatorViewmodel vm) {
+    var stats = vm.deviceStatsOf(device);
+    if (stats.issue != null) {
+      return 'simulator.issue.${stats.issue!.name}'.tr(args: [stats.errorDetail]);
+    }
+    var source = device.sparkplug;
+    if (source == null) {
+      return '';
+    }
+    var host = source.primaryHostId;
+    return [
+      'Sparkplug B',
+      'spBv1.0/${source.groupId}',
+      if (host != null && host.isNotEmpty)
+        (source.simulateHost ? 'sparkplugsim.hostsimulated.label' : 'sparkplugsim.hostwaits.label').tr(args: [host]),
+      if (vm.isRecordedRunning(device)) 'simulator.state.running'.tr(),
+    ].join(' · ');
+  }
+
   Widget _buildActions(BuildContext context, SimulatorViewmodel vm, int running) {
     var canStartDevice = device.isGenerated ? running < device.topics.length : !vm.isRecordedRunning(device);
     var isRunning = device.isGenerated ? running > 0 : vm.isRecordedRunning(device);
-    var subscribed = device.isVda5050 && vm.isVda5050SubscribedInViewer(device);
+    var subscription = vm.viewerSubscriptionOf(device);
+    var subscribed = subscription != null && vm.isDeviceSubscribedInViewer(device);
     return Row(children: [
-      if (device.isVda5050)
+      if (subscription != null)
         IconButton(
-            onPressed: subscribed ? null : () => vm.subscribeVda5050InViewer(device),
+            onPressed: subscribed ? null : () => vm.subscribeDeviceInViewer(device),
             icon: Icon(Icons.visibility),
             tooltip: subscribed
                 ? 'simulator.subscribed.tooltip'.tr()
-                : 'simulator.subscribe.tooltip'.tr(args: [vm.vda5050SubscriptionOf(device)])),
+                : 'simulator.subscribe.tooltip'.tr(args: [subscription])),
       IconButton(
           onPressed: vm.canStart && canStartDevice ? () => vm.startDevice(device) : null,
           icon: Icon(Icons.play_arrow),
@@ -632,6 +676,119 @@ class _RobotRow extends StatelessWidget {
         constraints: BoxConstraints.tightFor(width: RobotFaultMenu.width),
         onSelected: (fault) => vm.injectFault(device, robot!, fault),
         itemBuilder: (_) => [RobotFaultMenu(fleet: fleet!, robot: robot!)],
+      ),
+    ]);
+  }
+}
+
+// A simulated Sparkplug edge node: its state, bdSeq, the seq of its last message, messages sent and its devices, with
+// the Faults menu while it runs (doc/sparkplug-design.md §10.5, §10.6). Before the first start only its id is known.
+class _EdgeNodeRow extends StatelessWidget {
+  final SimulatedDevice device;
+  final SimulatedEdgeNode? node;
+  final int? instance;
+
+  const _EdgeNodeRow({required this.device, this.node, this.instance});
+
+  @override
+  Widget build(BuildContext context) {
+    var vm = context.watch<SimulatorViewmodel>();
+    var theme = Theme.of(context);
+    var running = vm.isRecordedRunning(device);
+    var node = this.node;
+    var tabular = TextStyle(fontFeatures: [FontFeature.tabularFigures()]);
+    return Container(
+      constraints: BoxConstraints(minHeight: 48),
+      padding: EdgeInsets.only(left: _Columns.indent, right: 12),
+      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: theme.dividerColor))),
+      child: Row(children: [
+        SizedBox(width: _Columns.status, child: _buildStatus(context, running)),
+        Expanded(flex: _Columns.topicFlex, child: _buildName(context)),
+        SizedBox(
+            width: _Columns.generator,
+            child: Text(node == null || !running ? '–' : 'sparkplugsim.state.${node.state.name}'.tr(),
+                overflow: TextOverflow.ellipsis)),
+        SizedBox(
+            width: _Columns.interval,
+            child: Text(node == null || node.bdSeq < 0 ? '–' : 'bdSeq ${node.bdSeq}', style: tabular)),
+        SizedBox(
+            width: _Columns.qos,
+            child: Text(node?.lastSeq == null ? '–' : 'seq ${node!.lastSeq}', style: tabular)),
+        SizedBox(
+            width: _Columns.sent,
+            child: Text(SimulatorFormat.count(node?.messages ?? 0), textAlign: TextAlign.end, style: tabular)),
+        SizedBox(width: 12),
+        Expanded(flex: _Columns.payloadFlex, child: _buildDevices(context)),
+        SizedBox(width: _Columns.actions, child: _buildActions(context, vm, running)),
+      ]),
+    );
+  }
+
+  Widget _buildStatus(BuildContext context, bool running) {
+    var theme = Theme.of(context);
+    var node = this.node;
+    if (!running || node == null || node.state == EdgeNodeState.stopped) {
+      return Tooltip(
+          message: 'simulator.state.stopped'.tr(), child: Icon(Icons.stop, size: 20, color: theme.unselectedWidgetColor));
+    }
+    if (node.state != EdgeNodeState.online) {
+      var lost = node.state == EdgeNodeState.reconnecting;
+      return Tooltip(
+          message: 'sparkplugsim.state.${node.state.name}'.tr(),
+          child: Icon(lost ? Icons.link_off : Icons.hourglass_empty,
+              size: 20, color: lost ? theme.custom.disconnectedColor : theme.unselectedWidgetColor));
+    }
+    return Tooltip(
+        message: 'simulator.state.running'.tr(), child: Icon(Icons.play_arrow, size: 20, color: theme.custom.running));
+  }
+
+  Widget _buildName(BuildContext context) {
+    var theme = Theme.of(context);
+    var source = device.sparkplug!;
+    var id = node?.edgeNodeId ??
+        Placeholders.resolve(source.edgeNodeId, instance: instance!, deviceName: device.name);
+    return Text.rich(
+      TextSpan(children: [
+        TextSpan(text: id, style: theme.textTheme.titleSmall),
+        TextSpan(text: '  spBv1.0/${source.groupId}/…/$id', style: TextStyle(color: theme.hintColor)),
+      ]),
+      overflow: TextOverflow.ellipsis,
+    );
+  }
+
+  // the devices that are online, and the toggled faults that are on
+  Widget _buildDevices(BuildContext context) {
+    var theme = Theme.of(context);
+    var node = this.node;
+    if (node == null) {
+      return Text('–', style: TextStyle(color: theme.hintColor));
+    }
+    var ids = node.deviceIds;
+    var online = ids.where(node.isDeviceOnline).length;
+    var faults = [
+      for (var fault in SparkplugFault.values)
+        if (fault.toggle && node.isFaultActive(fault)) 'sparkplugsim.fault.${fault.name}'.tr(),
+    ];
+    var parts = [
+      if (ids.isNotEmpty) 'sparkplugsim.devices.label'.tr(args: ['$online', '${ids.length}']),
+      ...faults,
+    ];
+    return Text(parts.join(' · '), overflow: TextOverflow.ellipsis, maxLines: 1);
+  }
+
+  Widget _buildActions(BuildContext context, SimulatorViewmodel vm, bool running) {
+    var node = this.node;
+    var run = vm.sparkplugOf(device);
+    var enabled = running && node != null && run != null && run.isRunning;
+    return Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+      PopupMenuButton<SparkplugFault>(
+        enabled: enabled,
+        icon: Icon(Icons.bolt),
+        tooltip: 'sparkplugsim.faults.tooltip'.tr(),
+        // a popup menu is at most 280 px wide unless it is told otherwise
+        constraints: BoxConstraints.tightFor(width: SparkplugFaultMenu.width),
+        onSelected: (fault) => vm.injectSparkplugFault(device, node!, fault),
+        itemBuilder: (_) => [SparkplugFaultMenu(node: node!)],
       ),
     ]);
   }

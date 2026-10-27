@@ -8,6 +8,7 @@ import 'package:mqttstudio/model/mqtt_settings.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
 import 'package:mqttstudio/model/topic_subscription.dart';
 import 'package:mqttstudio/mqtt/mqtt_adapter.dart';
+import 'package:mqttstudio/mqtt/mqtt_will.dart';
 
 class PublishedMessage {
   final String topic;
@@ -24,6 +25,8 @@ class PublishedMessage {
 class FakeMqttAdapter implements MqttAdapter {
   bool connected = false;
   MqttSettings? connectedWith;
+  // the last will of the last connect
+  MqttWill? will;
   int disconnectCount = 0;
   final List<String> subscribed = [];
   final List<TopicSubscription> subscriptions = [];
@@ -48,9 +51,10 @@ class FakeMqttAdapter implements MqttAdapter {
   MqttProtocolVersion get protocolVersion => connectedWith?.protocolVersion ?? MqttProtocolVersion.v5;
 
   @override
-  Future connect(MqttSettings mqttSettings) async {
+  Future connect(MqttSettings mqttSettings, {MqttWill? will}) async {
     connected = true;
     connectedWith = mqttSettings;
+    this.will = will;
     brokerInfo = BrokerInfo(mqttSettings.protocolVersion);
     onConnectedEvent.broadcast();
   }

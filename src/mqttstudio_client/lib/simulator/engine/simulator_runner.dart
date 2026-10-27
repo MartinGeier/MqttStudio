@@ -15,6 +15,7 @@ import 'package:mqttstudio/simulator/engine/placeholders.dart';
 import 'package:mqttstudio/simulator/engine/simulation_rules.dart';
 import 'package:mqttstudio/simulator/engine/simulator_publisher.dart';
 import 'package:mqttstudio/simulator/model/simulation.dart';
+import 'package:mqttstudio/simulator/sparkplug/simulated_sparkplug_device.dart';
 import 'package:mqttstudio/simulator/vda5050/simulated_fleet.dart';
 import 'package:typed_data/typed_buffers.dart';
 
@@ -121,12 +122,17 @@ class SimulatorRunner {
   static const Duration maxStagger = Duration(seconds: 10);
 
   final RecordingOpener? openRecording;
+  // Sparkplug edge nodes connect on their own (doc/sparkplug-design.md §10.4); without connections they can't run
+  final SimulatorConnections? connections;
   final Map<String, _TopicRun> _runs = {};
   final Map<String, _RecordedRun> _recordedRuns = {};
   // the robots of the running VDA 5050 devices, by device id (D26)
   final Map<String, SimulatedFleet> _fleets = {};
   // the fleets that ran last, so their robots and statistics stay visible after a stop
   final Map<String, SimulatedFleet> _lastFleets = {};
+  // the edge nodes of the running Sparkplug devices, and of their last run for the device rows
+  final Map<String, SimulatedSparkplugDevice> _sparkplug = {};
+  final Map<String, SimulatedSparkplugDevice> _lastSparkplug = {};
   // the recorded topics a recorded device played last, by device id
   final Map<String, List<String>> _recordedTopics = {};
   final Map<String, TopicStats> _stats = {};
@@ -137,15 +143,19 @@ class SimulatorRunner {
   bool _connectionLostReported = false;
 
   SimulatorRunner(this._publisher,
-      {this.seed, this.statsInterval = const Duration(milliseconds: 500), this.openRecording})
+      {this.seed, this.statsInterval = const Duration(milliseconds: 500), this.openRecording, this.connections})
       : _random = Random(seed);
 
   bool isRunning(String topicId) => _runs.containsKey(topicId);
 
   // a recorded device plays or the robots of a VDA 5050 device drive
-  bool isDeviceRunning(String deviceId) => _recordedRuns.containsKey(deviceId) || _fleets.containsKey(deviceId);
+  bool isDeviceRunning(String deviceId) =>
+      _recordedRuns.containsKey(deviceId) || _fleets.containsKey(deviceId) || _sparkplug.containsKey(deviceId);
 
-  bool get isAnyRunning => _runs.isNotEmpty || _recordedRuns.isNotEmpty || _fleets.isNotEmpty;
+  bool get isAnyRunning => _runs.isNotEmpty || _recordedRuns.isNotEmpty || _fleets.isNotEmpty || _sparkplug.isNotEmpty;
+
+  // the edge nodes of a Sparkplug device while it runs, else of its last run; null before its first start
+  SimulatedSparkplugDevice? sparkplugOf(String deviceId) => _sparkplug[deviceId] ?? _lastSparkplug[deviceId];
 
   // the robots of a VDA 5050 device while it runs, else of its last run; null before its first start
   SimulatedFleet? fleetOf(String deviceId) => _fleets[deviceId] ?? _lastFleets[deviceId];
@@ -177,11 +187,13 @@ class SimulatorRunner {
   double get runningRate =>
       _runs.values.fold(0.0, (sum, run) => sum + run.rate) +
       _recordedRuns.values.fold(0.0, (sum, run) => sum + run.rate) +
-      _fleets.values.fold(0.0, (sum, fleet) => sum + SimulatedFleet.rateOf(fleet.device));
+      _fleets.values.fold(0.0, (sum, fleet) => sum + SimulatedFleet.rateOf(fleet.device)) +
+      _sparkplug.values.fold(0.0, (sum, run) => sum + SimulatedSparkplugDevice.rateOf(run.device));
 
   int get totalSent =>
-      _stats.values.fold(0, (sum, stats) => sum + stats.sent) +
-      _lastFleets.values.fold(0, (sum, fleet) => sum + fleet.sent);
+      _stats.values.fold<int>(0, (sum, stats) => sum + stats.sent) +
+      _lastFleets.values.fold<int>(0, (sum, fleet) => sum + fleet.sent) +
+      _lastSparkplug.values.fold<int>(0, (sum, run) => sum + run.sent);
 
   int get errorCount =>
       _stats.values.where((stats) => stats.error != null).length +
@@ -194,6 +206,8 @@ class SimulatorRunner {
         startRecorded(device);
       } else if (device.isVda5050) {
         _startFleet(device);
+      } else if (device.isSparkplug) {
+        _startSparkplug(device);
       } else {
         _startTopics(device, device.topics);
       }
@@ -206,6 +220,9 @@ class SimulatorRunner {
       startRecorded(device);
     } else if (device.isVda5050) {
       _startFleet(device);
+      runStateChangedEvent.broadcast();
+    } else if (device.isSparkplug) {
+      _startSparkplug(device);
       runStateChangedEvent.broadcast();
     } else {
       start(device, device.topics);
@@ -241,6 +258,9 @@ class SimulatorRunner {
     } else if (device.isVda5050) {
       _stopFleet(device.id);
       runStateChangedEvent.broadcast();
+    } else if (device.isSparkplug) {
+      _stopSparkplug(device.id);
+      runStateChangedEvent.broadcast();
     } else {
       stopTopics(device.topics.map((topic) => topic.id));
     }
@@ -258,8 +278,51 @@ class SimulatorRunner {
     for (var id in _fleets.keys.toList()) {
       _stopFleet(id);
     }
+    for (var id in _sparkplug.keys.toList()) {
+      _stopSparkplug(id);
+    }
     runStateChangedEvent.broadcast();
   }
+
+  // Starts the edge nodes of a Sparkplug device, each on a connection of its own, and the primary host when the
+  // simulator plays it (doc/sparkplug-design.md §10.4). Problems end up in deviceStatsOf; an edge node that can't
+  // connect keeps trying and shows it in its state.
+  void _startSparkplug(SimulatedDevice device) {
+    _stopSparkplug(device.id);
+    var deviceStats = deviceStatsOf(device.id)
+      ..sent = 0
+      .._clearError();
+    var issues = SimulationRules.validateSparkplug(device);
+    if (issues.isNotEmpty) {
+      _setDeviceError(device, issues.first.kind, issues.first.describe(), issues.first.detail);
+      return;
+    }
+    var connections = this.connections;
+    if (connections == null) {
+      var issue = SimulationIssue(SimulationIssueKind.sparkplugNoConnections, device: device.name);
+      _setDeviceError(device, issue.kind, issue.describe(), '');
+      return;
+    }
+    var source = device.sparkplug!;
+    var random = Random(source.seed ?? (seed == null ? null : _seedFor(device.id, 0)));
+    late SimulatedSparkplugDevice run;
+    run = SimulatedSparkplugDevice(device, connections, random, onPublished: () {
+      deviceStats.sent = run.sent;
+      _markStatsDirty();
+    });
+    run.changedEvent.subscribe((_) => _markStatsDirty());
+    _sparkplug[device.id] = run;
+    _lastSparkplug[device.id] = run;
+    run.start().catchError((Object error) {
+      if (_sparkplug[device.id] == run) {
+        _stopSparkplug(device.id);
+        var issue = SimulationIssue(SimulationIssueKind.sparkplugHostFailed, device: device.name, detail: '$error');
+        _setDeviceError(device, issue.kind, issue.describe(), issue.detail);
+      }
+    });
+  }
+
+  void _stopSparkplug(String deviceId) => _sparkplug.remove(deviceId)?.stop();
 
   // Starts the robots of a VDA 5050 device and its fleet control (doc/vda5050-design.md §10). Problems end up in
   // deviceStatsOf.
@@ -460,6 +523,7 @@ class SimulatorRunner {
     _deviceStats.clear();
     _recordedTopics.clear();
     _lastFleets.clear();
+    _lastSparkplug.clear();
     statsChangedEvent.broadcast();
   }
 
@@ -487,6 +551,14 @@ class SimulatorRunner {
       return 0;
     }
     var count = 0;
+    // the STATE of a primary host the simulator played
+    for (var device in devices.where((device) => device.isSparkplug && device.sparkplug != null)) {
+      var host = device.sparkplug!.primaryHostId;
+      if (host != null && host.isNotEmpty && device.sparkplug!.simulateHost) {
+        _publisher.publish('spBv1.0/STATE/$host', Uint8Buffer(), MqttQos.atLeastOnce, true, null);
+        count++;
+      }
+    }
     for (var device in devices.where((device) => device.isVda5050 && device.vda5050 != null)) {
       for (var n in device.instanceNumbers) {
         var prefix = Placeholders.resolve(device.vda5050!.topicPrefix, instance: n, deviceName: device.name);

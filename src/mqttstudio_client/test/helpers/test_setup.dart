@@ -46,7 +46,7 @@ FakeMqttAdapter setUpServices([FakeMqttAdapter? fakeAdapter]) {
   GetIt.I.registerSingleton(MessageViewer());
   var library = RecordingLibrary(MemoryRecordingStore());
   GetIt.I.registerSingleton(library);
-  GetIt.I.registerSingleton(Simulator());
+  GetIt.I.registerSingleton(Simulator(connectionFactory: FakeMqttAdapter.new));
   GetIt.I.registerSingleton(RecorderService(library, connectionFactory: FakeMqttAdapter.new));
   GetIt.I.registerSingleton(PlaybackService(library));
   GetIt.I.registerSingleton(RecordingAnalysisService(library));

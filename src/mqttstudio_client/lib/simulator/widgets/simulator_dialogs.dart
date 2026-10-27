@@ -7,6 +7,7 @@ import 'package:mqttstudio/simulator/device_edit_dialog.dart';
 import 'package:mqttstudio/simulator/model/simulation.dart';
 import 'package:mqttstudio/simulator/recorded_device_dialog.dart';
 import 'package:mqttstudio/simulator/simulator_viewmodel.dart';
+import 'package:mqttstudio/simulator/sparkplug_device_dialog.dart';
 import 'package:mqttstudio/simulator/topic_edit_dialog.dart';
 import 'package:mqttstudio/simulator/vda5050_device_dialog.dart';
 import 'package:srx_flutter/srx_flutter.dart';
@@ -40,12 +41,21 @@ class SimulatorDialogs {
     }
   }
 
+  static Future addSparkplugDevice(BuildContext context, SimulatorViewmodel vm) async {
+    var device = await _show<SimulatedDevice>(
+        context, SparkplugDeviceDialog(device: vm.newSparkplugDevice(), simulation: _simulation, isNew: true));
+    if (device != null) {
+      vm.addDevice(device);
+    }
+  }
+
   static Future editDevice(BuildContext context, SimulatorViewmodel vm, SimulatedDevice device) async {
     var edited = await _show<SimulatedDevice>(
         context,
         switch (device.kind) {
           DeviceKind.recorded => RecordedDeviceDialog(device: device, simulation: _simulation),
           DeviceKind.vda5050 => Vda5050DeviceDialog(device: device, simulation: _simulation, isNew: false),
+          DeviceKind.sparkplug => SparkplugDeviceDialog(device: device, simulation: _simulation, isNew: false),
           DeviceKind.generated => DeviceEditDialog(device: device, simulation: _simulation),
         });
     if (edited != null) {

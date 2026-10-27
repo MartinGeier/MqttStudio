@@ -11,6 +11,9 @@ import 'package:mqttstudio/simulator/engine/simulation_rules.dart';
 import 'package:mqttstudio/simulator/engine/simulator_runner.dart';
 import 'package:mqttstudio/simulator/model/simulation.dart';
 import 'package:mqttstudio/simulator/simulator.dart';
+import 'package:mqttstudio/simulator/sparkplug/simulated_edge_node.dart';
+import 'package:mqttstudio/simulator/sparkplug/simulated_sparkplug_device.dart';
+import 'package:mqttstudio/simulator/sparkplug/sparkplug_fault.dart';
 import 'package:mqttstudio/simulator/vda5050/robot_fault.dart';
 import 'package:mqttstudio/simulator/vda5050/simulated_fleet.dart';
 import 'package:mqttstudio/simulator/vda5050/simulated_robot.dart';
@@ -76,7 +79,10 @@ class SimulatorViewmodel extends SrxChangeNotifier {
 
   // VDA 5050 robots leave their retained connection message
   bool get hasRetainedTopics =>
-      devices.any((device) => device.isVda5050 || device.topics.any((topic) => topic.retain));
+      devices.any((device) =>
+          device.isVda5050 ||
+          (device.isSparkplug && device.sparkplug!.simulateHost && (device.sparkplug!.primaryHostId ?? '').isNotEmpty) ||
+          device.topics.any((topic) => topic.retain));
 
   // something that isn't running yet, for Start all
   bool get hasStoppedWork => devices.any((device) => device.isGenerated
@@ -89,7 +95,7 @@ class SimulatorViewmodel extends SrxChangeNotifier {
 
   int runningCountOf(SimulatedDevice device) => switch (device.kind) {
         DeviceKind.recorded => isRecordedRunning(device) ? recordedTopicsOf(device).length : 0,
-        DeviceKind.vda5050 => isRecordedRunning(device) ? device.instanceCount : 0,
+        DeviceKind.vda5050 || DeviceKind.sparkplug => isRecordedRunning(device) ? device.instanceCount : 0,
         DeviceKind.generated => device.topics.where((topic) => stateOf(topic) == TopicRunState.running).length,
       };
 
@@ -106,11 +112,22 @@ class SimulatorViewmodel extends SrxChangeNotifier {
   void injectFault(SimulatedDevice device, SimulatedRobot robot, RobotFault fault) =>
       _simulator.injectFault(device, robot, fault);
 
-  String vda5050SubscriptionOf(SimulatedDevice device) => _simulator.vda5050SubscriptionOf(device);
+  // ---------- Sparkplug devices ----------
 
-  bool isVda5050SubscribedInViewer(SimulatedDevice device) => _simulator.isVda5050SubscribedInViewer(device);
+  SimulatedDevice newSparkplugDevice() => _simulator.newSparkplugDevice();
 
-  void subscribeVda5050InViewer(SimulatedDevice device) => _simulator.subscribeVda5050InViewer(device);
+  SimulatedSparkplugDevice? sparkplugOf(SimulatedDevice device) => _simulator.sparkplugOf(device);
+
+  void injectSparkplugFault(SimulatedDevice device, SimulatedEdgeNode node, SparkplugFault fault) =>
+      _simulator.injectSparkplugFault(device, node, fault);
+
+  // ---------- VDA 5050 and Sparkplug devices in the Topic Viewer ----------
+
+  String? viewerSubscriptionOf(SimulatedDevice device) => _simulator.viewerSubscriptionOf(device);
+
+  bool isDeviceSubscribedInViewer(SimulatedDevice device) => _simulator.isDeviceSubscribedInViewer(device);
+
+  void subscribeDeviceInViewer(SimulatedDevice device) => _simulator.subscribeDeviceInViewer(device);
 
   // ---------- recorded devices ----------
 

@@ -143,6 +143,8 @@ class SpbMetric {
   // as the data type says: int (signed for IntN), BigInt for a UInt64 above the int range, double, bool, String,
   // DateTime, Uint8List, SpbDataSet, SpbTemplate or a List for arrays; null when isNull or no value was sent
   Object? value;
+  // not sent: the type the writer encodes the value as when datatype is left out, as data and commands do
+  SpbDataType? encodeAs;
 
   SpbMetric({
     this.name,
@@ -155,6 +157,7 @@ class SpbMetric {
     this.metadata,
     this.properties,
     this.value,
+    this.encodeAs,
   });
 
   SpbDataType? get type => SpbDataType.of(datatype);
@@ -392,6 +395,23 @@ class SparkplugReader {
       metric.value = null;
     }
     return metric;
+  }
+
+  // Data and commands usually leave out the data type, the birth has it: reads the value again as that type, e.g. a
+  // negative Int32 that was read as its unsigned bits. Reading it again changes nothing.
+  static void retype(SpbMetric metric, SpbDataType type) {
+    var value = metric.value;
+    if (value is Uint8List && type.isArray) {
+      metric.value = _array(value, type);
+    } else if (value is BigInt && type == SpbDataType.int64) {
+      metric.value = value.toSigned(64).toInt();
+    } else if (value is int && type == SpbDataType.dateTime) {
+      metric.value = DateTime.fromMillisecondsSinceEpoch(value, isUtc: true);
+    } else if (value is int && (type == SpbDataType.int8 || type == SpbDataType.int16 || type == SpbDataType.int32)) {
+      metric.value = _fromInt(value, type);
+    } else if (value is int && type == SpbDataType.boolean) {
+      metric.value = value != 0;
+    }
   }
 
   // Int8, Int16 and Int32 travel as the two's complement in an uint32 (specification 3.0 §6.4.16)
@@ -790,9 +810,21 @@ class SparkplugWriter {
       writer.message(9, (inner) => _propertySet(inner, metric.properties!));
     }
     if (!metric.isNull && metric.value != null) {
-      _value(writer, metric.type, metric.value!);
+      _value(writer, metric.type ?? metric.encodeAs ?? _typeOf(metric.value!), metric.value!);
     }
   }
+
+  // without a data type the value's own type picks the field
+  static SpbDataType? _typeOf(Object value) => switch (value) {
+    bool _ => SpbDataType.boolean,
+    double _ => SpbDataType.double,
+    int _ || BigInt _ => SpbDataType.int64,
+    String _ => SpbDataType.string,
+    DateTime _ => SpbDataType.dateTime,
+    SpbDataSet _ => SpbDataType.dataSet,
+    SpbTemplate _ => SpbDataType.template,
+    _ => null,
+  };
 
   static void _value(_Writer writer, SpbDataType? type, Object value) {
     switch (type) {

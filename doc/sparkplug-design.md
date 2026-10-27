@@ -1,7 +1,7 @@
 # Sparkplug B Support – Design
 
 Status: **Phase 1 implemented** (profile, topic viewer, protocol rules). Later phases are proposals, see §8; the
-simulated edge nodes (phase 2) are designed in §10; the questions of §11 are decided ·
+simulated edge nodes (phase 2, §10) are implemented, see §10.10 and §10.11 ·
 Branch: `mqtt5` · Last updated: 2026-10-27
 
 Related: `vda5050-design.md` (the protocol profile layer this builds on, §5), `documentation-design.md` (T18: discovery
@@ -290,6 +290,75 @@ VDA 5050. `cli-manual.md` documents it.
   tests (no UI).
 - **2b:** model, dialog, device rows, faults; `simulator-design.md` gets the device kind.
 - **2c:** CLI, `cli-manual.md`, the end-to-end tests against the check, CLAUDE.md.
+
+### 10.10 Implementation notes, phase 2a (2026-10-27)
+
+Phase 2a is implemented as designed in §10.2 and §10.4, without UI and not yet a device kind of the simulator:
+
+- **Last will:** `MqttAdapter.connect`, `MqttProtocolClient.connect` and `SideConnection.connect` take an optional
+  `MqttWill` (`lib/mqtt/mqtt_will.dart`) with a binary payload. mqtt5_client takes the bytes as they are. mqtt_client
+  (3.1.1) only writes a UTF-8 will text, which would break a Protobuf NDEATH, so `Mqtt311ProtocolClient` swaps the
+  connect payload for a subclass that writes the bytes length-prefixed, as MQTT 3.1.1 allows.
+  `test/mqtt/mqtt_will_test.dart` checks the bytes on the wire.
+- **Model:** `lib/simulator/model/sparkplug_source.dart` (`SparkplugSource`, `SparkplugDeviceSpec`,
+  `SparkplugMetricSpec`, the example preset), JSON round trip tested; not yet part of `SimulatedDevice`.
+- **Engine:** `lib/simulator/sparkplug/simulated_edge_node.dart`, `simulated_host.dart` and `metric_values.dart`
+  (generated texts to typed values, prefixes and postfixes removed, integers rounded and clamped to their type, writes
+  coerced, deadband). The edge node uses its own `MqttAdapter` per connection, not `SideConnection`'s reconnect,
+  because every new connection needs a new will with the next bdSeq.
+- **Choices made while implementing**, to check against the specification and the TCK in phase 2c:
+  - bdSeq counts every CONNECT that is sent, also one the broker refuses.
+  - The NDEATH carries only the bdSeq metric, no timestamp (it is written when connecting).
+  - Data and commands leave out the data type (the birth has it); `SpbMetric.encodeAs` tells the writer which field
+    to use. `Node Control/Rebirth` gets alias 0 when aliases are on, the other metrics 1 and up, unique over the edge
+    node and its devices.
+  - A stop publishes the NDEATH (QoS 1) only when the edge node was born; a STATE older than the last one is
+    ignored; a lost primary host means NDEATH, disconnect, and a new connection after 1 s that waits for the host.
+  - A write is answered at once with an NDATA/DDATA of the written metrics.
+- **A bug the tests found:** without a data type, the writer chose no Protobuf field and dropped the value, and the
+  reader read a negative Int32 as its unsigned bits. `SparkplugReader.retype` now reads a value again as the birth's
+  type; the profile and the edge node's write handling use it.
+- **Fake broker** (`test/helpers/fake_broker.dart`): connections with wildcard subscriptions, retained messages, wills
+  on a dropped connection, client id takeover and delivery in microtasks. `test/simulator/sparkplug/
+  simulated_edge_node_test.dart` runs §10.2 point by point in fake time, and every run's messages through
+  `SparkplugChecker` without findings.
+- **Left for 2b:** the device kind in `Simulation` and the runner (rate limits, statistics, start and stop with the
+  simulation), the dialog and device rows, the faults of §10.5 including the abrupt close of a connection, which the
+  client packages don't offer directly.
+
+### 10.11 Implementation notes, phases 2b and 2c (2026-10-27)
+
+- **Device kind:** `DeviceKind.sparkplug` with `SimulatedDevice.sparkplug`. `SimulationRules.validateSparkplug` checks
+  the ids (topic levels, `{n}` with several edge nodes, `{d}` for a device that is there more than once), metric names
+  (not empty, not `bdSeq` or `Node Control/Rebirth`, unique per edge node or device), that the generator fits the data
+  type (numbers from random number, counter, random walk and wave; booleans from boolean and value list; date times
+  from the timestamp generator; texts from anything but images), scalar types only (Q7) and the limits of Q9.
+- **Runner:** `SimulatorRunner` takes `SimulatorConnections` (`simulator_publisher.dart`): the broker settings and an
+  adapter factory. The `Simulator` service passes the project's settings and `MqttAdapter.new` (tests pass fake
+  adapters), the CLI its own settings and adapters. Each edge node connects with
+  `SideConnection.settingsFor(settings, 'spb-<edge node id>')`, so it gets a client id of its own. Without connections
+  a Sparkplug device reports `sparkplugNoConnections`; a simulated host that can't connect stops the device with
+  `sparkplugHostFailed`. Edge nodes that can't connect keep trying and show it in their state.
+- **Faults** (`sparkplug_fault.dart`), as in §10.5. "Drop connection" uses the client packages' own reaction to a
+  broker that stopped answering (`disconnectOnNoPingResponse`), which closes the socket without DISCONNECT, through the
+  new `MqttAdapter.dropConnection()`; the edge node then reconnects with the usual delays (1 s first), not after a
+  fixed 5 s. "Devices offline" is one toggle for all devices of the edge node. "Device data without birth" uses a device
+  `UnbornDevice`. "Death with a wrong bdSeq" leaves with the NDEATH of bdSeq − 1 and connects again.
+  `test/simulator/sparkplug/sparkplug_runner_test.dart` checks through `ConformanceChecker` that each protocol fault
+  gives exactly its rule and each session fault none.
+- **UI:** "+ Device" offers "Sparkplug edge nodes" (`Icons.hub`), starting from the example with 2 edge nodes. The
+  dialog (`sparkplug_device_dialog.dart`, 840 px, tabs EDGE NODE, METRICS, ADVANCED) lists the metrics of the edge node
+  and of each device; a metric is edited in `sparkplug_metric_dialog.dart` with the simulator's `GeneratorEditor`
+  (templates and images left out). The METRICS tab scrolls inside a fixed height. The device rows show each edge node's
+  state, bdSeq, the seq of its last message, messages sent and how many devices are online, with the Faults menu
+  (`SparkplugFaultMenu`, two columns like the robots'). The eye button subscribes the Topic Viewer to
+  `spBv1.0/<group>/#`; it now works for VDA 5050 and Sparkplug devices alike. Clear retained removes the STATE of a
+  simulated host.
+- **CLI:** `simulate` runs Sparkplug devices with a connection per edge node and the plan names the edge nodes and
+  their group (`cli-manual.md`). `test/cli/sparkplug_cli_test.dart`.
+- **Still to check against the specification text and the TCK** (§10.10): bdSeq per CONNECT, the NDEATH without
+  timestamp, data and commands without data type. The simulator hasn't run against a real broker or host application
+  yet; the tests use fake connections and an in-memory broker.
 
 ## 11. Questions of the simulator (decided 2026-10-27)
 

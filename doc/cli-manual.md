@@ -136,7 +136,11 @@ Stopped after 10m 00s (duration reached): 9,184 messages, 0 errors.
 Errors of single topics (for example a missing image folder) are printed and counted; the other
 topics keep running. Devices that play a recording run like in the app, and so do devices of
 simulated VDA 5050 robots: their robots say `OFFLINE` when the run stops, and `--clear-retained`
-also removes their retained `connection` messages. Faults can only be injected in the app.
+also removes their retained `connection` messages. Devices of simulated Sparkplug B edge nodes connect
+each edge node on a connection of its own (with the broker settings above and a client id of its own),
+whose last will is the edge node's NDEATH; the primary host the simulator plays has one too. The edge
+nodes publish NDEATH when the run stops, and `--clear-retained` also removes the host's retained
+`STATE`. Faults can only be injected in the app.
 
 ### record
 
@@ -361,7 +365,10 @@ not allowed, parameters that break their pattern, a different QoS or retain flag
 stay silent longer than documented, use of deprecated topics and differing MQTT 5 properties.
 On VDA 5050 topics it also checks the protocol: the header against the topic, header id gaps,
 timestamps, the structure and updates of orders, duplicate action ids, the state heartbeat of each
-robot and, for 3.0, requests and responses. These findings are named `vda5050.<rule>`.
+robot and, for 3.0, requests and responses. These findings are named `vda5050.<rule>`. On
+Sparkplug B topics it checks sequence numbers, the birth and death of edge nodes and devices
+(`bdSeq`, messages after a death, device data without a birth) and metrics the birth doesn't define;
+these findings are named `sparkplug.<rule>`.
 
 ```
 mqttstudio doc check -p "Demo factory" --duration 10m

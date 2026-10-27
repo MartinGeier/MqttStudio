@@ -17,12 +17,13 @@ import 'package:typed_data/typed_buffers.dart';
 import '../helpers/fake_mqtt_adapter.dart';
 import '../helpers/test_app.dart';
 import '../helpers/test_setup.dart';
+import 'package:mqttstudio/mqtt/mqtt_will.dart';
 
 class _FailingAdapter extends FakeMqttAdapter {
   bool fail = false;
 
   @override
-  Future connect(settings) async {
+  Future connect(settings, {MqttWill? will}) async {
     if (fail) {
       throw StateError('broker unreachable');
     }

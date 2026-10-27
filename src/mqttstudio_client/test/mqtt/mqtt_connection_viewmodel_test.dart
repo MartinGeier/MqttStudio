@@ -5,11 +5,12 @@ import 'package:mqttstudio/service/service_error.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 import '../helpers/fake_mqtt_adapter.dart';
 import '../helpers/test_setup.dart';
+import 'package:mqttstudio/mqtt/mqtt_will.dart';
 
 // Adapter whose connection attempt fails like an unreachable broker
 class FailingMqttAdapter extends FakeMqttAdapter {
   @override
-  Future connect(MqttSettings mqttSettings) async {
+  Future connect(MqttSettings mqttSettings, {MqttWill? will}) async {
     throw SrxServiceException('broker not reachable', ServiceError.MqttCannotConnect);
   }
 }

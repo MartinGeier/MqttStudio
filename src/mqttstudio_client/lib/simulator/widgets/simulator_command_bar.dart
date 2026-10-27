@@ -95,6 +95,9 @@ class SimulatorCommandBar extends StatelessWidget {
           value: DeviceKind.vda5050,
           child: ListTile(
               leading: Icon(Icons.precision_manufacturing), title: Text('simulator.adddevice.vda5050'.tr()), dense: true)),
+      PopupMenuItem(
+          value: DeviceKind.sparkplug,
+          child: ListTile(leading: Icon(Icons.hub), title: Text('simulator.adddevice.sparkplug'.tr()), dense: true)),
     ]);
     if (!buttonContext.mounted || kind == null) {
       return;
@@ -104,6 +107,8 @@ class SimulatorCommandBar extends StatelessWidget {
         await SimulatorDialogs.addRecordedDevice(buttonContext, vm);
       case DeviceKind.vda5050:
         await SimulatorDialogs.addVda5050Device(buttonContext, vm);
+      case DeviceKind.sparkplug:
+        await SimulatorDialogs.addSparkplugDevice(buttonContext, vm);
       case DeviceKind.generated:
         await SimulatorDialogs.addDevice(buttonContext, vm);
     }

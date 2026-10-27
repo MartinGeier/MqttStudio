@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:mqtt5_client/mqtt5_client.dart' show MqttQos;
 // mqtt_client and mqtt5_client use the same class names, so the MQTT 3.1.1 package is only used with a prefix
 import 'package:mqtt_client/mqtt_client.dart' as v3;
@@ -10,6 +12,7 @@ import 'package:mqttstudio/model/mqtt_settings.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
 import 'package:mqttstudio/model/topic_subscription.dart';
 import 'package:mqttstudio/mqtt/mqtt_protocol_client.dart';
+import 'package:mqttstudio/mqtt/mqtt_will.dart';
 import 'package:mqttstudio/mqtt/mqtt_reason_codes.dart';
 import 'package:mqttstudio/service/service_error.dart';
 import 'package:srx_flutter/srx_flutter.dart';
@@ -29,7 +32,7 @@ class Mqtt311ProtocolClient extends MqttProtocolClient {
   String? get lastDisconnectReason => null;
 
   @override
-  Future connect(MqttSettings mqttSettings) async {
+  Future connect(MqttSettings mqttSettings, {MqttWill? will}) async {
     _brokerInfo = null;
     _client = mqtt3setup.setup(MqttProtocolClient.serverAddressOf(mqttSettings), mqttSettings.clientId);
 
@@ -43,7 +46,7 @@ class Mqtt311ProtocolClient extends MqttProtocolClient {
         onUnsubscribed?.call(topic);
       }
     };
-    _client.connectionMessage = v3.MqttConnectMessage().startClean().withClientIdentifier(mqttSettings.clientId);
+    _client.connectionMessage = buildConnectMessage(mqttSettings, will);
     _client.keepAlivePeriod = MqttProtocolClient.keepAlivePeriod;
     _client.logging(on: true);
     _client.setProtocolV311();
@@ -75,6 +78,10 @@ class Mqtt311ProtocolClient extends MqttProtocolClient {
 
     _client.updates!.listen(_onDataReceived);
   }
+
+  // the package's own reaction to a broker that stopped answering: the socket is destroyed without DISCONNECT
+  @override
+  void dropConnection() => _client.disconnectOnNoPingResponse(v3.DisconnectOnNoPingResponse());
 
   @override
   void disconnect() {
@@ -135,7 +142,58 @@ class Mqtt311ProtocolClient extends MqttProtocolClient {
   }
 
   // both packages declare MqttQos with the same values in the same order
+  @visibleForTesting
+  static v3.MqttConnectMessage buildConnectMessage(MqttSettings mqttSettings, MqttWill? will) {
+    var message = v3.MqttConnectMessage().startClean().withClientIdentifier(mqttSettings.clientId);
+    if (will != null) {
+      message
+        ..will()
+        ..withWillQos(_toV3Qos(will.qos))
+        ..payload = (_BinaryWillPayload(message.variableHeader, will.payload)
+          ..clientIdentifier = mqttSettings.clientId
+          ..willTopic = will.topic);
+      if (will.retain) {
+        message.withWillRetain();
+      }
+    }
+    return message;
+  }
+
   static v3.MqttQos _toV3Qos(MqttQos qos) => v3.MqttQos.values[qos.index];
 
   static MqttQos _fromV3Qos(v3.MqttQos qos) => MqttQos.values[qos.index];
+}
+
+// mqtt_client writes the will message as a UTF-8 string; MQTT 3.1.1 allows any bytes there, e.g. a Sparkplug NDEATH
+class _BinaryWillPayload extends v3.MqttConnectPayload {
+  final Uint8List willBytes;
+
+  _BinaryWillPayload(super.variableHeader, this.willBytes);
+
+  @override
+  void writeTo(v3.MqttByteBuffer payloadStream) {
+    payloadStream.writeMqttStringM(clientIdentifier);
+    payloadStream.writeMqttStringM(willTopic!);
+    payloadStream.writeShort(willBytes.length);
+    payloadStream.write(Uint8Buffer()..addAll(willBytes));
+    if (variableHeader!.connectFlags.usernameFlag) {
+      payloadStream.writeMqttStringM(username!);
+    }
+    if (variableHeader!.connectFlags.passwordFlag) {
+      payloadStream.writeMqttStringM(password!);
+    }
+  }
+
+  @override
+  int getWriteLength() {
+    var encoding = v3.MqttEncoding();
+    var length = encoding.getByteCount(clientIdentifier) + encoding.getByteCount(willTopic!) + 2 + willBytes.length;
+    if (variableHeader!.connectFlags.usernameFlag) {
+      length += encoding.getByteCount(username!);
+    }
+    if (variableHeader!.connectFlags.passwordFlag) {
+      length += encoding.getByteCount(password!);
+    }
+    return length;
+  }
 }

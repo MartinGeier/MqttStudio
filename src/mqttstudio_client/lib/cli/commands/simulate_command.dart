@@ -18,6 +18,7 @@ import 'package:mqttstudio/simulator/engine/simulation_rules.dart';
 import 'package:mqttstudio/simulator/engine/simulator_publisher.dart';
 import 'package:mqttstudio/simulator/engine/simulator_runner.dart';
 import 'package:mqttstudio/simulator/model/simulation.dart';
+import 'package:mqttstudio/simulator/sparkplug/simulated_sparkplug_device.dart';
 import 'package:mqttstudio/simulator/vda5050/simulated_fleet.dart';
 import 'package:mqttstudio/simulator/engine/placeholders.dart';
 
@@ -61,6 +62,9 @@ class SimulateCommand extends CliCommand with BrokerOptions {
 
     var rate = SimulationRules.estimateRate(topics) +
         devices.where((device) => device.isVda5050).fold(0.0, (sum, device) => sum + SimulatedFleet.rateOf(device)) +
+        devices
+            .where((device) => device.isSparkplug)
+            .fold(0.0, (sum, device) => sum + SimulatedSparkplugDevice.rateOf(device)) +
         recordings.entries.fold(
             0.0,
             (sum, entry) =>
@@ -179,6 +183,10 @@ class SimulateCommand extends CliCommand with BrokerOptions {
       if (device.isVda5050) {
         return '${device.name}: ${device.instanceCount} VDA 5050 ${device.vda5050!.version.protocolVersion} robots';
       }
+      if (device.isSparkplug) {
+        return '${device.name}: ${device.instanceCount} Sparkplug B edge '
+            '${device.instanceCount == 1 ? 'node' : 'nodes'} in group ${device.sparkplug!.groupId}';
+      }
       return '${device.name}: ${CliFormat.instances(device)}, ${device.topics.length} '
           '${device.topics.length == 1 ? 'topic' : 'topics'}';
     }).toList();
@@ -206,6 +214,7 @@ class SimulateCommand extends CliCommand with BrokerOptions {
                     device.topics.length,
                 if (recordings[device] != null) 'recording': recordings[device]!.name,
                 if (device.isVda5050) 'vda5050': device.vda5050!.version.protocolVersion,
+                if (device.isSparkplug) 'sparkplug': device.sparkplug!.groupId,
               }
           ],
           'estimatedRate': rate,
@@ -233,6 +242,19 @@ class SimulateCommand extends CliCommand with BrokerOptions {
         out.event('topic', {'device': device.name, 'vda5050': source.version.protocolVersion, 'robots': prefixes},
             text: '  ${device.name}  VDA 5050 ${source.version.protocolVersion}  → '
                 '${prefixes.length == 1 ? prefixes.first : '${prefixes.first} … ${prefixes.last}'}/…');
+      }
+      if (device.isSparkplug) {
+        var source = device.sparkplug!;
+        var nodes = [
+          for (var n in device.instanceNumbers)
+            Placeholders.resolve(source.edgeNodeId, instance: n, deviceName: device.name),
+        ];
+        out.event(
+          'topic',
+          {'device': device.name, 'sparkplug': source.groupId, 'edgeNodes': nodes},
+          text: '  ${device.name}  Sparkplug B  → spBv1.0/${source.groupId}/…/'
+              '${nodes.length == 1 ? nodes.first : '${nodes.first} … ${nodes.last}'}',
+        );
       }
       for (var topic in device.topics) {
         var resolved = SimulationRules.resolvedTopics(device, topic);
@@ -283,10 +305,16 @@ class _Run {
   Output get out => command.out;
 
   Future<int> execute() async {
-    runner = SimulatorRunner(MqttAdapterPublisher(adapter), seed: options.seed, openRecording: (source) async {
-      var info = recordings.entries.firstWhere((entry) => entry.key.recorded == source).value;
-      return command.library!.store.open(info.fileName);
-    });
+    runner = SimulatorRunner(
+      MqttAdapterPublisher(adapter),
+      seed: options.seed,
+      openRecording: (source) async {
+        var info = recordings.entries.firstWhere((entry) => entry.key.recorded == source).value;
+        return command.library!.store.open(info.fileName);
+      },
+      // Sparkplug edge nodes connect with the same settings, each on a connection of its own
+      connections: SimulatorConnections(settings: () => settings, factory: command.context.createAdapter),
+    );
     runner.topicErrorEvent.subscribe(_onTopicError);
     adapter.onDisconnectedEvent.subscribe(_onDisconnected);
     var interrupts = command.context.interrupts().listen((_) => _onInterrupt());

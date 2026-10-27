@@ -4,6 +4,7 @@ import 'package:event/event.dart';
 import 'package:mqttstudio/model/mqtt_settings.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
 import 'package:mqttstudio/mqtt/mqtt_adapter.dart';
+import 'package:mqttstudio/mqtt/mqtt_will.dart';
 
 // An MQTT connection of its own next to the app's main one, used by the recorder and the documentation's discovery
 // (recorder R6, documentation T9). The topic viewer's subscriptions and the CONNECT button don't affect it. When the
@@ -31,6 +32,7 @@ class SideConnection {
 
   MqttAdapter? _adapter;
   MqttSettings? _settings;
+  MqttWill? _will;
   void Function(MqttAdapter adapter)? _subscribe;
   Timer? _reconnectTimer;
   int _reconnectAttempt = 0;
@@ -45,17 +47,18 @@ class SideConnection {
 
   MqttAdapter? get adapter => _adapter;
 
-  // throws when the broker can't be reached; nothing is left open then
-  Future<void> connect(MqttSettings settings) async {
+  // throws when the broker can't be reached; nothing is left open then. A reconnect leaves the same will.
+  Future<void> connect(MqttSettings settings, {MqttWill? will}) async {
     var adapter = _factory();
     try {
-      await adapter.connect(settings);
+      await adapter.connect(settings, will: will);
     } catch (_) {
       adapter.disconnect();
       rethrow;
     }
     _adapter = adapter;
     _settings = settings;
+    _will = will;
   }
 
   // starts receiving: subscribe is called now and after every reconnect
@@ -129,7 +132,7 @@ class SideConnection {
       return;
     }
     try {
-      await _adapter!.connect(_settings!);
+      await _adapter!.connect(_settings!, will: _will);
     } catch (_) {
       if (!_closed) {
         _scheduleReconnect();
