@@ -462,8 +462,8 @@ documentation.
 
 | Format | Content |
 |---|---|
-| **Markdown** | One file: title, description, broker summary (optional), table of contents by tree, then per node: path, status, description, parameters table, payload (format, unit, range, schema table, examples as code blocks), delivery table, MQTT 5, access, observed statistics (optional) |
-| **HTML** | The same content, self-contained, styled with the design system's tokens and a print stylesheet. PDF comes from printing it in a browser |
+| **Markdown** | One file: title, description, broker summary (optional), table of contents by tree with titles, then per node: path and title, status, replaced by, owner, tags, description, links, parameters table, payload (format, encoding, unit, range, allowed values, schema table, examples as code blocks with their topic and capture time), delivery, MQTT 5 with user properties, access, observed statistics (optional). Fields that are not documented (unknown format, retain or interval, no QoS) and table columns that are empty in every row are left out. `[label](topic:path)` links point to the node's section |
+| **HTML** | The same content, self-contained, styled with the design system's tokens and a print stylesheet (headings stay with what follows, table headers repeat on a new page, long paths wrap instead of being clipped). Descriptions are rendered from their Markdown; raw HTML stays text and links open only web and mail addresses. PDF comes from printing it in a browser |
 | **AsyncAPI 3.0** | YAML or JSON (§9.2) |
 | **JSON Schema** | One bundle file with a `$defs` entry per JSON topic, keyed by path |
 | **CSV** | One row per topic node: path, title, status, format, unit, min, max, QoS, retain, interval kind, nominal interval, stale after, owner, tags, first line of the description |

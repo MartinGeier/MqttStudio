@@ -4,6 +4,7 @@ import 'package:mqtt5_client/mqtt5_client.dart' show MqttQos;
 import 'package:mqttstudio/documentation/export/asyncapi_importer.dart';
 import 'package:mqttstudio/documentation/export/doc_export.dart';
 import 'package:mqttstudio/documentation/export/import_merge.dart';
+import 'package:mqttstudio/documentation/export/markdown_html.dart';
 import 'package:mqttstudio/documentation/export/yaml_writer.dart';
 import 'package:mqttstudio/documentation/model/observed_topic.dart';
 import 'package:mqttstudio/documentation/model/topic_documentation.dart';
@@ -87,6 +88,31 @@ String export(DocExportFormat format,
             scope: scope, includeObserved: observed, includeBroker: brokerToo, includeExamples: examples),
         broker: broker(),
         exportedAt: exportedAt);
+
+// the sample with every field the editor fills in, in Markdown and as a deprecated node
+TopicDocumentation rich() {
+  var documentation = sample();
+  var status = documentation.nodeAt('plant/{line}/m{machine}/status')!
+    ..status = DocStatus.deprecated
+    ..replacedBy = 'plant/{line}/speed'
+    ..description = 'Sent **every** 10 s, see the [speed topic](topic:plant/7/speed).\n\n'
+        '- publishes `state`\n- [OEE](https://example.com/oee)\n\n[bad link](javascript:void)';
+  var topic = status.topic!
+    ..mqtt5.responseTopic = 'plant/reply'
+    ..mqtt5.correlationData = 'request id';
+  var payload = topic.payload;
+  payload.schema!
+    ..description = 'One status report'
+    ..properties['load'] = SchemaNode(type: SchemaType.integer, unit: '%', minimum: 0);
+  payload.examples.single
+    ..topic = 'plant/1/m7/status'
+    ..capturedAt = exportedAt;
+  documentation.nodes.add(DocNode(path: 'qa/raw', topic: TopicSpec()));
+  documentation.sortNodes();
+  return documentation;
+}
+
+String richExport(DocExportFormat format) => DocExport.run(rich(), DocExportOptions(format), exportedAt: exportedAt);
 
 // the documented part of a node, as an import compares it
 String documented(DocNode node) => jsonEncode(node.toJson()
@@ -200,6 +226,104 @@ void main() {
       expect(channel.containsKey('x-mqttstudio-observed'), isFalse);
       var withoutBroker = jsonDecode(export(DocExportFormat.asyncapiJson, brokerToo: false)) as Map<String, dynamic>;
       expect(withoutBroker.containsKey('servers'), isFalse);
+    });
+  });
+
+  group('Markdown and HTML documents', () {
+    test('HTML shows every documented field of a node', () {
+      var html = richExport(DocExportFormat.html);
+      expect(html,
+          contains('<a href="#t2"><code>plant/{line}/m{machine}/status</code> <span>Machine status</span></a>'));
+      expect(html, contains('<span><b>Status</b> Deprecated</span>'));
+      expect(html, contains('<span><b>Replaced by</b> <a href="#t3">plant/{line}/speed</a></span>'));
+      expect(html, contains('<span><b>Owner</b> Automation team</span>'));
+      expect(html, contains('<span><b>Tags</b> machine, mes</span>'));
+      expect(html, contains('<strong>every</strong> 10 s'));
+      expect(html,
+          contains('<span><b>MES spec</b> <a href="https://example.com/mes">https://example.com/mes</a></span>'));
+      expect(html, contains('<td>line</td><td>\\d+</td><td>Line number</td><td>1, 2</td>'));
+      expect(html, contains('<span><b>Format</b> Json</span><span><b>Encoding</b> UTF-8</span>'));
+      expect(html, contains(r'<td>$</td><td>object</td><td></td><td></td><td></td><td>One status report</td>'));
+      expect(html, contains(r'<td>$.state</td><td>string</td><td></td><td>idle, running</td><td>yes</td>'));
+      expect(html, contains(r'<td>$.temp</td><td>number</td><td>°C</td><td>0 – 120</td><td>yes</td>'));
+      expect(html, contains(r'<td>$.load</td><td>integer</td><td>%</td><td>≥ 0</td>'));
+      expect(html, contains(r'<td>$.ts</td><td>string (date-time)</td>'));
+      expect(html, contains('<h3>Example: running</h3>'));
+      expect(html, contains('<span><b>Topic</b> plant/1/m7/status</span>'));
+      expect(html, contains('<span><b>Captured</b> '));
+      expect(html, contains('<span><b>QoS</b> 1</span><span><b>Retain</b> Always</span>'));
+      expect(html, contains('<span><b>Stale after</b> 30 s</span><span><b>Last will</b> yes</span>'));
+      expect(html, contains('<span><b>Content type</b> application/json</span>'));
+      expect(html, contains('<span><b>Response topic</b> plant/reply</span>'));
+      expect(html, contains('<span><b>Correlation data</b> request id</span>'));
+      expect(html, contains('<td>source</td><td>Gateway id</td><td>gw-1</td>'));
+      expect(html, contains('<span><b>Producers</b> Gateway</span><span><b>Consumers</b> MES, OEE dashboard</span>'));
+      expect(html, contains('<span><b>Sensitivity</b> Confidential</span>'));
+      expect(html, contains('Gateways publish, mes reads.'));
+    });
+
+    test('HTML leaves out what is not documented', () {
+      var html = richExport(DocExportFormat.html);
+      // a discovered topic nobody documented yet
+      var raw = html.substring(html.indexOf('<h2 id="t4">'), html.indexOf('<h2 id="t5">'));
+      expect(raw, contains('<h2 id="t4"><code class="topic">qa/raw</code> </h2>\n'
+          '<p class="facts"><span><b>Status</b> Draft</span></p>\n</div>'));
+      expect(raw, isNot(contains('<h3>')));
+      expect(html, isNot(contains('not documented')));
+      // the speed topic's parameter has a name only
+      var speed = html.substring(html.indexOf('<h2 id="t3">'), html.indexOf('<h2 id="t4">'));
+      expect(speed, contains('<thead><tr><th>Name</th></tr></thead>'));
+      expect(speed, contains('<span><b>Range</b> 0 – 24000</span>'));
+    });
+
+    test('HTML renders the Markdown of descriptions safely', () {
+      var html = richExport(DocExportFormat.html);
+      expect(html, contains('<li>publishes <code>state</code></li>'));
+      expect(html, contains('<a href="#t3">speed topic</a>'));
+      expect(html, contains('<a href="https://example.com/oee">OEE</a>'));
+      expect(html, isNot(contains('javascript:')));
+      expect(html, contains('<p>bad link</p>'));
+    });
+
+    test('Markdown links facts and topics', () {
+      var text = richExport(DocExportFormat.markdown);
+      expect(text, contains('**Replaced by:** [plant/{line}/speed](#t3)'));
+      expect(text, contains('**MES spec:** [https://example.com/mes](https://example.com/mes)'));
+      expect(text, contains('[speed topic](#t3)'));
+      expect(text, contains('**Topic:** plant/1/m7/status'));
+      expect(text, contains(r'| $ | object |  |  |  | One status report |'));
+      expect(text, contains('**Correlation data:** request id'));
+      expect(text, isNot(contains('**Delivery**\n\n**QoS:** not documented')));
+    });
+
+    test('the print stylesheet keeps tables and long paths on the page', () {
+      var html = richExport(DocExportFormat.html);
+      expect(html, contains('thead{display:table-header-group}'));
+      expect(html, contains('.table,pre{overflow:visible}'));
+      expect(html, contains('overflow-wrap:anywhere'));
+      expect(html, contains('<div class="part">\n<h3>Payload</h3>\n<p class="facts">'));
+    });
+  });
+
+  group('MarkdownHtml', () {
+    test('renders paragraphs, headings, lists, quotes and code', () {
+      var html = MarkdownHtml.convert('# Title\n\nline one\nline two\n\n- a\n- b\n\n1. c\n\n> note\n\n```\n<x>\n```');
+      expect(
+          html,
+          '<h4>Title</h4>\n<p>line one<br>line two</p>\n<ul>\n<li>a</li>\n<li>b</li>\n</ul>\n<ol>\n<li>c</li>\n</ol>\n'
+          '<blockquote>note</blockquote>\n<pre><code>&lt;x&gt;</code></pre>\n');
+    });
+
+    test('renders inline formatting and keeps names and HTML as text', () {
+      expect(MarkdownHtml.convert('**b** *i* _j_ `a*b*` temp_max_value <b>x</b>'),
+          '<p><strong>b</strong> <em>i</em> <em>j</em> <code>a*b*</code> temp_max_value &lt;b&gt;x&lt;/b&gt;</p>\n');
+    });
+
+    test('links web addresses and documented topics only', () {
+      String? anchor(String path) => path == 'a/b' ? '#t1' : null;
+      expect(MarkdownHtml.convert('[x](javascript:alert) [y](topic:a/b) [z](topic:c) see https://e.com/a_b.',
+              topicHref: anchor),
+          '<p>x <a href="#t1">y</a> z see <a href="https://e.com/a_b">https://e.com/a_b</a>.</p>\n');
     });
   });
 
