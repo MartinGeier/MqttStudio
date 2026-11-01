@@ -1,8 +1,8 @@
 # MQTT Studio website: content brief
 
 Input for the AI agent that builds the new www.mqttstudio.com. It contains everything the current
-site says (captured on 2026-10-25), the facts about the product, and the features added in
-version 2.0 that the current site does not mention yet.
+site says (captured on 2026-10-25, checked again on 2026-11-01: unchanged), the facts about the
+product, and the features added in version 2.0 that the current site does not mention yet.
 
 **Rules for the agent**
 - Use only the facts in this document. Don't invent features, numbers, prices, customers,
@@ -53,7 +53,8 @@ the topics a system uses. With 2.0 also: integrators of AGV/AMR fleets and fleet
 
 ## 2. Current site inventory
 
-Site captured on 2026-10-25. English only (`/de/` and `/it/` return 404). Pages live under `/en/`.
+Site captured on 2026-10-25 and checked again on 2026-11-01: no changes, the pages were last
+modified in November 2023. English only (`/de/` and `/it/` return 404). Pages live under `/en/`.
 
 | Page | URL | Content |
 |---|---|---|
@@ -349,6 +350,10 @@ tells you when devices stop following the documentation.*
   JSON schemas (versions 2.1 and 3.0).
 - **Export:** Markdown, HTML (print to PDF), **AsyncAPI 3.0** (YAML or JSON), a JSON Schema bundle
   and CSV. Exports never contain passwords, certificates or the client id.
+- **Readable documents:** the HTML export renders the Markdown descriptions (headings, lists,
+  links, code), links topic references to their sections, and leaves out fields nobody filled
+  in. Its print stylesheet keeps headings with their content and repeats table headers, so
+  "print to PDF" gives a clean handbook to hand to a customer.
 - **Import:** AsyncAPI 2.x and 3.x, merged with what is already documented.
 - **Connected to the rest of the app:** create a simulation from documented topics, discover from
   a recording, documented titles appear as tooltips in the TOPIC VIEWER tree.
@@ -558,7 +563,9 @@ Free for personal and commercial use. Details in the EULA.
 **Who is behind MQTT Studio?**
 Current: a team of developers who build tools for developer productivity in their spare time,
 including the localization tool Babylon, linked to redpin.eu. *Update:* the publisher is now
-Sarix. **TO CONFIRM:** new text for this answer, and whether Babylon is still mentioned.
+Sarix. The app's own text (Sarix banner, §8) can be the base: "MQTT Studio is developed by Sarix.
+We build custom software for connected devices and machines." **TO CONFIRM:** the final answer,
+and whether Babylon is still mentioned.
 
 **How do I submit a feature request or report a bug?**
 By email (support address, see §8). Bug reports, feature requests and suggestions are welcome.
@@ -592,8 +599,13 @@ New questions worth adding:
 
 The app is a dense, desktop-first tool; design it for a wide window (~1500 px). Light theme only:
 dark grey app bar, deep red accent (`#B71C1C`), topic chips in strong colors (indigo, blue, pink,
-amber, deep purple, orange, brown, green, teal, lime). The connect button is red with CONNECT while disconnected
-and green with DISCONNECT while connected.
+amber, deep purple, orange, brown, green, teal, lime). The connect button names its action: red
+with CONNECT while disconnected, green with DISCONNECT while connected, CONNECTING with a spinner
+in between.
+
+While no project is open, the topic viewer shows a **Sarix banner** (Sarix logo, three strength
+cards, links to www.sarix.eu and info@sarix.eu). It belongs to the app's first screen; a
+screenshot of it can illustrate "who is behind MQTT Studio" (§8).
 
 Existing (version 1.x UI, still representative of the TOPIC VIEWER): see §2.
 
@@ -627,7 +639,18 @@ and the package's publisher name say **Sarix**. Everything below is **TO CONFIRM
 
 | Item | Current site | New |
 |---|---|---|
-| Publisher / copyright | "Copyright © 2026 by Redpin", Redpin logo | Sarix. **TO CONFIRM:** Sarix logo file, legal company name (the git email domain is sarix.eu) |
+| Publisher / copyright | "Copyright © 2026 by Redpin", Redpin logo | Sarix. The app ships a Sarix logo (`src/mqttstudio_client/assets/images/sarix_logo.png`, small PNG; **TO CONFIRM:** a vector logo for the site). **TO CONFIRM:** legal company name |
+| Company website | www.redpin.eu (Babylon link) | www.sarix.eu (linked from the app since 2.0) |
+| Tagline | none | "We Code. You Grow." (in the Sarix logo) |
+
+**Company copy from the app's Sarix banner** (the text the app shows, usable for an "About"
+section):
+- Title: "MQTT Studio is developed by Sarix"
+- Subtitle: "We build custom software for connected devices and machines."
+- **IoT and MQTT:** "Device connectivity, brokers, data pipelines and cloud platforms."
+- **Embedded software:** "Firmware and applications for devices, controllers and gateways."
+- **Machine configuration management:** "Parameters, variants and versions across every machine
+  you ship."
 | Address | via Buozzi 12, 39100 Bolzano (BZ), Italy | **TO CONFIRM** |
 | General email | info@redpin.eu | info@sarix.eu (used in the app since 2.0) |
 | Support email | support@redpin.eu | **TO CONFIRM** |
