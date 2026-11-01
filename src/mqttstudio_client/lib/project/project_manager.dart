@@ -11,6 +11,7 @@ class ProjectManager {
   late MqttAdapter _mqttAdapter;
   final projectOpenedEvent = Event();
   final projectClosedEvent = Event();
+  final projectDeletedEvent = Event();
   int? lastSavedProjectHash;
   final Future Function() _onClosingNotSaved;
   // asked before a project closes; one that returns false keeps it open, e.g. the recorder while recording
@@ -88,6 +89,18 @@ class ProjectManager {
       // the saved state is the new reference to check for changes
       lastSavedProjectHash = currentProject!.getHash();
     }
+  }
+
+  // the saved projects, last used first
+  Future<List<Project>> getProjects() async {
+    var projects = await LocalStore().getProjects();
+    projects.sort((x, y) => (y.lastUsed ?? DateTime(2000, 1, 1)).compareTo(x.lastUsed ?? DateTime(2000, 1, 1)));
+    return projects;
+  }
+
+  Future deleteProject(Project project) async {
+    await LocalStore().deleteProject(project);
+    projectDeletedEvent.broadcast();
   }
 
   bool hasProjectChanged() {

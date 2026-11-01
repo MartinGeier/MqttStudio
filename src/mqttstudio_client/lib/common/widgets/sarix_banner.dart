@@ -4,7 +4,7 @@ import 'package:mqttstudio/custom_theme.dart';
 import 'package:mqttstudio/service/piwik_tracking_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-// shown in the topic viewer while no project is open
+// shown in the topic viewer below the recent projects while no project is open
 class SarixBanner extends StatelessWidget {
   static const String _webSite = 'www.sarix.eu';
   static const String _email = 'info@sarix.eu';
@@ -13,27 +13,15 @@ class SarixBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) => SingleChildScrollView(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(minHeight: constraints.maxHeight),
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildHeader(context),
-                  SizedBox(height: 24),
-                  _buildStrengths(context),
-                  SizedBox(height: 24),
-                  _buildLinks(context),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildHeader(context),
+        SizedBox(height: 24),
+        _buildStrengths(context),
+        SizedBox(height: 24),
+        _buildLinks(context),
+      ],
     );
   }
 
