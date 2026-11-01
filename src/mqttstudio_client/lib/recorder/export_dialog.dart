@@ -118,7 +118,9 @@ class ExportDialog extends StatelessWidget {
                               border: OutlineInputBorder(),
                               labelText: 'export.columns.label'.tr(),
                               helperText: 'export.columns.helper'.tr(),
-                              isDense: true),
+                              isDense: true,
+                              suffixIcon: Tooltip(
+                                  message: 'export.columns.help'.tr(), child: Icon(Icons.info_outline, size: 20))),
                           validationMessages: {'jsonpath': (_) => 'recordingcharts.path.error'.tr()},
                           onSubmitted: (_) => _onExportPressed(vm),
                         ),

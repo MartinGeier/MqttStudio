@@ -150,22 +150,26 @@ class _DiscoverDialogState extends State<DiscoverDialog> {
     var theme = Theme.of(context);
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       for (var i = 0; i < vm.filters.controls.length; i++) ...[
+        if (i > 0) SizedBox(height: 12),
         _buildFilterRow(vm, vm.filters.controls[i] as FormGroup, i),
-        SizedBox(height: 12),
       ],
-      Row(children: [
-        TextButton.icon(
-            style: TextButton.styleFrom(minimumSize: Size(0, 36)),
-            onPressed: vm.addFilter,
-            icon: Icon(Icons.playlist_add),
-            label: Text('recorddialog.addfilter.button'.tr())),
-        if (vm.filters.hasErrors && vm.filters.errors.containsKey('noinclude'))
-          Padding(
-            padding: const EdgeInsets.only(left: 16),
-            child: Text('recorddialog.noinclude.error'.tr(),
-                style: theme.textTheme.bodySmall!.copyWith(color: theme.colorScheme.error)),
-          ),
-      ]),
+      // the last filter row keeps room for a validation message; the button moves up into it
+      Transform.translate(
+        offset: Offset(0, -12),
+        child: Row(children: [
+          TextButton.icon(
+              style: TextButton.styleFrom(minimumSize: Size(0, 36)),
+              onPressed: vm.addFilter,
+              icon: Icon(Icons.playlist_add),
+              label: Text('recorddialog.addfilter.button'.tr())),
+          if (vm.filters.hasErrors && vm.filters.errors.containsKey('noinclude'))
+            Padding(
+              padding: const EdgeInsets.only(left: 16),
+              child: Text('recorddialog.noinclude.error'.tr(),
+                  style: theme.textTheme.bodySmall!.copyWith(color: theme.colorScheme.error)),
+            ),
+        ]),
+      ),
     ]);
   }
 
@@ -209,7 +213,7 @@ class _DiscoverDialogState extends State<DiscoverDialog> {
   }
 
   Widget _buildStop(DiscoverViewmodel vm) {
-    return SrxFormRow(children: [
+    var row = SrxFormRow(children: [
       Expanded(
         flex: 3,
         child: ReactiveDropdownField<DiscoveryStop>(
@@ -233,6 +237,7 @@ class _DiscoverDialogState extends State<DiscoverDialog> {
       ),
       Spacer(flex: 3),
     ]);
+    return vm.isLive ? row : Tooltip(message: 'discoverdialog.stop.disabled.tooltip'.tr(), child: row);
   }
 
   Widget _intField(String name, String labelKey) {

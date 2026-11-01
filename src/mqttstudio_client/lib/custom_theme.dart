@@ -31,6 +31,8 @@ class CustomTheme {
         shape: WidgetStateProperty.all(RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0))),
       )),
       textButtonTheme: TextButtonThemeData(style: ButtonStyle(minimumSize: WidgetStateProperty.all(Size(150, 48)))),
+      // long explanations wrap instead of spanning the window; 24 is Flutter's desktop default height
+      tooltipTheme: TooltipThemeData(constraints: BoxConstraints(minHeight: 24, maxWidth: 400)),
       textTheme: ThemeData.light()
           .textTheme
           .copyWith(titleSmall: TextStyle(fontWeight: FontWeight.w600), titleMedium: TextStyle(fontSize: 16)));
