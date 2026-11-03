@@ -45,6 +45,9 @@ class RetainedScanner {
     var connection = _connecting = SideConnection(_factory, reconnect: false);
     try {
       await connection.connect(SideConnection.settingsFor(settings, 'retained'));
+    } on SideConnectionClosedError {
+      // close() ran while connecting, the connection is closed already
+      return;
     } finally {
       if (identical(_connecting, connection)) {
         _connecting = null;

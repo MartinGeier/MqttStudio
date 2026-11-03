@@ -64,6 +64,9 @@ class _UnreadableFile implements RecordingFile {
   Future<void> truncate(int length) => _file.truncate(length);
 
   @override
+  Future<void> touch() => _file.touch();
+
+  @override
   Future<void> close() async {
     closed = true;
     await _file.close();
@@ -163,6 +166,27 @@ void main() {
       async.elapse(const Duration(seconds: 5));
       expect(publisher.sent.length, count);
       expect(runner.isDeviceRunning(line.id), isFalse);
+      runner.dispose();
+    });
+  });
+
+  test('every outage of a run with only recorded devices is reported once', () {
+    fakeAsync((async) {
+      record(async);
+      var publisher = _Publisher(async);
+      var runner = runnerFor(publisher);
+      var lost = 0;
+      runner.connectionLostEvent.subscribe((_) => lost++);
+      runner.startDevice(device(playback: PlaybackOptions(loop: true, remaps: [TopicRemap('plant/', 'test/{n}/')])));
+      async.flushMicrotasks();
+
+      for (var outage = 1; outage <= 2; outage++) {
+        publisher.isConnected = false;
+        async.elapse(const Duration(seconds: 4));
+        expect(lost, outage);
+        publisher.isConnected = true;
+        async.elapse(const Duration(seconds: 4));
+      }
       runner.dispose();
     });
   });

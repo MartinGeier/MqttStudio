@@ -224,7 +224,13 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
     if (cached != null) {
       return cached.value;
     }
-    var result = match.profile.interpret(match, protocolData(message), context: _BufferContext(this));
+    Interpretation? result;
+    try {
+      result = match.profile.interpret(match, protocolData(message), context: _BufferContext(this));
+    } catch (exc) {
+      // a profile that fails on a message shows it uninterpreted instead of failing on every rebuild
+      debugPrint('Interpreting ${message.topicName} failed: $exc');
+    }
     _interpreted[message] = _Interpreted(result);
     return result;
   }

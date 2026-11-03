@@ -538,6 +538,7 @@ class SimulatorRunner {
   }
 
   void _recordedPublished(SimulatedDevice device, int instance, RecordedMessage message) {
+    _connectionLostReported = false;
     var text = message.payload.length > 200 ? null : _tryUtf8(message.payload);
     recordedStatsOf(device.id, message.topic)
       ..sent += 1
