@@ -105,16 +105,92 @@ void main() {
       expect(groups.single.messages.single.topicName, 'home/temp');
     });
 
-    test('adds new messages to the groups after they were built', () {
+    test('builds the groups again with the messages received since', () {
       buffer.storeMessage(message('a', '1', receivedOn: start.add(Duration(seconds: 1))));
-      var groups = buffer.getGroupMessages(MessageGroupTimePeriod.tenSeconds, null);
+      var before = buffer.getGroupMessages(MessageGroupTimePeriod.tenSeconds, null);
 
       buffer.storeMessage(message('a', '2', receivedOn: start.add(Duration(seconds: 3))));
       buffer.storeMessage(message('a', '3', receivedOn: start.add(Duration(seconds: 15))));
+      var groups = buffer.getGroupMessages(MessageGroupTimePeriod.tenSeconds, null);
 
-      expect(groups.length, 2);
-      expect(groups.first.messages.length, 1);
-      expect(groups.last.messages.length, 2);
+      expect(before.single.messages.length, 1);
+      expect(groups.map((x) => x.messages.length), [1, 2]);
+    });
+  });
+
+  group('MQTTMessageBuffer limits', () {
+    test('drops the oldest messages beyond the message limit', () {
+      buffer = MQTTMessageBuffer(maxMessages: 3);
+      for (var i = 0; i < 5; i++) {
+        buffer.storeMessage(message(i.isEven ? 'a' : 'b', '$i'));
+      }
+
+      expect(buffer.length, 3);
+      expect(buffer.droppedCount, 2);
+      expect(buffer.allMessages.map((x) => x.payload), [toPayload('2'), toPayload('3'), toPayload('4')]);
+      expect(buffer.getTopicMessages('a').map((x) => x.payload), [toPayload('4'), toPayload('2')]);
+      expect(buffer.getTopicMessageCount('b'), 1);
+    });
+
+    test('drops the oldest messages beyond the byte limit', () {
+      // each message has 1 topic byte and 9 payload bytes
+      buffer = MQTTMessageBuffer(maxBytes: 25);
+      for (var i = 0; i < 3; i++) {
+        buffer.storeMessage(message('a', '12345678$i'));
+      }
+
+      expect(buffer.length, 2);
+      expect(buffer.getLastMessage()!.payload, toPayload('123456782'));
+    });
+
+    test('forgets a topic whose messages were all dropped, but keeps it in the tree', () {
+      buffer = MQTTMessageBuffer(maxMessages: 2);
+      buffer.storeMessage(message('a', '1'));
+      buffer.storeMessage(message('b', '2'));
+      buffer.storeMessage(message('b', '3'));
+
+      expect(buffer.getTopicMessageCount('a'), 0);
+      expect(buffer.getLastMessageForTopic('a'), isNull);
+      expect(buffer.findNode('a')!.messageCount, 1);
+      expect(buffer.findNode('b')!.messageCount, 2);
+    });
+
+    test('finds the previous message of a topic among the kept ones', () {
+      buffer = MQTTMessageBuffer(maxMessages: 3);
+      var first = message('a', '1');
+      var second = message('a', '2');
+      var third = message('a', '3');
+      var fourth = message('a', '4');
+      for (var msg in [first, second, third, fourth]) {
+        buffer.storeMessage(msg);
+      }
+
+      expect(buffer.getPreviousMessage(fourth), same(third));
+      expect(buffer.getPreviousMessage(second), isNull);
+      expect(buffer.getPreviousMessage(first), isNull);
+    });
+
+    test('clear resets the dropped count and the size', () {
+      buffer = MQTTMessageBuffer(maxMessages: 1, maxBytes: 20);
+      buffer.storeMessage(message('a', '123456789'));
+      buffer.storeMessage(message('a', '123456789'));
+
+      buffer.clear();
+      buffer.storeMessage(message('a', '123456789'));
+      buffer.storeMessage(message('b', '1'));
+
+      expect(buffer.droppedCount, 1);
+      expect(buffer.allMessages.single.topicName, 'b');
+    });
+
+    test('keeps a whole recording beyond the limits', () {
+      buffer = MQTTMessageBuffer(maxMessages: 2);
+
+      buffer.storeAll([for (var i = 0; i < 5; i++) message('a', '$i')]);
+
+      expect(buffer.length, 5);
+      expect(buffer.droppedCount, 0);
+      expect(buffer.getTopicMessageCount('a'), 5);
     });
   });
 

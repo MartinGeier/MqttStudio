@@ -9,8 +9,10 @@ import 'package:srx_flutter/srx_flutter.dart';
 class SaveBufferDialog extends StatefulWidget {
   final String name;
   final int messageCount;
+  final int droppedCount;
 
-  const SaveBufferDialog({Key? key, required this.name, required this.messageCount}) : super(key: key);
+  const SaveBufferDialog({Key? key, required this.name, required this.messageCount, this.droppedCount = 0})
+      : super(key: key);
 
   @override
   State<SaveBufferDialog> createState() => _SaveBufferDialogState();
@@ -37,9 +39,7 @@ class _SaveBufferDialogState extends State<SaveBufferDialog> {
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               Padding(
                 padding: const EdgeInsets.only(bottom: 16),
-                child: Text(
-                    'savebufferdialog.note'.tr(args: [NumberFormat.decimalPattern('en').format(widget.messageCount)]),
-                    style: theme.textTheme.bodyMedium!.copyWith(color: Colors.black87)),
+                child: Text(_note(), style: theme.textTheme.bodyMedium!.copyWith(color: Colors.black87)),
               ),
               SrxFormRow(children: [
                 Expanded(
@@ -74,6 +74,15 @@ class _SaveBufferDialogState extends State<SaveBufferDialog> {
         ),
       ],
     );
+  }
+
+  String _note() {
+    var format = NumberFormat.decimalPattern('en');
+    var note = 'savebufferdialog.note'.tr(args: [format.format(widget.messageCount)]);
+    if (widget.droppedCount == 0) {
+      return note;
+    }
+    return '$note ${'savebufferdialog.dropped.note'.tr(args: [format.format(widget.droppedCount)])}';
   }
 
   void _onSavePressed() {

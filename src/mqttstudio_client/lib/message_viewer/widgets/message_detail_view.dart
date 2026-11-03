@@ -248,6 +248,13 @@ class _MessageDetailViewState extends State<MessageDetailView> {
 
   Padding _buildMessageCount(BuildContext context, MessageViewerViewmodel viewmodel, NumberFormat nf) {
     var msgCount = viewmodel.getSelectedMessageCount();
+    var receivedCount = viewmodel.getSelectedReceivedCount();
+    Widget count = SelectableText(msgCount.toString(), style: Theme.of(context).textTheme.headlineSmall);
+    if (receivedCount > msgCount) {
+      count = Tooltip(
+          message: 'messagedetailview.messagecount.dropped.tooltip'.tr(args: [nf.format(msgCount), nf.format(receivedCount)]),
+          child: count);
+    }
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(mainAxisAlignment: MainAxisAlignment.start, children: [
@@ -255,7 +262,7 @@ class _MessageDetailViewState extends State<MessageDetailView> {
           width: 80,
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('messagedetailview.messagecount.label'.tr(), style: Theme.of(context).textTheme.titleMedium),
-            SelectableText(msgCount.toString(), style: Theme.of(context).textTheme.headlineSmall)
+            count,
           ]),
         ),
       ]),

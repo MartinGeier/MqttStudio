@@ -340,7 +340,10 @@ class _TopicsViewCommandBarState extends State<TopicsViewCommandBar> {
         context: context,
         builder: (_) => SrxTheme(
             data: CustomTheme.srxTheme,
-            child: SaveBufferDialog(name: viewmodel.defaultRecordingName, messageCount: viewmodel.messageBuffer.length)));
+            child: SaveBufferDialog(
+                name: viewmodel.defaultRecordingName,
+                messageCount: viewmodel.messageBuffer.length,
+                droppedCount: viewmodel.messageBuffer.droppedCount)));
     if (name == null || !mounted) {
       return;
     }

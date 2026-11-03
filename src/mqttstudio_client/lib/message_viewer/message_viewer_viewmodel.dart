@@ -153,6 +153,12 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
     return selectedMessage != null ? _messageViewer.messageBuffer.getTopicMessageCount(selectedMessage!.topicName) : 0;
   }
 
+  // more than the count kept once the buffer dropped old messages of the topic
+  int getSelectedReceivedCount() {
+    var topic = selectedMessage?.topicName;
+    return topic == null ? 0 : _messageViewer.messageBuffer.findNode(topic)?.messageCount ?? 0;
+  }
+
   MessageFilter? get filter => _filter;
 
   String get filterText => _filterText;

@@ -1,38 +1,57 @@
+import 'dart:collection';
 import 'package:mqttstudio/message_viewer/message_filter.dart';
 import 'package:mqttstudio/message_viewer/topic_stats.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
 import 'package:darq/darq.dart';
 
-// Stores all received messages as sequential list and as hierarchy. Offers methods to get and filter messages.
+// Stores the received messages as sequential list, per topic and as hierarchy. Offers methods to get and filter
+// messages. Received messages are kept up to maxMessages and maxBytes, after that the oldest are dropped; the tree
+// keeps its topics, counts and statistics of everything received.
 class MQTTMessageBuffer {
+  static const int defaultMaxMessages = 100000;
+  static const int defaultMaxBytes = 200 * 1024 * 1024;
+
   final _maxDisplayMessages = 2000; // this is the maximum number of messages returned by the methods called by the view. We need to
   // limit the number of messages for performance reasons
 
-  List<ReceivedMqttMessage> _buffer = [];
-  MessageGroupTimePeriod? _currentPeriod;
-  List<MessageGroup> _groupedMessages = [];
-  MessageNode _messagesTree = MessageNode('', null);
+  final int maxMessages;
+  // payload and topic bytes
+  final int maxBytes;
+
+  // oldest first
+  final ListQueue<ReceivedMqttMessage> _buffer = ListQueue();
+  final Map<String, ListQueue<ReceivedMqttMessage>> _byTopic = {};
+  int _bytes = 0;
+  int _droppedCount = 0;
+  final MessageNode _messagesTree = MessageNode('', null);
+
+  MQTTMessageBuffer({this.maxMessages = defaultMaxMessages, this.maxBytes = defaultMaxBytes});
 
   void storeMessage(ReceivedMqttMessage msg) {
-    _buffer.insert(0, msg);
-    _addToLastMessageGroup(msg);
+    _add(msg);
     _updateMessagesTree(msg, _messagesTree, 0);
+    while (_buffer.length > maxMessages || _bytes > maxBytes) {
+      _dropOldest();
+    }
   }
 
-  // replaces the content with the given messages, oldest first, in one go instead of one insert per message
+  // replaces the content with the given messages, oldest first, in one go. A recording is kept whole, without the
+  // limits.
   void storeAll(List<ReceivedMqttMessage> messages) {
     clear();
-    _currentPeriod = null;
-    _buffer = List.of(messages.reversed);
     for (var msg in messages) {
+      _add(msg);
       _updateMessagesTree(msg, _messagesTree, 0);
     }
   }
 
   int get length => _buffer.length;
 
+  // the messages dropped since the last clear because the limits were reached
+  int get droppedCount => _droppedCount;
+
   // every stored message, oldest first, without the display limit
-  List<ReceivedMqttMessage> get allMessages => List.of(_buffer.reversed);
+  List<ReceivedMqttMessage> get allMessages => List.of(_buffer);
 
   MessageNode getMessagesTree(MessageFilter? filter) {
     if (filter == null) {
@@ -44,38 +63,44 @@ class MQTTMessageBuffer {
   }
 
   List<ReceivedMqttMessage> getMessages(MessageFilter? filter) {
+    var newestFirst = _newestFirst(_buffer);
     if (filter == null) {
-      return _buffer.take(_maxDisplayMessages).toList();
+      return newestFirst.take(_maxDisplayMessages).toList();
     } else {
-      return _buffer.where(filter.matches).take(_maxDisplayMessages).toList();
+      return newestFirst.where(filter.matches).take(_maxDisplayMessages).toList();
     }
   }
 
   ReceivedMqttMessage? getLastMessage() {
-    return _buffer.isEmpty ? null : _buffer.first;
+    return _buffer.isEmpty ? null : _buffer.last;
   }
 
   ReceivedMqttMessage? getLastMessageForTopic(String topic) {
-    return _buffer.isEmpty ? null : _buffer.firstWhereOrDefault((value) => value.topicName == topic);
+    var messages = _byTopic[topic];
+    return messages == null || messages.isEmpty ? null : messages.last;
   }
 
+  // the messages of the topic still kept, not all that were received
   int getTopicMessageCount(String topicName) {
-    return _buffer.count((x) => x.topicName == topicName);
+    return _byTopic[topicName]?.length ?? 0;
   }
 
+  // newest first
   List<ReceivedMqttMessage> getTopicMessages(String topicName) {
-    return _buffer.where((x) => x.topicName == topicName).toList();
+    var messages = _byTopic[topicName];
+    return messages == null ? [] : _newestFirst(messages).toList();
   }
 
-  // the message received on the same topic before the given one, null for the first one
+  // the message received on the same topic before the given one, null for the first one kept
   ReceivedMqttMessage? getPreviousMessage(ReceivedMqttMessage message) {
-    var index = _buffer.indexWhere((x) => identical(x, message));
-    if (index < 0) {
+    var messages = _byTopic[message.topicName];
+    if (messages == null) {
       return null;
     }
-    for (var i = index + 1; i < _buffer.length; i++) {
-      if (_buffer[i].topicName == message.topicName) {
-        return _buffer[i];
+    // the selected message is usually one of the newest, so search from the end
+    for (var i = messages.length - 1; i > 0; i--) {
+      if (identical(messages.elementAt(i), message)) {
+        return messages.elementAt(i - 1);
       }
     }
     return null;
@@ -94,58 +119,61 @@ class MQTTMessageBuffer {
     return node;
   }
 
+  // built again on every call, newest group first
   List<MessageGroup> getGroupMessages(MessageGroupTimePeriod period, MessageFilter? filter) {
-    _groupedMessages = [];
-    if (_buffer.isEmpty) {
-      return _groupedMessages;
-    }
-
+    var groupedMessages = <MessageGroup>[];
     var messages = getMessages(filter);
     if (messages.isEmpty) {
-      return _groupedMessages;
+      return groupedMessages;
     }
 
     DateTime groupEndTime = _calcGroupEndTime(messages.first.receivedOn, period);
     DateTime groupBeginTime = _calcGroupBeginTime(groupEndTime, period);
     MessageGroup msgGroup = MessageGroup(groupBeginTime);
-    _groupedMessages.add(msgGroup);
+    groupedMessages.add(msgGroup);
     for (var msg in messages) {
       if (msg.receivedOn.isBefore(groupBeginTime)) {
         groupEndTime = _calcGroupEndTime(msg.receivedOn, period);
         groupBeginTime = _calcGroupBeginTime(groupEndTime, period);
         msgGroup = MessageGroup(groupBeginTime);
-        _groupedMessages.add(msgGroup);
+        groupedMessages.add(msgGroup);
       }
       msgGroup.messages.add(msg);
     }
 
-    _currentPeriod = period;
-    return _groupedMessages;
+    return groupedMessages;
   }
 
   void clear() {
     _buffer.clear();
-    _groupedMessages.clear();
+    _byTopic.clear();
+    _bytes = 0;
+    _droppedCount = 0;
     _messagesTree.children.clear();
   }
 
-  void _addToLastMessageGroup(ReceivedMqttMessage msg) {
-    if (_currentPeriod == null) {
-      return;
-    }
+  void _add(ReceivedMqttMessage msg) {
+    _buffer.addLast(msg);
+    _byTopic.putIfAbsent(msg.topicName, ListQueue.new).addLast(msg);
+    _bytes += _sizeOf(msg);
+  }
 
-    DateTime groupEndTime = _calcGroupEndTime(msg.receivedOn, _currentPeriod!);
-    DateTime groupBeginTime = _calcGroupBeginTime(groupEndTime, _currentPeriod!);
-    MessageGroup msgGroup = MessageGroup(groupBeginTime);
-    if (_groupedMessages.isEmpty || _groupedMessages.first.beginOfPeriod.isBefore(groupBeginTime)) {
-      msgGroup.messages.add(msg);
-      _groupedMessages.insert(0, msgGroup);
-    } else {
-      _groupedMessages.first.messages.insert(0, msg);
+  // the oldest message is always the oldest of its topic too
+  void _dropOldest() {
+    var oldest = _buffer.removeFirst();
+    var messages = _byTopic[oldest.topicName]!..removeFirst();
+    if (messages.isEmpty) {
+      _byTopic.remove(oldest.topicName);
     }
+    _bytes -= _sizeOf(oldest);
+    _droppedCount++;
+  }
 
-    if (_groupedMessages.fold<int>(0, (previousValue, element) => previousValue + element.messages.length) > _maxDisplayMessages) {
-      _groupedMessages.removeLast();
+  int _sizeOf(ReceivedMqttMessage msg) => msg.payload.length + msg.topicName.length;
+
+  static Iterable<ReceivedMqttMessage> _newestFirst(ListQueue<ReceivedMqttMessage> messages) sync* {
+    for (var i = messages.length - 1; i >= 0; i--) {
+      yield messages.elementAt(i);
     }
   }
 
