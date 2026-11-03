@@ -35,10 +35,14 @@ void main() {
               Text('documentation.delete.confirm'.plural(1, namedArgs: {'path': 'a/b'})),
               Text('documentation.delete.confirm'.plural(3, namedArgs: {'path': 'a'})),
               Text('docreview.template.meta'.plural(24)),
+              Text('documentation.simulationcreated.info'.plural(1, namedArgs: {'devices': 'Line'})),
+              Text('documentation.simulationcreated.info'.plural(2, namedArgs: {'devices': 'Line, Press'})),
             ]))));
     await tester.pumpAndSettle();
     expect(find.text('Delete the documentation of a/b?'), findsOneWidget);
     expect(find.text('Delete a and everything below it (3 documented entries)?'), findsOneWidget);
     expect(find.text('Template · 24 topics'), findsOneWidget);
+    expect(find.text('Added the simulated device Line'), findsOneWidget);
+    expect(find.text('Added 2 simulated devices: Line, Press'), findsOneWidget);
   });
 }

@@ -253,7 +253,9 @@ class DocumentationDialogs {
     var names = vm.createSimulation(path);
     DefaultTabController.maybeOf(context)?.animateTo(MainAppBar.simulatorTab);
     ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('documentation.simulationcreated.info'.plural(names.length, args: [names.join(', ')]))));
+        SnackBar(
+            content: Text(
+                'documentation.simulationcreated.info'.plural(names.length, namedArgs: {'devices': names.join(', ')}))));
   }
 
   // the topic details are lost
