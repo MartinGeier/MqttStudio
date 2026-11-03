@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'dart:typed_data';
+import 'package:clock/clock.dart';
 import 'package:mqttstudio/recorder/format/record_codec.dart';
 import 'package:mqttstudio/recorder/format/summary_builder.dart';
 import 'package:mqttstudio/recorder/model/recorded_message.dart';
@@ -13,6 +14,9 @@ class RecordingWriter {
   static const int seekEvery = 1000;
   // flush earlier when this much is waiting
   static const int flushThreshold = 256 * 1024;
+  // a flush with nothing to write touches the file at this interval, so the library (another process, e.g. the app
+  // while the CLI records) doesn't take a quiet recording for a crashed one
+  static const Duration touchInterval = Duration(seconds: 5);
 
   final RecordingFile file;
   final RecordingHeader header;
@@ -24,6 +28,9 @@ class RecordingWriter {
   int _length = 0;
   int _lastOffsetMicros = 0;
   bool _finished = false;
+  // an append failed: nothing more is written, the file can only be abandoned
+  bool _failed = false;
+  DateTime _lastWrite = clock.now();
 
   RecordingWriter._(this.file, this.header);
 
@@ -73,10 +80,43 @@ class RecordingWriter {
   }
 
   Future<void> flush() async {
-    if (_buffer.isEmpty) {
+    if (_failed) {
       return;
     }
-    await file.append(_buffer.takeBytes());
+    var now = clock.now();
+    if (_buffer.isEmpty) {
+      if (now.difference(_lastWrite) >= touchInterval) {
+        _lastWrite = now;
+        try {
+          await file.touch();
+        } catch (_) {
+          // without the newer time the file still works, the library might only recover it too early
+        }
+      }
+      return;
+    }
+    _lastWrite = now;
+    var bytes = _buffer.takeBytes();
+    try {
+      await file.append(bytes);
+    } catch (_) {
+      await _onAppendFailed(bytes.length);
+      rethrow;
+    }
+  }
+
+  // Part of the bytes may have reached the file; recovery cuts the file at its last intact record. length follows
+  // what the file holds, so it never points past it.
+  Future<void> _onAppendFailed(int failedBytes) async {
+    _failed = true;
+    var written = _length - failedBytes - _buffer.length;
+    _buffer.clear();
+    try {
+      written = await file.length();
+    } catch (_) {
+      // assume that nothing of the failed append was written
+    }
+    _length = written;
   }
 
   // writes the footer and the trailer and closes the file
@@ -88,6 +128,9 @@ class RecordingWriter {
       bool recovered = false,
       String? projectName}) async {
     _checkOpen();
+    if (_failed) {
+      throw StateError('The recording ${file.name} could not be written');
+    }
     var footer = RecordingFooter(
       name: name,
       notes: notes,
@@ -119,6 +162,9 @@ class RecordingWriter {
   }
 
   void _write(Uint8List bytes) {
+    if (_failed) {
+      return;
+    }
     _buffer.add(bytes);
     _length += bytes.length;
   }

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/services.dart';
 import 'package:mqttstudio/model/mqtt_settings.dart';
 import 'package:mqttstudio/service/service_error.dart';
@@ -9,12 +10,23 @@ class TlsContext {
   static const String bundledCaAsset = 'assets/cert/mosquitto.org.crt';
 
   static Uint8List? _bundledCa;
+  static Future<void>? _loadingBundledCa;
 
-  // trusts the CA of test.mosquitto.org in every connection
-  static Future loadBundledCa() async {
-    var data = await rootBundle.load(bundledCaAsset);
-    _bundledCa = data.buffer.asUint8List();
-    SecurityContext.defaultContext.setTrustedCertificatesBytes(_bundledCa!);
+  // trusts the CA of test.mosquitto.org in every connection; loaded once, later calls wait for the first one
+  static Future<void> loadBundledCa() => _loadingBundledCa ??= _loadBundledCa();
+
+  @visibleForTesting
+  static bool get isBundledCaLoaded => _bundledCa != null;
+
+  static Future<void> _loadBundledCa() async {
+    try {
+      var data = await rootBundle.load(bundledCaAsset);
+      _bundledCa = data.buffer.asUint8List();
+      SecurityContext.defaultContext.setTrustedCertificatesBytes(_bundledCa!);
+    } catch (exc) {
+      // connections to other brokers still work without it
+      print('MQTT: cannot load the bundled CA certificate [$exc]');
+    }
   }
 
   // A context with the certificates of the project, or null if the default context is enough.

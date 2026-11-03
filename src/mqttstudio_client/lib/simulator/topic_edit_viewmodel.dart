@@ -169,6 +169,9 @@ class TopicEditViewmodel extends SrxChangeNotifier {
     if (device.instanceCount > 1 && !Placeholders.containsInstance(value)) {
       return {'needsInstance': true};
     }
+    if (Placeholders.hasTooWideInstance(value)) {
+      return {'placeholderTooWide': true};
+    }
     return null;
   }
 

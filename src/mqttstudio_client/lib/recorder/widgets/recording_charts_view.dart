@@ -88,7 +88,8 @@ class RecordingChartsView extends StatelessWidget {
                 border: OutlineInputBorder(),
                 isDense: true,
                 labelText: 'recordingcharts.path.label'.tr(),
-                hintText: r'$.sensor.value'),
+                hintText: r'$.sensor.value',
+                suffixIcon: Tooltip(message: 'recordingcharts.path.help'.tr(), child: Icon(Icons.info_outline, size: 20))),
             validationMessages: {'jsonpath': (_) => 'recordingcharts.path.error'.tr()},
             onSubmitted: (_) => vm.applyPath(),
           ),
@@ -257,7 +258,7 @@ class RecordingChartsView extends StatelessWidget {
         TileLayer(
           urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
           // OpenStreetMap blocks requests without a user agent identifying the app
-          userAgentPackageName: 'eu.redpin.mqttstudio',
+          userAgentPackageName: 'eu.sarix.mqttstudio',
         ),
         PolylineLayer(polylines: [
           Polyline(points: track, strokeWidth: 3, color: vm.colorOf(vm.topic!).color),

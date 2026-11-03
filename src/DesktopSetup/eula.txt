@@ -1,6 +1,6 @@
 MQTT Studio - End User License Agreement
 
-MQTT Studio is copyrighted and licensed (not sold). By purchasing the program, you are accepting and agreeing to the terms of this license agreement. This license agreement represents the entire agreement concerning the program, between you and Redpin., (referred to as "licensor"), and it supersedes any prior proposal, representation, or understanding between the parties.
+MQTT Studio is copyrighted and licensed (not sold). By purchasing the program, you are accepting and agreeing to the terms of this license agreement. This license agreement represents the entire agreement concerning the program, between you and Sarix (referred to as "licensor"), and it supersedes any prior proposal, representation, or understanding between the parties.
 
 1. License Grant. Licensor hereby grants to you, and you accept, a nonexclusive license to use the program in machine -readable, object code form only, for use only as authorized in this License Agreement. The Programs may be used only on computers owned, leased or otherwise controlled by you. The full edition of the program shall only manage the number of user accounts specified in the purchase agreement. You agree that you may not reverse assemble, reverse compile, or otherwise translate the Program.
 

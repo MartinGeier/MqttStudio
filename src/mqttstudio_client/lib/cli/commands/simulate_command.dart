@@ -18,6 +18,9 @@ import 'package:mqttstudio/simulator/engine/simulation_rules.dart';
 import 'package:mqttstudio/simulator/engine/simulator_publisher.dart';
 import 'package:mqttstudio/simulator/engine/simulator_runner.dart';
 import 'package:mqttstudio/simulator/model/simulation.dart';
+import 'package:mqttstudio/simulator/sparkplug/simulated_sparkplug_device.dart';
+import 'package:mqttstudio/simulator/vda5050/simulated_fleet.dart';
+import 'package:mqttstudio/simulator/engine/placeholders.dart';
 
 // mqttstudio simulate: runs the simulation of a saved project, or some of its devices (doc/cli-design.md §2.4)
 class SimulateCommand extends CliCommand with BrokerOptions {
@@ -58,6 +61,10 @@ class SimulateCommand extends CliCommand with BrokerOptions {
     var recordings = await _findRecordings(devices);
 
     var rate = SimulationRules.estimateRate(topics) +
+        devices.where((device) => device.isVda5050).fold(0.0, (sum, device) => sum + SimulatedFleet.rateOf(device)) +
+        devices
+            .where((device) => device.isSparkplug)
+            .fold(0.0, (sum, device) => sum + SimulatedSparkplugDevice.rateOf(device)) +
         recordings.entries.fold(
             0.0,
             (sum, entry) =>
@@ -156,7 +163,7 @@ class SimulateCommand extends CliCommand with BrokerOptions {
   }
 
   void _validate(Simulation simulation, List<SimulatedDevice> devices, List<(SimulatedDevice, SimulatedTopic)> topics) {
-    if (topics.isEmpty && !devices.any((device) => device.isRecorded)) {
+    if (topics.isEmpty && devices.every((device) => device.isGenerated)) {
       throw CliException(CliExitCode.invalid, 'The selected devices have no topics.');
     }
     var issues = SimulationRules.validateSimulation(simulation, devices);
@@ -172,6 +179,13 @@ class SimulateCommand extends CliCommand with BrokerOptions {
       if (recording != null) {
         return '${device.name}: ${CliFormat.instances(device)}, recording "${recording.name}" at '
             '${_speed(device.recorded!.playback.speed)}${device.recorded!.playback.loop ? ', loop' : ''}';
+      }
+      if (device.isVda5050) {
+        return '${device.name}: ${device.instanceCount} VDA 5050 ${device.vda5050!.version.protocolVersion} robots';
+      }
+      if (device.isSparkplug) {
+        return '${device.name}: ${device.instanceCount} Sparkplug B edge '
+            '${device.instanceCount == 1 ? 'node' : 'nodes'} in group ${device.sparkplug!.groupId}';
       }
       return '${device.name}: ${CliFormat.instances(device)}, ${device.topics.length} '
           '${device.topics.length == 1 ? 'topic' : 'topics'}';
@@ -199,6 +213,8 @@ class SimulateCommand extends CliCommand with BrokerOptions {
                 'topics': recordings[device]?.footer.topics.where(device.recorded!.playback.plays).length ??
                     device.topics.length,
                 if (recordings[device] != null) 'recording': recordings[device]!.name,
+                if (device.isVda5050) 'vda5050': device.vda5050!.version.protocolVersion,
+                if (device.isSparkplug) 'sparkplug': device.sparkplug!.groupId,
               }
           ],
           'estimatedRate': rate,
@@ -217,6 +233,28 @@ class SimulateCommand extends CliCommand with BrokerOptions {
           out.event('topic', {'device': device.name, 'topic': topic, 'recorded': true, 'target': target},
               text: '  ${device.name} / $topic  recorded  → $target');
         }
+      }
+      if (device.isVda5050) {
+        var source = device.vda5050!;
+        var prefixes = [
+          for (var n in device.instanceNumbers) Placeholders.resolve(source.topicPrefix, instance: n, deviceName: device.name)
+        ];
+        out.event('topic', {'device': device.name, 'vda5050': source.version.protocolVersion, 'robots': prefixes},
+            text: '  ${device.name}  VDA 5050 ${source.version.protocolVersion}  → '
+                '${prefixes.length == 1 ? prefixes.first : '${prefixes.first} … ${prefixes.last}'}/…');
+      }
+      if (device.isSparkplug) {
+        var source = device.sparkplug!;
+        var nodes = [
+          for (var n in device.instanceNumbers)
+            Placeholders.resolve(source.edgeNodeId, instance: n, deviceName: device.name),
+        ];
+        out.event(
+          'topic',
+          {'device': device.name, 'sparkplug': source.groupId, 'edgeNodes': nodes},
+          text: '  ${device.name}  Sparkplug B  → spBv1.0/${source.groupId}/…/'
+              '${nodes.length == 1 ? nodes.first : '${nodes.first} … ${nodes.last}'}',
+        );
       }
       for (var topic in device.topics) {
         var resolved = SimulationRules.resolvedTopics(device, topic);
@@ -267,10 +305,16 @@ class _Run {
   Output get out => command.out;
 
   Future<int> execute() async {
-    runner = SimulatorRunner(MqttAdapterPublisher(adapter), seed: options.seed, openRecording: (source) async {
-      var info = recordings.entries.firstWhere((entry) => entry.key.recorded == source).value;
-      return command.library!.store.open(info.fileName);
-    });
+    runner = SimulatorRunner(
+      MqttAdapterPublisher(adapter),
+      seed: options.seed,
+      openRecording: (source) async {
+        var info = recordings.entries.firstWhere((entry) => entry.key.recorded == source).value;
+        return command.library!.store.open(info.fileName);
+      },
+      // Sparkplug edge nodes connect with the same settings, each on a connection of its own
+      connections: SimulatorConnections(settings: () => settings, factory: command.context.createAdapter),
+    );
     runner.topicErrorEvent.subscribe(_onTopicError);
     adapter.onDisconnectedEvent.subscribe(_onDisconnected);
     var interrupts = command.context.interrupts().listen((_) => _onInterrupt());
@@ -300,7 +344,7 @@ class _Run {
     runner.stopAll();
     adapter.onDisconnectedEvent.unsubscribe(_onDisconnected);
     if (options.clearRetained && adapter.isConnected()) {
-      var cleared = runner.clearRetained(topics);
+      var cleared = runner.clearRetained(topics) + runner.clearRetainedConnections(devices);
       await Future.delayed(_socketFlushTime);
       out.event('retainedCleared', {'topics': cleared}, text: 'Cleared $cleared retained topics.');
     }

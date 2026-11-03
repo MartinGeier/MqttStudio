@@ -1,148 +1,197 @@
+import 'dart:collection';
+import 'package:mqttstudio/message_viewer/message_filter.dart';
+import 'package:mqttstudio/message_viewer/topic_stats.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
 import 'package:darq/darq.dart';
 
-// Stores all received messages as sequential list and as hierarchy. Offers methods to get and filter messages.
+// Stores the received messages as sequential list, per topic and as hierarchy. Offers methods to get and filter
+// messages. Received messages are kept up to maxMessages and maxBytes, after that the oldest are dropped; the tree
+// keeps its topics, counts and statistics of everything received.
 class MQTTMessageBuffer {
+  static const int defaultMaxMessages = 100000;
+  static const int defaultMaxBytes = 200 * 1024 * 1024;
+
   final _maxDisplayMessages = 2000; // this is the maximum number of messages returned by the methods called by the view. We need to
   // limit the number of messages for performance reasons
 
-  List<ReceivedMqttMessage> _buffer = [];
-  MessageGroupTimePeriod? _currentPeriod;
-  List<MessageGroup> _groupedMessages = [];
-  MessageNode _messagesTree = MessageNode('', null);
+  final int maxMessages;
+  // payload and topic bytes
+  final int maxBytes;
+
+  // oldest first
+  final ListQueue<ReceivedMqttMessage> _buffer = ListQueue();
+  final Map<String, ListQueue<ReceivedMqttMessage>> _byTopic = {};
+  int _bytes = 0;
+  int _droppedCount = 0;
+  final MessageNode _messagesTree = MessageNode('', null);
+
+  MQTTMessageBuffer({this.maxMessages = defaultMaxMessages, this.maxBytes = defaultMaxBytes});
 
   void storeMessage(ReceivedMqttMessage msg) {
-    _buffer.insert(0, msg);
-    _addToLastMessageGroup(msg);
+    _add(msg);
     _updateMessagesTree(msg, _messagesTree, 0);
+    while (_buffer.length > maxMessages || _bytes > maxBytes) {
+      _dropOldest();
+    }
   }
 
-  // replaces the content with the given messages, oldest first, in one go instead of one insert per message
+  // replaces the content with the given messages, oldest first, in one go. A recording is kept whole, without the
+  // limits.
   void storeAll(List<ReceivedMqttMessage> messages) {
     clear();
-    _currentPeriod = null;
-    _buffer = List.of(messages.reversed);
     for (var msg in messages) {
+      _add(msg);
       _updateMessagesTree(msg, _messagesTree, 0);
     }
   }
 
   int get length => _buffer.length;
 
-  // every stored message, oldest first, without the display limit
-  List<ReceivedMqttMessage> get allMessages => List.of(_buffer.reversed);
+  // the messages dropped since the last clear because the limits were reached
+  int get droppedCount => _droppedCount;
 
-  MessageNode getMessagesTree(String? filter) {
-    if (filter == null || filter.trim().isEmpty) {
+  // every stored message, oldest first, without the display limit
+  List<ReceivedMqttMessage> get allMessages => List.of(_buffer);
+
+  MessageNode getMessagesTree(MessageFilter? filter) {
+    if (filter == null) {
       return _messagesTree;
     }
 
-    // create a filtered copy of the messages tre
-    return _getFilteredMessagesTree(filter)!;
+    // create a filtered copy of the messages tree
+    return _getFilteredMessagesTree(filter, _messagesTree, null) ?? MessageNode('', null);
   }
 
-  List<ReceivedMqttMessage> getMessages(String? filter) {
+  // the topic of a node below the given one, null for the root; a topic like /a/b has the empty first level
+  static String topicOf(String? parentTopic, String level) => parentTopic == null ? level : '$parentTopic/$level';
+
+  List<ReceivedMqttMessage> getMessages(MessageFilter? filter) {
+    var newestFirst = _newestFirst(_buffer);
     if (filter == null) {
-      return _buffer.take(_maxDisplayMessages).toList();
+      return newestFirst.take(_maxDisplayMessages).toList();
     } else {
-      return _buffer.where((x) => x.topicName.toLowerCase().contains(filter.toLowerCase())).take(_maxDisplayMessages).toList();
+      return newestFirst.where(filter.matches).take(_maxDisplayMessages).toList();
     }
   }
 
   ReceivedMqttMessage? getLastMessage() {
-    return _buffer.isEmpty ? null : _buffer.first;
+    return _buffer.isEmpty ? null : _buffer.last;
   }
 
   ReceivedMqttMessage? getLastMessageForTopic(String topic) {
-    return _buffer.isEmpty ? null : _buffer.firstWhereOrDefault((value) => value.topicName == topic);
+    var messages = _byTopic[topic];
+    return messages == null || messages.isEmpty ? null : messages.last;
   }
 
+  // the messages of the topic still kept, not all that were received
   int getTopicMessageCount(String topicName) {
-    return _buffer.count((x) => x.topicName == topicName);
+    return _byTopic[topicName]?.length ?? 0;
   }
 
+  // newest first
   List<ReceivedMqttMessage> getTopicMessages(String topicName) {
-    return _buffer.where((x) => x.topicName == topicName).toList();
+    var messages = _byTopic[topicName];
+    return messages == null ? [] : _newestFirst(messages).toList();
   }
 
-  List<MessageGroup> getGroupMessages(MessageGroupTimePeriod period, String? filter) {
-    _groupedMessages = [];
-    if (_buffer.isEmpty) {
-      return _groupedMessages;
+  // the message received on the same topic before the given one, null for the first one kept
+  ReceivedMqttMessage? getPreviousMessage(ReceivedMqttMessage message) {
+    var messages = _byTopic[message.topicName];
+    if (messages == null) {
+      return null;
     }
+    // the selected message is usually one of the newest, so search from the end
+    for (var i = messages.length - 1; i > 0; i--) {
+      if (identical(messages.elementAt(i), message)) {
+        return messages.elementAt(i - 1);
+      }
+    }
+    return null;
+  }
 
+  // the node of a topic or topic level, null when no message arrived below it
+  MessageNode? findNode(String topic) {
+    var node = _messagesTree;
+    for (var level in topic.split('/')) {
+      var child = node.children.firstWhereOrDefault((x) => x.topicLevelName == level);
+      if (child == null) {
+        return null;
+      }
+      node = child;
+    }
+    return node;
+  }
+
+  // built again on every call, newest group first
+  List<MessageGroup> getGroupMessages(MessageGroupTimePeriod period, MessageFilter? filter) {
+    var groupedMessages = <MessageGroup>[];
     var messages = getMessages(filter);
     if (messages.isEmpty) {
-      return _groupedMessages;
+      return groupedMessages;
     }
 
-    DateTime groupEndTime = _calcGroupEndTime(messages.first.receivedOn, period);
-    DateTime groupBeginTime = _calcGroupBeginTime(groupEndTime, period);
+    DateTime groupBeginTime = _calcGroupBeginTime(messages.first.receivedOn, period);
     MessageGroup msgGroup = MessageGroup(groupBeginTime);
-    _groupedMessages.add(msgGroup);
+    groupedMessages.add(msgGroup);
     for (var msg in messages) {
       if (msg.receivedOn.isBefore(groupBeginTime)) {
-        groupEndTime = _calcGroupEndTime(msg.receivedOn, period);
-        groupBeginTime = _calcGroupBeginTime(groupEndTime, period);
+        groupBeginTime = _calcGroupBeginTime(msg.receivedOn, period);
         msgGroup = MessageGroup(groupBeginTime);
-        _groupedMessages.add(msgGroup);
+        groupedMessages.add(msgGroup);
       }
       msgGroup.messages.add(msg);
     }
 
-    _currentPeriod = period;
-    return _groupedMessages;
+    return groupedMessages;
   }
 
   void clear() {
     _buffer.clear();
-    _groupedMessages.clear();
+    _byTopic.clear();
+    _bytes = 0;
+    _droppedCount = 0;
     _messagesTree.children.clear();
   }
 
-  void _addToLastMessageGroup(ReceivedMqttMessage msg) {
-    if (_currentPeriod == null) {
-      return;
-    }
+  void _add(ReceivedMqttMessage msg) {
+    _buffer.addLast(msg);
+    _byTopic.putIfAbsent(msg.topicName, ListQueue.new).addLast(msg);
+    _bytes += _sizeOf(msg);
+  }
 
-    DateTime groupEndTime = _calcGroupEndTime(msg.receivedOn, _currentPeriod!);
-    DateTime groupBeginTime = _calcGroupBeginTime(groupEndTime, _currentPeriod!);
-    MessageGroup msgGroup = MessageGroup(groupBeginTime);
-    if (_groupedMessages.isEmpty || _groupedMessages.first.beginOfPeriod.isBefore(groupBeginTime)) {
-      msgGroup.messages.add(msg);
-      _groupedMessages.insert(0, msgGroup);
-    } else {
-      _groupedMessages.first.messages.insert(0, msg);
+  // the oldest message is always the oldest of its topic too
+  void _dropOldest() {
+    var oldest = _buffer.removeFirst();
+    var messages = _byTopic[oldest.topicName]!..removeFirst();
+    if (messages.isEmpty) {
+      _byTopic.remove(oldest.topicName);
     }
+    _bytes -= _sizeOf(oldest);
+    _droppedCount++;
+  }
 
-    if (_groupedMessages.fold<int>(0, (previousValue, element) => previousValue + element.messages.length) > _maxDisplayMessages) {
-      _groupedMessages.removeLast();
+  int _sizeOf(ReceivedMqttMessage msg) => msg.payload.length + msg.topicName.length;
+
+  static Iterable<ReceivedMqttMessage> _newestFirst(ListQueue<ReceivedMqttMessage> messages) sync* {
+    for (var i = messages.length - 1; i >= 0; i--) {
+      yield messages.elementAt(i);
     }
   }
 
-  DateTime _calcGroupEndTime(DateTime lastEntryTime, MessageGroupTimePeriod period) {
+  // A message exactly on a boundary closes the period before it. Hours begin on the local clock's hours, which are
+  // not whole hours since the epoch in time zones with a half-hour offset.
+  DateTime _calcGroupBeginTime(DateTime receivedOn, MessageGroupTimePeriod period) {
+    var micros = receivedOn.microsecondsSinceEpoch - 1;
     switch (period) {
       case MessageGroupTimePeriod.second:
-        return DateTime.fromMicrosecondsSinceEpoch(((lastEntryTime.microsecondsSinceEpoch / 1000000).ceil()) * 1000000);
+        return DateTime.fromMicrosecondsSinceEpoch((micros / 1000000).floor() * 1000000);
       case MessageGroupTimePeriod.tenSeconds:
-        return DateTime.fromMicrosecondsSinceEpoch(((lastEntryTime.microsecondsSinceEpoch / 1000000 / 10).ceil()) * 1000000 * 10);
+        return DateTime.fromMicrosecondsSinceEpoch((micros / 1000000 / 10).floor() * 1000000 * 10);
       case MessageGroupTimePeriod.minute:
-        return DateTime.fromMicrosecondsSinceEpoch(((lastEntryTime.microsecondsSinceEpoch / 1000000 / 60).ceil()) * 1000000 * 60);
+        return DateTime.fromMicrosecondsSinceEpoch((micros / 1000000 / 60).floor() * 1000000 * 60);
       case MessageGroupTimePeriod.hour:
-        return DateTime.fromMicrosecondsSinceEpoch(((lastEntryTime.microsecondsSinceEpoch / 1000000 / 3600).ceil()) * 1000000 * 3600);
-    }
-  }
-
-  DateTime _calcGroupBeginTime(DateTime groupEndTime, MessageGroupTimePeriod period) {
-    switch (period) {
-      case MessageGroupTimePeriod.second:
-        return DateTime.fromMicrosecondsSinceEpoch((((groupEndTime.microsecondsSinceEpoch - 1) / 1000000).floor()) * 1000000);
-      case MessageGroupTimePeriod.tenSeconds:
-        return DateTime.fromMicrosecondsSinceEpoch((((groupEndTime.microsecondsSinceEpoch - 1) / 1000000 / 10).floor()) * 1000000 * 10);
-      case MessageGroupTimePeriod.minute:
-        return DateTime.fromMicrosecondsSinceEpoch((((groupEndTime.microsecondsSinceEpoch - 1) / 1000000 / 60).floor()) * 1000000 * 60);
-      case MessageGroupTimePeriod.hour:
-        return DateTime.fromMicrosecondsSinceEpoch((((groupEndTime.microsecondsSinceEpoch - 1) / 1000000 / 3600).floor()) * 1000000 * 3600);
+        var local = DateTime.fromMicrosecondsSinceEpoch(micros);
+        return DateTime(local.year, local.month, local.day, local.hour);
     }
   }
 
@@ -167,23 +216,20 @@ class MQTTMessageBuffer {
     }
   }
 
-  MessageNode? _getFilteredMessagesTree(String filter, [MessageNode? node, String topicPath = ""]) {
-    bool rootNode = node == null;
-    if (node == null) {
-      node = _messagesTree;
-    }
-
+  // Keeps the topics that match and the levels above them. Payload filters test the last message of a topic.
+  MessageNode? _getFilteredMessagesTree(MessageFilter filter, MessageNode node, String? topicPath) {
     var newNode = node.clone();
     for (var childNode in node.children) {
-      var clonedChild = _getFilteredMessagesTree(filter, childNode, topicPath + childNode.topicLevelName);
+      var childPath = topicOf(topicPath, childNode.topicLevelName);
+      var clonedChild = _getFilteredMessagesTree(filter, childNode, childPath);
       if (clonedChild != null) {
         newNode.children.add(clonedChild);
       }
     }
 
-    return ((topicPath + newNode.topicLevelName).toLowerCase().contains(filter.toLowerCase()) || newNode.children.isNotEmpty || rootNode)
-        ? newNode
-        : null;
+    var matches = node.isTopic &&
+        (filter.filtersPayload ? filter.matches(node.message!) : filter.matchesTopic(topicPath!));
+    return matches || newNode.children.isNotEmpty ? newNode : null;
   }
 }
 
@@ -198,20 +244,28 @@ enum MessageGroupTimePeriod { second, tenSeconds, minute, hour }
 
 class MessageNode {
   String topicLevelName;
+  // the last message of the topic; for a level without messages of its own the first message below it
   ReceivedMqttMessage? message;
   int messageCount = 0;
   final List<MessageNode> children = [];
+  // shared with the clones of a filtered tree
+  TopicStats stats = TopicStats();
 
   MessageNode(this.topicLevelName, this.message);
 
-  void messageReceived(msg) {
+  // false for a topic level that only has topics below it
+  bool get isTopic => messageCount > 0;
+
+  void messageReceived(ReceivedMqttMessage msg) {
     message = msg;
     messageCount++;
+    stats.add(msg.receivedOn, msg.payload.length, retained: msg.retain);
   }
 
   MessageNode clone() {
     var newNode = MessageNode(topicLevelName, message);
     newNode.messageCount = messageCount;
+    newNode.stats = stats;
     return newNode;
   }
 }

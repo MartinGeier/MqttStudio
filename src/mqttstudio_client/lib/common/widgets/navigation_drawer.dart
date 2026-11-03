@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/project/open_project_dialog.dart';
 import 'package:mqttstudio/project/project_edit_dialog.dart';
-import 'package:mqttstudio/model/project.dart';
 import 'package:mqttstudio/mqtt/mqtt_connection_viewmodel.dart';
 import 'package:mqttstudio/project/project_viewmodel.dart';
 import 'package:srx_flutter/srx_flutter.dart';
@@ -121,7 +120,7 @@ class NavigationDrawer extends SrxNavigationDrawer {
           return GestureDetector(
             onTap: _openEmail,
             child: Text(
-              'info@redpin.eu',
+              'info@sarix.eu',
               style: isHovering
                   ? Theme.of(context).textTheme.bodyMedium!.copyWith(decoration: TextDecoration.underline)
                   : Theme.of(context).textTheme.bodyMedium,
@@ -133,20 +132,12 @@ class NavigationDrawer extends SrxNavigationDrawer {
   }
 
   void _onProjectSettingsTap(BuildContext context) async {
-    var projectViewmodel = context.read<ProjectViewmodel>();
     var mqttConnectionViewmodel = context.read<MqttConnectionViewmodel>();
     await GetIt.I.get<SrxNavigationService>().pop();
-    Project? project = await showDialog(context: context, builder: (context) => ProjectEditDialog());
-    if (project == null) {
-      return;
-    }
-
     // reopening the project closes the connection, so reconnect with the new settings if it was connected
     var wasConnected = mqttConnectionViewmodel.isConnected();
-    if (!await projectViewmodel.openProject(project)) {
-      return;
-    }
-    if (wasConnected) {
+    var project = await editAndOpenProject(context);
+    if (project != null && wasConnected) {
       mqttConnectionViewmodel.connect(project.mqttSettings);
     }
   }
@@ -180,6 +171,6 @@ class NavigationDrawer extends SrxNavigationDrawer {
   }
 
   void _openEmail() {
-    UrlLauncherPlatform.instance.launchUrl('mailto://info@redpin.eu', LaunchOptions());
+    UrlLauncherPlatform.instance.launchUrl('mailto://info@sarix.eu', LaunchOptions());
   }
 }

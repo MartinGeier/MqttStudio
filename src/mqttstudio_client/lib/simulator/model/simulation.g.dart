@@ -33,6 +33,12 @@ SimulatedDevice _$SimulatedDeviceFromJson(Map<String, dynamic> json) =>
       recorded: json['recorded'] == null
           ? null
           : RecordedSource.fromJson(json['recorded'] as Map<String, dynamic>),
+      vda5050: json['vda5050'] == null
+          ? null
+          : Vda5050Source.fromJson(json['vda5050'] as Map<String, dynamic>),
+      sparkplug: json['sparkplug'] == null
+          ? null
+          : SparkplugSource.fromJson(json['sparkplug'] as Map<String, dynamic>),
       topics: (json['topics'] as List<dynamic>?)
           ?.map((e) => SimulatedTopic.fromJson(e as Map<String, dynamic>))
           .toList(),
@@ -46,12 +52,16 @@ Map<String, dynamic> _$SimulatedDeviceToJson(SimulatedDevice instance) =>
       'firstInstance': instance.firstInstance,
       'kind': _$DeviceKindEnumMap[instance.kind]!,
       'recorded': instance.recorded?.toJson(),
+      'vda5050': instance.vda5050?.toJson(),
+      'sparkplug': instance.sparkplug?.toJson(),
       'topics': instance.topics.map((e) => e.toJson()).toList(),
     };
 
 const _$DeviceKindEnumMap = {
   DeviceKind.generated: 'generated',
   DeviceKind.recorded: 'recorded',
+  DeviceKind.vda5050: 'vda5050',
+  DeviceKind.sparkplug: 'sparkplug',
 };
 
 RecordedSource _$RecordedSourceFromJson(Map<String, dynamic> json) =>

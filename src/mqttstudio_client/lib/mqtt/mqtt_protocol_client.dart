@@ -5,6 +5,7 @@ import 'package:mqttstudio/model/mqtt_protocol_version.dart';
 import 'package:mqttstudio/model/mqtt_settings.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
 import 'package:mqttstudio/model/topic_subscription.dart';
+import 'package:mqttstudio/mqtt/mqtt_will.dart';
 import 'package:typed_data/typed_buffers.dart';
 
 // Connection to a broker with one MQTT protocol version. MqttAdapter picks the implementation from the project
@@ -29,10 +30,14 @@ abstract class MqttProtocolClient {
   // the reason the broker gave when it closed the connection, MQTT 5 only
   String? get lastDisconnectReason;
 
-  // throws a SrxServiceException if the connection cannot be established
-  Future connect(MqttSettings mqttSettings);
+  // throws a SrxServiceException if the connection cannot be established; the broker publishes the will when the
+  // connection drops without a DISCONNECT
+  Future connect(MqttSettings mqttSettings, {MqttWill? will});
 
   void disconnect();
+
+  // closes the socket without DISCONNECT, as a broken network would, so the broker publishes the will
+  void dropConnection();
 
   bool isConnected();
 

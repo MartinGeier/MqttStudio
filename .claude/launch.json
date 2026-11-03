@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "mqttstudio-web",
+      "runtimeExecutable": "flutter",
+      "runtimeArgs": ["run", "-d", "web-server", "--web-port", "8765", "--web-hostname", "localhost"],
+      "cwd": "src/mqttstudio_client",
+      "port": 8765
+    }
+  ]
+}

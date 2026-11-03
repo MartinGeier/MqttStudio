@@ -1,4 +1,5 @@
 import 'package:json_annotation/json_annotation.dart';
+import 'package:mqttstudio/documentation/model/topic_documentation.dart';
 import 'package:mqttstudio/model/topic_subscription.dart';
 import 'package:mqttstudio/simulator/model/simulation.dart';
 import 'package:srx_flutter/srx_flutter.dart';
@@ -19,6 +20,8 @@ class Project extends SrxBaseModel {
   DateTime? lastUsed;
   @JsonKey(fromJson: Simulation.fromJsonOrEmpty)
   Simulation simulation = Simulation.withDefaultDevice();
+  @JsonKey(fromJson: TopicDocumentation.fromJsonOrEmpty)
+  TopicDocumentation documentation = TopicDocumentation();
 
   Project(this.mqttSettings, {this.name = 'New Project'});
 
@@ -26,6 +29,10 @@ class Project extends SrxBaseModel {
     var projectJson = _$ProjectToJson(this);
     // while id is null, SrxBaseModel generates a new id on every serialization, so it must not be part of the hash
     projectJson.remove('id');
+    // opening a documented topic clears its discovery mark, which is no change to save
+    for (var node in (projectJson['documentation'] as Map<String, dynamic>)['nodes'] as List<dynamic>) {
+      (node as Map<String, dynamic>).remove('review');
+    }
     return json.encode(projectJson).hashCode;
   }
 

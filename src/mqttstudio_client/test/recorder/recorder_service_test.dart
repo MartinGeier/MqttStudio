@@ -1,11 +1,14 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqtt5_client/mqtt5_client.dart' show MqttQos;
 import 'package:mqttstudio/model/mqtt_protocol_version.dart';
+import 'package:mqttstudio/model/mqtt_settings.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
 import 'package:mqttstudio/model/topic_subscription.dart';
+import 'package:mqttstudio/mqtt/mqtt_will.dart';
 import 'package:mqttstudio/project/project_manager.dart';
 import 'package:mqttstudio/recorder/engine/recorder_rules.dart';
 import 'package:mqttstudio/recorder/engine/recorder_service.dart';
@@ -18,8 +21,23 @@ import 'package:mqttstudio/recorder/storage/recording_storage.dart';
 import '../helpers/fake_mqtt_adapter.dart';
 import '../helpers/test_setup.dart';
 
+// connects only when the test opens the gate
+class _GatedAdapter extends FakeMqttAdapter {
+  final Completer<void> gate;
+
+  _GatedAdapter(this.gate);
+
+  @override
+  Future connect(MqttSettings mqttSettings, {MqttWill? will}) async {
+    await gate.future;
+    await super.connect(mqttSettings, will: will);
+  }
+}
+
 class _Harness {
   final FakeMqttAdapter main;
+  // set, the next connections wait for it
+  Completer<void>? connectGate;
   final RecordingLibrary library = RecordingLibrary(MemoryRecordingStore());
   final List<FakeMqttAdapter> connections = [];
   late final RecorderService recorder;
@@ -27,7 +45,8 @@ class _Harness {
 
   _Harness(this.main) {
     recorder = RecorderService(library, connectionFactory: () {
-      var connection = FakeMqttAdapter();
+      var gate = connectGate;
+      var connection = gate == null ? FakeMqttAdapter() : _GatedAdapter(gate);
       connections.add(connection);
       return connection;
     }, appVersion: () async => '1.0.3');
@@ -215,6 +234,106 @@ void main() {
       markersOf(harness.library).then((value) => markers = value);
       async.flushMicrotasks();
       expect(markers, [RecordingMarker.connectionLost, RecordingMarker.reconnected]);
+    });
+  });
+
+  test('retained messages the broker sends again after a reconnect are snapshot, not live', () {
+    run((async) {
+      harness.recorder.start(config());
+      async.flushMicrotasks();
+      var connection = harness.connection;
+      connection.receive(incoming('plant/state', 'a', retain: true));
+      async.elapse(const Duration(seconds: 3));
+      connection.receive(incoming('plant/temp', '1'));
+      connection.dropConnection();
+      async.elapse(const Duration(milliseconds: 1100));
+      expect(harness.recorder.state, RecorderState.recording);
+      connection.receive(incoming('plant/state', 'a', retain: true));
+      connection.receive(incoming('plant/temp', '2'));
+      async.elapse(const Duration(seconds: 3));
+      connection.receive(incoming('plant/state', 'b', retain: true));
+      harness.recorder.stop();
+      async.flushMicrotasks();
+
+      List<RecordedMessage>? messages;
+      messagesOf(harness.library).then((value) => messages = value);
+      async.flushMicrotasks();
+      expect(messages!.map((m) => '${utf8.decode(m.payload)}:${m.snapshot}'), ['a:true', '1:false', 'a:true', '2:false', 'b:false']);
+    });
+  });
+
+  test('without the retained snapshot a resend after a reconnect is dropped', () {
+    run((async) {
+      GetIt.I.get<ProjectManager>().currentProject!.mqttSettings.protocolVersion = MqttProtocolVersion.v311;
+      harness.recorder.start(config(snapshot: false));
+      async.flushMicrotasks();
+      var connection = harness.connection;
+      async.elapse(const Duration(seconds: 3));
+      // live, so a 3.1.1 broker clears the retain flag
+      connection.receive(incoming('plant/state', 'a'));
+      connection.dropConnection();
+      async.elapse(const Duration(milliseconds: 1100));
+      connection.receive(incoming('plant/state', 'a', retain: true));
+      harness.recorder.stop();
+      async.flushMicrotasks();
+      expect(harness.finished.single.info!.footer.summary.messages, 1);
+    });
+  });
+
+  test('STOP while connecting cancels the start and records nothing', () {
+    run((async) {
+      harness.connectGate = Completer<void>();
+      Object? error;
+      var started = false;
+      harness.recorder.start(config()).then((_) => started = true, onError: (Object exc) => error = exc);
+      async.flushMicrotasks();
+      expect(harness.recorder.state, RecorderState.connecting);
+
+      harness.recorder.stop();
+      async.flushMicrotasks();
+      expect(harness.recorder.state, RecorderState.idle);
+      expect(harness.finished.single.info, isNull);
+      expect(harness.finished.single.reason, RecordingStopReason.user);
+
+      harness.connectGate!.complete();
+      async.flushMicrotasks();
+      expect(started, isTrue);
+      expect(error, isNull);
+      expect(harness.recorder.state, RecorderState.idle);
+      expect(harness.connection.connected, isFalse);
+      expect(harness.connection.subscriptions, isEmpty);
+      List<RecordingInfo>? infos;
+      harness.library.list().then((value) => infos = value);
+      async.flushMicrotasks();
+      expect(infos, isEmpty);
+      expect(harness.library.store.names(), completion(isEmpty));
+      async.flushMicrotasks();
+
+      // the next start works as usual
+      harness.connectGate = null;
+      harness.recorder.start(config());
+      async.flushMicrotasks();
+      expect(harness.recorder.state, RecorderState.recording);
+      harness.recorder.stop();
+      async.flushMicrotasks();
+      expect(harness.finished.last.info, isNotNull);
+    });
+  });
+
+  test('closing the project while connecting cancels the start', () {
+    run((async) {
+      harness.connectGate = Completer<void>();
+      harness.recorder.start(config());
+      async.flushMicrotasks();
+      GetIt.I.get<ProjectManager>().closeProject(true);
+      async.flushMicrotasks();
+      expect(harness.recorder.state, RecorderState.idle);
+      expect(harness.finished.single.reason, RecordingStopReason.projectClosed);
+
+      harness.connectGate!.complete();
+      async.flushMicrotasks();
+      expect(harness.recorder.state, RecorderState.idle);
+      expect(harness.connection.connected, isFalse);
     });
   });
 

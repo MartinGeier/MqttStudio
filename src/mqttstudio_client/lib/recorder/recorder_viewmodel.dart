@@ -318,7 +318,8 @@ class RecorderViewmodel extends SrxChangeNotifier {
     await LocalStore().saveLastRecorderConfig(config);
     try {
       await _recorder.start(config);
-      liveSelected = true;
+      // false when STOP was pressed while connecting
+      liveSelected = _recorder.isRecording;
       _selectedId = null;
       notifyListeners();
     } catch (exc) {

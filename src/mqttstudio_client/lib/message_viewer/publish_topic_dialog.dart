@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/common/widgets/checkbox_field.dart';
 import 'package:mqttstudio/common/widgets/mqtt5_section.dart';
+import 'package:mqttstudio/model/received_mqtt_message.dart';
 import 'package:mqttstudio/project/project_viewmodel.dart';
 import 'package:mqttstudio/service/piwik_tracking_service.dart';
 import 'package:provider/provider.dart';
@@ -13,12 +14,15 @@ import 'publish_topic_viewmodel.dart';
 import 'package:file_picker/file_picker.dart';
 
 class PublishTopicDialog extends StatelessWidget {
-  const PublishTopicDialog({Key? key}) : super(key: key);
+  // a received message to change and publish again
+  final ReceivedMqttMessage? message;
+
+  const PublishTopicDialog({Key? key, this.message}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider<PublishTopicViewmodel>(
-      create: (_) => PublishTopicViewmodel(),
+      create: (_) => PublishTopicViewmodel(message: message),
       builder: (context, child) {
         return SimpleDialog(title: Text('publishtopicdialog.title'.tr()), contentPadding: EdgeInsets.all(16), children: [
           ConstrainedBox(

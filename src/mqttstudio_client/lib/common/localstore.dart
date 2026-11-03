@@ -12,8 +12,12 @@ class LocalStore {
 
   LocalStoreData data = LocalStoreData();
 
-  Future saveProject(Project project) async {
+  // projects are stored under their name; previousName is the name a renamed project was saved under before
+  Future saveProject(Project project, {String? previousName}) async {
     await _readLocalStore();
+    if (previousName != null && previousName != project.name) {
+      data.projects!.remove(previousName);
+    }
     data.projects!.update(project.name, (_) => project, ifAbsent: () => project);
 
     await _saveLocalStore();

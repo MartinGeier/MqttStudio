@@ -14,6 +14,15 @@ void main() {
       expect(Placeholders.resolve('no placeholders', instance: 1, deviceName: 'x'), 'no placeholders');
     });
 
+    test('{n:width} pads to at most 12 digits and never throws', () {
+      expect(Placeholders.resolve('ws-{n:12}', instance: 7, deviceName: 'x'), 'ws-000000000007');
+      expect(Placeholders.resolve('ws-{n:500000000}', instance: 7, deviceName: 'x'), 'ws-000000000007');
+      expect(Placeholders.resolve('ws-{n:99999999999999999999999}', instance: 7, deviceName: 'x'), 'ws-000000000007');
+      expect(Placeholders.hasTooWideInstance('a/{n:12}/{n}'), isFalse);
+      expect(Placeholders.hasTooWideInstance('a/{n:13}'), isTrue);
+      expect(Placeholders.hasTooWideInstance('a/{n:99999999999999999999999}'), isTrue);
+    });
+
     test('containsInstance', () {
       expect(Placeholders.containsInstance('a/{n}'), isTrue);
       expect(Placeholders.containsInstance('a/{n:4}'), isTrue);
@@ -51,6 +60,10 @@ void main() {
       expect(kinds(single, topic('a', min: 1000, max: 500)), [SimulationIssueKind.intervalRange]);
       expect(
           kinds(single, topic('a', generator: const GpsTrackGenerator(mode: GpsMode.route))), [SimulationIssueKind.routeTooShort]);
+      expect(kinds(SimulatedDevice(name: 'd', instanceCount: 0), topic('a')), [SimulationIssueKind.instanceCount]);
+      expect(kinds(single, topic('a/{n:13}')), [SimulationIssueKind.placeholderTooWide]);
+      expect(kinds(single, topic('a', generator: TemplateGenerator(template: '{n:20}', fields: {}))),
+          [SimulationIssueKind.placeholderTooWide]);
     });
 
     test('template rules', () {
@@ -77,6 +90,10 @@ void main() {
       expect(
           SimulationRules.validateDevice(SimulatedDevice(name: 'x', instanceCount: 1001), simulation)
               .map((issue) => issue.kind),
+          [SimulationIssueKind.instanceCount]);
+      // reported once for the device, not again for each topic
+      var empty = SimulatedDevice(name: 'x', instanceCount: 0, topics: [topic('a'), topic('b')]);
+      expect(SimulationRules.validateDevice(empty, simulation).map((issue) => issue.kind),
           [SimulationIssueKind.instanceCount]);
     });
 

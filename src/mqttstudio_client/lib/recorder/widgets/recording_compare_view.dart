@@ -67,7 +67,8 @@ class RecordingCompareView extends StatelessWidget {
         CheckboxField(formControlName: CompareViewmodel.payloadsField, form: vm.form, label: 'compare.payloads.label'.tr()),
         ReactiveTextField<String>(
           formControlName: CompareViewmodel.ignoreField,
-          decoration: decoration('compare.ignore.label', 'compare.ignore.helper'),
+          decoration: decoration('compare.ignore.label', 'compare.ignore.helper')
+              .copyWith(suffixIcon: Tooltip(message: 'compare.ignore.help'.tr(), child: Icon(Icons.info_outline, size: 20))),
           validationMessages: {'jsonpath': (_) => 'recordingcharts.path.error'.tr()},
         ),
         SizedBox(height: 12),

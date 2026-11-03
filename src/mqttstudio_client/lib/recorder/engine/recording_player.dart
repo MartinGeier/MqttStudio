@@ -24,6 +24,9 @@ class _Scheduled {
 // start + (its offset − range start) / speed on a stopwatch, so the schedule doesn't drift with timer precision;
 // when the player falls behind it sends in order without waiting and reports the lag (R11).
 class RecordingPlayer {
+  // a loop pass lasts at least this long, so a short recording doesn't republish without a pause
+  static const Duration minLoopPass = Duration(seconds: 1);
+
   final RecordingReader reader;
   final SimulatorPublisher _publisher;
   // msg/s at Max speed (R12)
@@ -34,15 +37,24 @@ class RecordingPlayer {
   final stateChangedEvent = Event();
   // raised at most once per progressInterval
   final progressChangedEvent = Event();
-  // the publisher lost its connection; playback has stopped
+  // the publisher lost its connection, raised once per outage. Playback keeps its schedule and skips the messages
+  // that are due until the publisher is connected again.
   final connectionLostEvent = Event();
-  // the end of the range was reached without loop
+  // the end of the range was reached without loop, or a loop pass had nothing to play
   final finishedEvent = Event();
 
   PlaybackState _state = PlaybackState.stopped;
   RecordingCursor? _cursor;
   // the next message, read but not yet due
   _Scheduled? _next;
+  // the read that fills _next; there is only one at a time, so a pause or a new schedule neither skips nor loses one
+  Future<void>? _reading;
+  // the cursor reached the end of the pass
+  bool _atEnd = false;
+  // messages read in this pass
+  int _passMessages = 0;
+  int _passStartWallMicros = 0;
+  bool _publisherLost = false;
   Timer? _timer;
   Timer? _progressTimer;
   bool _progressDirty = false;
@@ -150,6 +162,7 @@ class RecordingPlayer {
       ..reset();
     _cursor = null;
     _next = null;
+    _reading = null;
     _setState(PlaybackState.stopped);
   }
 
@@ -164,7 +177,8 @@ class RecordingPlayer {
       _setState(PlaybackState.paused);
     }
     var generation = _generation;
-    var next = _next ?? await _read(generation);
+    await _fill();
+    var next = _next;
     if (generation != _generation || next == null) {
       return;
     }
@@ -220,6 +234,8 @@ class RecordingPlayer {
     _baseWallMicros = 0;
     _basePlayMicros = 0;
     _lastPublishWallMicros = 0;
+    _passStartWallMicros = 0;
+    _publisherLost = false;
   }
 
   Future<void> _openRange([int? from]) async {
@@ -227,6 +243,9 @@ class RecordingPlayer {
     var seek = reader.seekEntryFor(_passStartMicros);
     _cursor = reader.cursor(from: seek?.position);
     _next = null;
+    _reading = null;
+    _atEnd = false;
+    _passMessages = 0;
     _lastPlayMicros = 0;
     _lastPlayMicrosRead = 0;
     _lastOriginalMicros = _passStartMicros;
@@ -254,10 +273,34 @@ class RecordingPlayer {
     }
   }
 
-  Future<_Scheduled?> _read(int generation) async {
+  // reads the next message into _next, or sets _atEnd. A read of an older cursor (after stop or a new pass) is dropped.
+  Future<void> _fill() {
+    var cursor = _cursor;
+    if (_next != null || _atEnd || cursor == null) {
+      return Future.value();
+    }
+    var reading = _reading;
+    if (reading == null) {
+      late Future<void> started;
+      started = _read(cursor).then((next) {
+        if (identical(cursor, _cursor)) {
+          _next = next;
+          _atEnd = next == null;
+        }
+      }).whenComplete(() {
+        if (identical(_reading, started)) {
+          _reading = null;
+        }
+      });
+      _reading = reading = started;
+    }
+    return reading;
+  }
+
+  Future<_Scheduled?> _read(RecordingCursor cursor) async {
     while (true) {
-      var entry = await _cursor?.next();
-      if (entry == null || generation != _generation) {
+      var entry = await cursor.next();
+      if (entry == null || !identical(cursor, _cursor)) {
         return null;
       }
       if (entry is! MessageEntry) {
@@ -273,67 +316,95 @@ class RecordingPlayer {
       if (message.snapshot && (!_firstPass || _options.snapshot == RetainedSnapshotMode.skip)) {
         continue;
       }
-      var gap = max(0, message.offsetMicros - _lastOriginalMicros);
-      var limit = _options.compressGapsOverMicros;
-      var playMicros = _lastPlayMicrosRead + (limit != null && gap > limit ? limit : gap);
+      var playMicros = _playMicrosAt(message.offsetMicros);
       _lastOriginalMicros = message.offsetMicros;
       _lastPlayMicrosRead = playMicros;
+      _passMessages++;
       return _Scheduled(message, playMicros);
     }
   }
 
+  // the play time of an offset after the last read message, with a long gap shortened
+  int _playMicrosAt(int offsetMicros) {
+    var gap = max(0, offsetMicros - _lastOriginalMicros);
+    var limit = _options.compressGapsOverMicros;
+    return _lastPlayMicrosRead + (limit != null && gap > limit ? limit : gap);
+  }
+
   Future<void> _run(int generation) async {
     while (_state == PlaybackState.playing && generation == _generation) {
-      var next = _next ?? await _read(generation);
-      if (generation != _generation || _state != PlaybackState.playing) {
-        return;
+      if (_next == null && !_atEnd) {
+        await _fill();
+        continue;
       }
+      var next = _next;
       if (next == null) {
         await _endOfRange(generation);
         return;
       }
-      _next = next;
       var now = _stopwatch.elapsedMicroseconds;
-      var due = _dueMicros(next);
+      var due = _dueMicros(next.playMicros);
       if (due > now) {
         _timer = Timer(Duration(microseconds: due - now), () => _run(generation));
         return;
       }
       _next = null;
+      _lastPublishWallMicros = now;
       if (!_publisher.isConnected) {
-        await stop();
-        connectionLostEvent.broadcast();
-        return;
+        _skipDisconnected(next);
+        continue;
       }
       try {
         _publish(next, now - due);
       } on Exception {
         // the connection broke between the check and the publish
-        await stop();
-        connectionLostEvent.broadcast();
-        return;
+        _skipDisconnected(next);
+        continue;
       }
-      _lastPublishWallMicros = now;
+      _publisherLost = false;
     }
   }
 
-  int _dueMicros(_Scheduled next) {
+  // The message is due while the publisher has no connection. It is skipped so the schedule goes on and playback
+  // resumes at the right place after a reconnect; the owner hears about the outage once.
+  void _skipDisconnected(_Scheduled scheduled) {
+    _lastPlayMicros = scheduled.playMicros;
+    positionMicros = scheduled.message.offsetMicros;
+    skipped++;
+    _markProgress();
+    if (!_publisherLost) {
+      _publisherLost = true;
+      connectionLostEvent.broadcast();
+    }
+  }
+
+  int _dueMicros(int playMicros) {
     if (_options.isMaxSpeed) {
-      return sent == 0 ? 0 : _lastPublishWallMicros + (Duration.microsecondsPerSecond / max(1, maxRate)).round();
+      return sent + skipped == 0 ? 0 : _lastPublishWallMicros + (Duration.microsecondsPerSecond / max(1, maxRate)).round();
     }
-    return _baseWallMicros + ((next.playMicros - _basePlayMicros) / _options.speed).round();
+    return _baseWallMicros + ((playMicros - _basePlayMicros) / _options.speed).round();
   }
 
+  // A loop pass ends at the range end, not at its last message, and lasts at least minLoopPass. A pass after the first
+  // that had nothing to play (e.g. a recording of only the retained snapshot) ends the playback.
   Future<void> _endOfRange(int generation) async {
-    if (!_options.loop) {
+    if (!_options.loop || (!_firstPass && _passMessages == 0)) {
       await stop();
       finishedEvent.broadcast();
+      return;
+    }
+    var now = _stopwatch.elapsedMicroseconds;
+    var passEnd = max(_passStartWallMicros + minLoopPass.inMicroseconds,
+        _options.isMaxSpeed ? 0 : _dueMicros(_playMicrosAt(max(rangeEndMicros, _lastOriginalMicros))));
+    if (passEnd > now) {
+      _timer = Timer(Duration(microseconds: passEnd - now), () => _run(generation));
       return;
     }
     loopCount++;
     _firstPass = false;
     await _openRange();
-    _baseWallMicros = _stopwatch.elapsedMicroseconds;
+    _passStartWallMicros = _stopwatch.elapsedMicroseconds;
+    _baseWallMicros = _passStartWallMicros;
     _basePlayMicros = 0;
     if (generation == _generation) {
       _run(generation);

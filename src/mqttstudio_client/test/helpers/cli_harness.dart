@@ -11,6 +11,7 @@ import 'package:mqttstudio/recorder/storage/recording_storage.dart';
 import 'package:mqttstudio/service/service_error.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 import 'fake_mqtt_adapter.dart';
+import 'package:mqttstudio/mqtt/mqtt_will.dart';
 
 // Runs the CLI with fake projects, fake brokers and a memory recordings library
 class FakeProjects implements ProjectSource {
@@ -23,7 +24,7 @@ class FakeProjects implements ProjectSource {
 
 class UnreachableBroker extends FakeMqttAdapter {
   @override
-  Future connect(MqttSettings mqttSettings) async =>
+  Future connect(MqttSettings mqttSettings, {MqttWill? will}) async =>
       throw SrxServiceException('Connection refused', ServiceError.MqttCannotConnect);
 }
 

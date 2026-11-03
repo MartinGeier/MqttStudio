@@ -4,6 +4,7 @@ import 'package:mqttstudio/model/broker_info.dart';
 import 'package:mqttstudio/model/mqtt_protocol_version.dart';
 import 'package:mqttstudio/mqtt/mqtt_adapter.dart';
 import 'package:mqttstudio/model/mqtt_settings.dart';
+import 'package:mqttstudio/service/service_error.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 
 // Viewmodel for the MQTT connection. Notifies listeners about connection status changes.
@@ -45,6 +46,10 @@ class MqttConnectionViewmodel extends SrxChangeNotifier {
         await _mqttAdapter.connect(mqttSettings);
       }
     } on SrxServiceException catch (exc) {
+      // e.g. the project was closed while connecting, the connection is closed again then
+      if (exc.serviceError == ServiceError.MqttConnectCancelled) {
+        return;
+      }
       if (onError != null) {
         onError!(exc.errorMessage);
       }

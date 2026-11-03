@@ -46,10 +46,15 @@ class PlaybackOptionsDialog extends StatelessWidget {
                 formGroup: vm.form,
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                   _buildSpeedRow(vm),
+                  SizedBox(height: 12),
                   _buildRangeRow(vm),
+                  Divider(height: 32),
                   _buildSectionLabel(context, 'playbackoptions.remapping.label'),
                   if (hint != null) _buildHint(context, hint!),
                   _buildRemaps(context, vm),
+                  Divider(height: 24),
+                  // room for the floating labels of the retain row
+                  SizedBox(height: 8),
                   _buildRetainRow(),
                   CheckboxField(
                       formControlName: PlaybackOptionsViewmodel.propertiesField,
@@ -150,7 +155,6 @@ class PlaybackOptionsDialog extends StatelessWidget {
                 overflow: TextOverflow.ellipsis, style: theme.textTheme.bodySmall!.copyWith(color: theme.hintColor)),
           ),
       ]),
-      SizedBox(height: 16),
     ]);
   }
 

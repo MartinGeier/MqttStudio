@@ -32,7 +32,8 @@ class RecordingInfo {
 
 // The recordings outside the projects (doc/recorder-design.md R2, R24): a folder on desktop, IndexedDB in the browser
 class RecordingLibrary {
-  // an unfinished file that was written to more recently than this may still be recording, e.g. from the CLI
+  // an unfinished file that was written to more recently than this may still be recording, e.g. from the CLI; a
+  // quiet recording touches its file every RecordingWriter.touchInterval
   static const Duration activeWriteGrace = Duration(seconds: 15);
 
   RecordingStore _store;
@@ -75,14 +76,20 @@ class RecordingLibrary {
     changedEvent.broadcast();
   }
 
-  // newest first. Recordings left unfinished by a crash are recovered on the way.
+  // newest first. Recordings left unfinished by a crash are recovered on the way. A file that can't be read is
+  // left out, so it doesn't hide the others.
   Future<List<RecordingInfo>> list() async {
     var infos = <RecordingInfo>[];
     for (var fileName in await store.names()) {
       if (_writing.contains(fileName)) {
         continue;
       }
-      var info = await _read(fileName, recoverIfIdle: true);
+      RecordingInfo? info;
+      try {
+        info = await _read(fileName);
+      } catch (exc) {
+        debugPrint('Recording $fileName skipped: $exc');
+      }
       if (info != null) {
         infos.add(info);
       }
@@ -109,7 +116,12 @@ class RecordingLibrary {
       number++;
     }
     _writing.add(fileName);
-    return store.create(fileName);
+    try {
+      return await store.create(fileName);
+    } catch (_) {
+      _writing.remove(fileName);
+      rethrow;
+    }
   }
 
   void finishedWriting(String fileName) {
@@ -185,7 +197,13 @@ class RecordingLibrary {
     } finally {
       await file.close();
     }
-    var info = await _read(fileName, recoverIfIdle: true);
+    RecordingInfo? info;
+    try {
+      // the copy was just written, so it never looks idle; nothing else writes to it
+      info = await _read(fileName, recoverActive: true);
+    } catch (_) {
+      info = null;
+    }
     if (info == null) {
       await store.delete(fileName);
       throw FormatException('$originalName is not an MQTT Studio recording');
@@ -194,12 +212,13 @@ class RecordingLibrary {
     return info;
   }
 
-  Future<RecordingInfo?> _read(String fileName, {required bool recoverIfIdle}) async {
+  // null for no recording, or an unfinished one that may still be written
+  Future<RecordingInfo?> _read(String fileName, {bool recoverActive = false}) async {
     RecordingReader? reader;
     try {
       reader = await _openReader(fileName);
       if (!reader.isComplete) {
-        if (!recoverIfIdle || !await _isIdle(fileName)) {
+        if (!recoverActive && !await _isIdle(fileName)) {
           return null;
         }
         await reader.recover(_nameFromFile(fileName));

@@ -1,5 +1,9 @@
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
+import 'package:mqttstudio/documentation/documentation_service.dart';
+import 'package:mqttstudio/documentation/model/topic_documentation.dart';
+import 'package:mqttstudio/documentation/model/topic_spec.dart';
 import 'package:mqttstudio/message_viewer/message_buffer.dart';
 import 'package:mqttstudio/message_viewer/message_viewer.dart';
 import 'package:mqttstudio/message_viewer/message_viewer_viewmodel.dart';
@@ -46,11 +50,11 @@ void main() {
 
       viewmodel.topicViewMode = TopicViewMode.Tree;
       viewmodel.groupTimePeriod = MessageGroupTimePeriod.minute;
-      viewmodel.filter = 'home';
+      viewmodel.setFilter('home');
       viewmodel.autoSelect = true;
 
       expect(notified, 4);
-      expect(viewmodel.filter, 'home');
+      expect(viewmodel.filter!.text, 'home');
     });
   });
 
@@ -126,6 +130,79 @@ void main() {
 
       expect(viewmodel.selectedMessage, isNull);
     });
+
+    test('the selection is cleared with the messages', () {
+      receiveAndSelect('home/temp', ['1']);
+      viewmodel.markForCompare();
+
+      viewmodel.clearMessages();
+
+      expect(viewmodel.selectedMessage, isNull);
+      expect(viewmodel.markedMessage, isNull);
+    });
+  });
+
+  group('MessageViewerViewmodel refresh', () {
+    late MessageViewerViewmodel throttled;
+    late int notified;
+
+    void start(FakeAsync async) {
+      // the viewmodel of setUp would refresh on the same messages
+      viewmodel.dispose();
+      throttled = MessageViewerViewmodel();
+      notified = 0;
+      throttled.addListener(() => notified++);
+      async.elapse(Duration(seconds: 1));
+    }
+
+    test('shows the last messages of a burst at the end of the period', () {
+      fakeAsync((async) {
+        start(async);
+        adapter.receive(message('a', '1'));
+        expect(notified, 1);
+
+        adapter.receive(message('a', '2'));
+        adapter.receive(message('a', '3'));
+        expect(notified, 1);
+
+        async.elapse(Duration(milliseconds: 500));
+        expect(notified, 2);
+        async.elapse(Duration(seconds: 2));
+        expect(notified, 2);
+        throttled.dispose();
+      });
+    });
+
+    test('waits while the view scrolls', () {
+      fakeAsync((async) {
+        start(async);
+        adapter.receive(message('a', '1'));
+        async.elapse(Duration(milliseconds: 300));
+        adapter.receive(message('a', '2'));
+        async.elapse(Duration(milliseconds: 100));
+
+        throttled.delayViewUpdate();
+        async.elapse(Duration(milliseconds: 400));
+        expect(notified, 1);
+
+        async.elapse(Duration(milliseconds: 100));
+        expect(notified, 2);
+        throttled.dispose();
+      });
+    });
+
+    test('dispose cancels the pending refresh', () {
+      fakeAsync((async) {
+        start(async);
+        adapter.receive(message('a', '1'));
+        adapter.receive(message('a', '2'));
+
+        throttled.dispose();
+
+        expect(async.pendingTimers, isEmpty);
+        expect(notified, 1);
+      });
+    });
   });
 
   group('MessageViewerViewmodel actions', () {
@@ -162,6 +239,16 @@ void main() {
 
       // MessageViewer clears its messages when the project is closed
       expect(GetIt.I.get<MessageViewer>().messageBuffer.length, 0);
+    });
+  });
+
+  group('documentation', () {
+    test('the tree viewer shows the documented title', () {
+      GetIt.I
+          .get<DocumentationService>()
+          .addNode(DocNode(path: 'plant/m{machine}/temp', title: 'Temperature', topic: TopicSpec()));
+      expect(viewmodel.documentedTitleOf('plant/m3/temp'), 'Temperature');
+      expect(viewmodel.documentedTitleOf('plant/other'), isNull);
     });
   });
 }

@@ -36,9 +36,18 @@ void main() {
       expect(manager.hasProjectChanged(), isFalse);
     });
 
-    test('does not save a new project until it is changed and closed', () async {
+    test('saves a new project when it is opened', () async {
       await openNewProject();
-      expect(await savedProjectNames(), isEmpty);
+      expect(await savedProjectNames(), ['Test project']);
+    });
+
+    test('a new project closed without changes is kept', () async {
+      await openNewProject();
+
+      expect(await manager.closeProject(), isTrue);
+
+      expect(closingNotSavedCount, 0);
+      expect(await savedProjectNames(), ['Test project']);
     });
 
     test('saves a previously used project again when it is opened', () async {
@@ -57,8 +66,44 @@ void main() {
       await manager.openProject(createProject('Second'));
 
       expect(manager.currentProject!.name, 'Second');
-      expect(await savedProjectNames(), ['First']);
+      var saved = await LocalStore().getProjects();
+      expect(saved.map((x) => x.name), unorderedEquals(['First', 'Second']));
+      expect(saved.firstWhere((x) => x.name == 'First').recentTopics, ['changed']);
       expect(closingNotSavedCount, 0, reason: 'opening another project saves without asking');
+    });
+  });
+
+  group('ProjectManager rename', () {
+    test('saving a renamed project replaces the entry under the old name', () async {
+      var project = await openNewProject('Old name');
+      project.name = 'New name';
+
+      await manager.saveProject();
+
+      expect(await savedProjectNames(), ['New name']);
+      expect(manager.savedProjectName, 'New name');
+    });
+
+    test('reopening a renamed project, as the edit dialog does, keeps one entry', () async {
+      await LocalStore().saveProject(createProject('Other'));
+      var project = await openNewProject('Old name');
+      project.name = 'New name';
+      project.mqttSettings.hostname = 'changed.host';
+
+      await manager.openProject(project);
+
+      var saved = await LocalStore().getProjects();
+      expect(saved.map((x) => x.name), unorderedEquals(['Other', 'New name']));
+      expect(saved.firstWhere((x) => x.name == 'New name').mqttSettings.hostname, 'changed.host');
+    });
+
+    test('names the other saved projects', () async {
+      await LocalStore().saveProject(createProject('Other'));
+      expect(await manager.otherProjectNames(), {'Other'});
+
+      await openNewProject('Current');
+
+      expect(await manager.otherProjectNames(), {'Other'});
     });
   });
 
@@ -92,7 +137,17 @@ void main() {
 
       expect(closingNotSavedCount, 0);
       expect(manager.isProjectOpen, isFalse);
-      expect(closed, greaterThan(0));
+      expect(closed, 1);
+    });
+
+    test('notifies once, when no project is open any more', () async {
+      await openNewProject();
+      var openWhenNotified = <bool>[];
+      manager.projectClosedEvent.subscribe((_) => openWhenNotified.add(manager.isProjectOpen));
+
+      await manager.closeProject();
+
+      expect(openWhenNotified, [false]);
     });
 
     test('asks before closing a changed project and saves on yes', () async {
@@ -115,7 +170,7 @@ void main() {
       expect(await manager.closeProject(), isTrue);
 
       expect(manager.isProjectOpen, isFalse);
-      expect(await savedProjectNames(), isEmpty);
+      expect((await LocalStore().getProjects()).single.recentTopics, isEmpty);
     });
 
     test('stays open on cancel', () async {

@@ -15,7 +15,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # In iOS, build-name is used as CFBundleShortVersionString while build-number used as CFBundleVersion.
 # Read more about iOS versioning at
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
-version: 1.0.3+4
+version: 2.0.0+5
 
 environment:
   # 3.8 is needed for the null-aware elements that json_serializable 6.15 generates
@@ -67,6 +67,10 @@ dependencies:
   idb_shim: ^2.10.1+1
   # the leave-page prompt of the browser while recording
   web: ^1.1.1
+  # reading AsyncAPI documents into the documentation
+  yaml: ^3.1.4
+  # gzip and zlib payloads in the message detail view, also in the browser
+  archive: ^4.0.0
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -101,6 +105,10 @@ flutter:
     - assets/fonts/
     - assets/i18n/
     - assets/cert/
+    # the official VDA 5050 JSON schemas and their licence
+    - assets/vda5050/
+    - assets/vda5050/2.1.0/
+    - assets/vda5050/3.0.0/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware.
@@ -132,9 +140,9 @@ flutter:
 msix_config:
   display_name: MQTT-Studio
   publisher: CN=DCEFA036-199D-4E8F-80D9-C2B3CF2E517D
-  publisher_display_name: Redpin
+  publisher_display_name: Sarix
   identity_name: 23130Redpin.MQTT-Studio
-  msix_version: 1.0.2.0
+  msix_version: 2.0.0.0
   logo_path: C:\Redpin\Development\Projects\MqttStudio\src\mqttstudio_client\assets\images\logo.png
   capabilities: internetClient
   store: true

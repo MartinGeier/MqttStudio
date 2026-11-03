@@ -32,6 +32,15 @@ void main() {
       expect(projects.single.mqttSettings.hostname, 'changed.host');
     });
 
+    test('saving a renamed project removes it under its previous name', () async {
+      await LocalStore().saveProject(createProject('First'));
+      await LocalStore().saveProject(createProject('Second'));
+
+      await LocalStore().saveProject(createProject('Renamed'), previousName: 'First');
+
+      expect((await LocalStore().getProjects()).map((x) => x.name), unorderedEquals(['Second', 'Renamed']));
+    });
+
     test('deletes a project', () async {
       var first = createProject('First');
       await LocalStore().saveProject(first);

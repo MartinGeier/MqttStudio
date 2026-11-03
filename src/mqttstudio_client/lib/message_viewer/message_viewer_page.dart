@@ -4,6 +4,7 @@ import 'package:mqttstudio/common/browser_performance_warning.dart';
 import 'package:mqttstudio/common/localstore.dart';
 import 'package:mqttstudio/common/newsletter_signup_dialog.dart';
 import 'package:mqttstudio/common/widgets/main_appbar.dart';
+import 'package:mqttstudio/common/widgets/no_project_view.dart';
 import 'package:mqttstudio/project/project_viewmodel.dart';
 import 'package:mqttstudio/message_viewer/message_viewer_viewmodel.dart';
 import 'package:mqttstudio/message_viewer/widgets/grouped_messages_viewer.dart';
@@ -14,6 +15,9 @@ import 'package:mqttstudio/message_viewer/widgets/topics_viewer_command_bar.dart
 import 'package:mqttstudio/message_viewer/widgets/tree_messages_viewer.dart';
 import 'package:mqttstudio/simulator/simulator_page.dart';
 import 'package:mqttstudio/recorder/recorder_page.dart';
+import 'package:mqttstudio/documentation/documentation_page.dart';
+import 'package:mqttstudio/documentation/documentation_service.dart';
+import 'package:event/event.dart';
 import 'package:mqttstudio/recorder/engine/recorder_service.dart';
 import 'package:mqttstudio/custom_theme.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -22,6 +26,8 @@ import 'package:srx_flutter/srx_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:mqttstudio/common/widgets/navigation_drawer.dart' as navDrawer;
 import 'package:flutter/foundation.dart';
+import 'package:mqttstudio/protocol/widgets/fleet_viewer.dart';
+import 'package:mqttstudio/protocol/widgets/sparkplug_viewer.dart';
 import 'package:mqttstudio/common/leave_page_guard.dart'
     if (dart.library.js_interop) 'package:mqttstudio/common/leave_page_guard_web.dart';
 
@@ -34,12 +40,15 @@ class MessageViewerPage extends StatefulWidget {
 
 class _MessageViewerPageState extends State<MessageViewerPage> {
   late final AppLifecycleListener _lifecycleListener;
+  TabController? _tabController;
 
   @override
   void initState() {
     super.initState();
     _lifecycleListener = AppLifecycleListener(onExitRequested: _onExitRequested);
     installLeavePageGuard(() => GetIt.I.get<RecorderService>().isRecording);
+    // the recorder tab opens the documentation tab
+    GetIt.I.get<DocumentationService>().discoverRequestedEvent.subscribe(_showDocumentation);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (kIsWeb) {
         _showBrowserPerformanceWarning(context);
@@ -59,6 +68,7 @@ class _MessageViewerPageState extends State<MessageViewerPage> {
               return Consumer<MessageViewerViewmodel>(builder: (context, viewmodel, child) {
                 return Consumer<ProjectViewmodel>(builder: (context, projectViewmodel, child) {
                   var tabController = DefaultTabController.of(context);
+                  _tabController = tabController;
                   return Scaffold(
                     appBar: MainAppBar(viewmodel: projectViewmodel),
                     drawer: navDrawer.NavigationDrawer(),
@@ -66,11 +76,12 @@ class _MessageViewerPageState extends State<MessageViewerPage> {
                     body: AnimatedBuilder(
                       animation: tabController,
                       builder: (context, _) => IndexedStack(
-                          index: tabController.index.clamp(MainAppBar.topicViewerTab, MainAppBar.recorderTab),
+                          index: tabController.index.clamp(MainAppBar.topicViewerTab, MainAppBar.documentationTab),
                           children: [
                             _buildTopicViewer(viewmodel, projectViewmodel),
                             SimulatorPage(),
                             RecorderPage(),
+                            DocumentationPage(),
                           ]),
                     ),
                   );
@@ -89,12 +100,14 @@ class _MessageViewerPageState extends State<MessageViewerPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               projectViewmodel.isProjectOpen
-                  ? viewmodel.topicViewMode == TopicViewMode.Grouped
-                      ? GroupedMessagesViewer()
-                      : viewmodel.topicViewMode == TopicViewMode.Tree
-                          ? TreeMessagesViewer()
-                          : SequentialMessagesViewer()
-                  : Container(),
+                  ? switch (viewmodel.topicViewMode) {
+                      TopicViewMode.Grouped => GroupedMessagesViewer(),
+                      TopicViewMode.Tree => TreeMessagesViewer(),
+                      TopicViewMode.Sequential => SequentialMessagesViewer(),
+                      TopicViewMode.Fleet => FleetViewer(),
+                      TopicViewMode.Sparkplug => SparkplugViewer(),
+                    }
+                  : Expanded(child: NoProjectView()),
               projectViewmodel.isProjectOpen
                   ? viewmodel.selectedMessage != null
                       ? MessageDetailView()
@@ -107,8 +120,11 @@ class _MessageViewerPageState extends State<MessageViewerPage> {
     );
   }
 
+  void _showDocumentation(EventArgs? _) => _tabController?.animateTo(MainAppBar.documentationTab);
+
   @override
   void dispose() {
+    GetIt.I.get<DocumentationService>().discoverRequestedEvent.unsubscribe(_showDocumentation);
     _lifecycleListener.dispose();
     super.dispose();
   }

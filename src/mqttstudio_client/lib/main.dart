@@ -1,7 +1,12 @@
 import 'dart:io';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:mqttstudio/documentation/check_service.dart';
+import 'package:mqttstudio/documentation/discovery_service.dart';
+import 'package:mqttstudio/documentation/documentation_service.dart';
 import 'package:mqttstudio/cli/run_cli.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/mqtt/mqtt_adapter.dart';
 import 'package:mqttstudio/custom_theme.dart';
@@ -39,6 +44,10 @@ void main(List<String> args) async {
   }
 
   WidgetsFlutterBinding.ensureInitialized();
+  if (kIsWeb) {
+    // otherwise the browser's own menu opens over the app's right-click menus
+    await BrowserContextMenu.disableContextMenu();
+  }
   await EasyLocalization.ensureInitialized();
 
   await openLocalDatabase();
@@ -81,6 +90,9 @@ void setupServiceLocator(RecordingLibrary recordingLibrary) {
   GetIt.I.registerSingleton(RecorderService(recordingLibrary, appVersion: _appVersion)..confirmStopOnClose = onClosingWhileRecording);
   GetIt.I.registerSingleton(PlaybackService(recordingLibrary));
   GetIt.I.registerSingleton(RecordingAnalysisService(recordingLibrary));
+  GetIt.I.registerSingleton(DocumentationService());
+  GetIt.I.registerSingleton(DiscoveryService());
+  GetIt.I.registerSingleton(CheckService());
   GetIt.I.registerSingleton(MqttConnectionViewmodel());
 }
 

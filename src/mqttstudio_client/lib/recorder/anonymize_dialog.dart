@@ -104,7 +104,10 @@ class AnonymizeDialog extends StatelessWidget {
                 decoration: InputDecoration(
                     border: OutlineInputBorder(),
                     labelText: target == AnonymizeTarget.jsonPath ? 'anonymize.path.label'.tr() : 'anonymize.level.label'.tr(),
-                    isDense: true),
+                    isDense: true,
+                    suffixIcon: target == AnonymizeTarget.jsonPath
+                        ? Tooltip(message: 'anonymize.path.help'.tr(), child: Icon(Icons.info_outline, size: 20))
+                        : null),
                 validationMessages: {
                   'jsonPath': (_) => 'recordingcharts.path.error'.tr(),
                   'level': (_) => 'anonymize.level.error'.tr(),

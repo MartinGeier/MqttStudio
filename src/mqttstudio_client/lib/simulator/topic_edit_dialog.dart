@@ -142,6 +142,7 @@ class _TopicEditDialogState extends State<TopicEditDialog> with SingleTickerProv
         ValidationMessage.maxLength: (_) => 'common.fieldcontenttolong.error'.tr(),
         'wildcards': (_) => 'simulator.issue.topicWildcard'.tr(),
         'needsInstance': (_) => 'simulator.issue.topicNeedsInstance'.tr(),
+        'placeholderTooWide': (_) => 'simulator.issue.placeholderTooWide'.tr(),
       },
       onSubmitted: (_) => _onOkPressed(context),
     );

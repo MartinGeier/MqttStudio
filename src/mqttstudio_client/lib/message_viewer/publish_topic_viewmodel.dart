@@ -7,6 +7,8 @@ import 'package:mqtt5_client/mqtt5_client.dart';
 import 'package:mqttstudio/message_viewer/message_viewer.dart';
 import 'package:mqttstudio/model/mqtt_message_properties.dart';
 import 'package:mqttstudio/model/mqtt_payload_type.dart';
+import 'package:mqttstudio/model/received_mqtt_message.dart';
+import 'package:mqttstudio/common/utils/payload_decoder.dart';
 import 'package:mqttstudio/project/project_manager.dart';
 import 'package:reactive_forms/reactive_forms.dart';
 import 'package:srx_flutter/srx_flutter.dart';
@@ -30,8 +32,37 @@ class PublishTopicViewmodel extends SrxChangeNotifier {
 
   late FormGroup form;
 
-  PublishTopicViewmodel() {
+  // with a message the form starts with its topic, payload, retain flag and properties, to change and publish again
+  PublishTopicViewmodel({ReceivedMqttMessage? message}) {
     form = buildFormGroup();
+    if (message != null) {
+      _prefill(message);
+    }
+  }
+
+  void _prefill(ReceivedMqttMessage message) {
+    form.control(topicNameField).value = message.topicName;
+    form.control(retainField).value = message.retain;
+    form.control(payloadField).value = utf8.decode(message.payload, allowMalformed: true);
+    var properties = message.properties;
+    if (properties == null || !isMqtt5) {
+      return;
+    }
+    form.control(contentTypeField).value = properties.contentType;
+    form.control(responseTopicField).value = properties.responseTopic;
+    // the field sends text, so binary correlation data is left out
+    var correlationData = properties.correlationData;
+    if (correlationData != null && PayloadDecoding.isUtf8(correlationData)) {
+      form.control(correlationDataField).value = utf8.decode(correlationData);
+    }
+    form.control(messageExpiryIntervalField).value = properties.messageExpiryInterval;
+    form.control(payloadFormatUtf8Field).value = properties.payloadFormatUtf8;
+    for (var userProperty in properties.userProperties) {
+      addUserProperty();
+      var group = userProperties.controls.last as FormGroup;
+      group.control(userPropertyKeyField).value = userProperty.key;
+      group.control(userPropertyValueField).value = userProperty.value;
+    }
   }
 
   // the message properties are only sent to MQTT 5 brokers

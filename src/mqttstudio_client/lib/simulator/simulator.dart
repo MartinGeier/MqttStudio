@@ -15,6 +15,14 @@ import 'package:mqttstudio/simulator/engine/simulation_rules.dart';
 import 'package:mqttstudio/simulator/engine/simulator_publisher.dart';
 import 'package:mqttstudio/simulator/engine/simulator_runner.dart';
 import 'package:mqttstudio/simulator/model/simulation.dart';
+import 'package:mqttstudio/simulator/model/sparkplug_source.dart';
+import 'package:mqttstudio/simulator/model/vda5050_source.dart';
+import 'package:mqttstudio/simulator/sparkplug/simulated_edge_node.dart';
+import 'package:mqttstudio/simulator/sparkplug/simulated_sparkplug_device.dart';
+import 'package:mqttstudio/simulator/sparkplug/sparkplug_fault.dart';
+import 'package:mqttstudio/simulator/vda5050/robot_fault.dart';
+import 'package:mqttstudio/simulator/vda5050/simulated_fleet.dart';
+import 'package:mqttstudio/simulator/vda5050/simulated_robot.dart';
 
 // thrown when starting would publish more messages per second than the app allows
 class SimulationRateException implements Exception {
@@ -36,9 +44,18 @@ class Simulator {
 
   // the recordings of the recorded devices, by device id; null while it is missing
   final Map<String, RecordingInfo?> _recordings = {};
+  // counts the calls of refreshRecordings, so only the last one applies its result
+  int _refreshes = 0;
 
-  Simulator({SimulatorRunner? runner}) {
-    this.runner = runner ?? SimulatorRunner(MqttAdapterPublisher(_mqttAdapter), openRecording: _openRecording);
+  // connectionFactory: the connections of Sparkplug edge nodes; tests pass fake ones
+  Simulator({SimulatorRunner? runner, MqttAdapter Function()? connectionFactory}) {
+    this.runner = runner ??
+        SimulatorRunner(MqttAdapterPublisher(_mqttAdapter),
+            openRecording: _openRecording,
+            // Sparkplug edge nodes connect with the project's broker settings, each on its own connection
+            connections: SimulatorConnections(
+                settings: () => _projectManager.currentProject!.mqttSettings,
+                factory: connectionFactory ?? MqttAdapter.new));
     _projectManager.projectClosedEvent.subscribe(_onProjectClosed);
     _projectManager.projectOpenedEvent.subscribe(_onProjectOpened);
     _mqttAdapter.onDisconnectedEvent.subscribe(_onDisconnected);
@@ -69,15 +86,25 @@ class Simulator {
     return runner.recordedTopicsOf(device.id) ?? [];
   }
 
-  // finds the recordings of the recorded devices again, e.g. after the library changed
+  // Finds the recordings of the recorded devices again, e.g. after the library changed. The devices may change while
+  // it waits for the library, and the recordings found before stay until the new ones are known.
   Future<void> refreshRecordings() async {
+    var refresh = ++_refreshes;
     var library = _library;
-    _recordings.clear();
+    var found = <String, RecordingInfo?>{};
     if (library != null) {
-      for (var device in devices.where((device) => device.isRecorded && device.recorded != null)) {
-        _recordings[device.id] = await library.findSource(device.recorded!.recordingId, device.recorded!.fileName);
+      var recorded = devices.where((device) => device.isRecorded && device.recorded != null).toList();
+      for (var device in recorded) {
+        found[device.id] = await library.findSource(device.recorded!.recordingId, device.recorded!.fileName);
       }
     }
+    if (refresh != _refreshes) {
+      // a newer refresh is on its way
+      return;
+    }
+    _recordings
+      ..clear()
+      ..addAll(found);
     simulationChangedEvent.broadcast();
   }
 
@@ -112,16 +139,25 @@ class Simulator {
   void startAll() {
     var all = [for (var device in devices) for (var topic in device.topics) (device, topic)];
     _checkRate(all,
-        recorded: devices.where((device) => device.isRecorded && !runner.isDeviceRunning(device.id)).fold(
-            0.0, (sum, device) => sum + _recordedRate(device)));
+        recorded: devices
+            .where((device) => !runner.isDeviceRunning(device.id))
+            .fold(0.0, (sum, device) => sum + _deviceRate(device)));
     runner.startAll(simulation!);
   }
 
   void startDevice(SimulatedDevice device) {
     _checkRate(device.topics.map((topic) => (device, topic)),
-        recorded: device.isRecorded && !runner.isDeviceRunning(device.id) ? _recordedRate(device) : 0);
+        recorded: runner.isDeviceRunning(device.id) ? 0 : _deviceRate(device));
     runner.startDevice(device);
   }
+
+  // msg/s of a recorded or VDA 5050 device; generated devices are estimated per topic
+  double _deviceRate(SimulatedDevice device) => switch (device.kind) {
+        DeviceKind.recorded => _recordedRate(device),
+        DeviceKind.vda5050 => SimulatedFleet.rateOf(device),
+        DeviceKind.sparkplug => SimulatedSparkplugDevice.rateOf(device),
+        DeviceKind.generated => 0,
+      };
 
   void startTopic(SimulatedDevice device, SimulatedTopic topic) {
     _checkRate([(device, topic)]);
@@ -134,7 +170,9 @@ class Simulator {
 
   void stopTopic(SimulatedTopic topic) => runner.stopTopic(topic.id);
 
-  int clearRetained() => runner.clearRetained([for (var device in devices) for (var topic in device.topics) (device, topic)]);
+  int clearRetained() =>
+      runner.clearRetained([for (var device in devices) for (var topic in device.topics) (device, topic)]) +
+      runner.clearRetainedConnections(devices);
 
   void _checkRate(Iterable<(SimulatedDevice, SimulatedTopic)> topics, {double recorded = 0}) {
     var rate = rateWith(topics) + recorded;
@@ -152,22 +190,35 @@ class Simulator {
     return device;
   }
 
-  // replaces the device with the same id. Its running topics restart, so a new instance count applies at once.
+  // Replaces the device with the same id. Its running topics restart, so a new instance count applies at once (D19).
+  // The restart is checked against the rate limit like a start: above it, the edit is kept and the device stays
+  // stopped, and SimulationRateException is thrown.
   void updateDevice(SimulatedDevice edited) {
     var devices = simulation!.devices;
     var index = devices.indexWhere((device) => device.id == edited.id);
-    var running = devices[index].topics.where((topic) => runner.isRunning(topic.id)).map((topic) => topic.id).toSet();
+    var previous = devices[index];
+    var running = previous.topics.where((topic) => runner.isRunning(topic.id)).map((topic) => topic.id).toSet();
+    var deviceRunning = runner.isDeviceRunning(edited.id);
     devices[index] = edited;
-    if (edited.isRecorded) {
-      // D19: a playing recorded device restarts with its new settings
-      if (runner.isDeviceRunning(edited.id)) {
-        runner.startRecorded(edited);
+    try {
+      if (edited.isGenerated) {
+        var restarted = edited.topics.where((topic) => running.contains(topic.id)).toList();
+        if (restarted.isNotEmpty) {
+          runner.stopTopics(running);
+          _checkRate(restarted.map((topic) => (edited, topic)));
+          runner.start(edited, restarted);
+        }
+      } else if (deviceRunning) {
+        // recorded devices, robots and edge nodes start again with the new settings
+        runner.stopDevice(previous);
+        startDevice(edited);
       }
-      refreshRecordings();
-    } else {
-      runner.restart(edited, edited.topics.where((topic) => running.contains(topic.id)));
+    } finally {
+      if (edited.isRecorded) {
+        refreshRecordings();
+      }
+      _changed();
     }
-    _changed();
   }
 
   void deleteDevice(SimulatedDevice device) {
@@ -188,10 +239,10 @@ class Simulator {
   // Recorded devices have no topics of their own.
   SimulatedDevice deviceForNewTopic(String? deviceId) {
     var device = deviceId == null ? null : simulation!.deviceById(deviceId);
-    if (device != null && !device.isRecorded) {
+    if (device != null && device.isGenerated) {
       return device;
     }
-    var generated = devices.where((device) => !device.isRecorded);
+    var generated = devices.where((device) => device.isGenerated);
     if (generated.isNotEmpty) {
       return generated.first;
     }
@@ -228,12 +279,19 @@ class Simulator {
     _changed();
   }
 
-  // replaces the topic with the same id and restarts it if it was running
+  // Replaces the topic with the same id and restarts it if it was running. Above the rate limit the edit is kept, the
+  // topic stays stopped and SimulationRateException is thrown.
   void updateTopic(SimulatedDevice device, SimulatedTopic edited) {
     var index = device.topics.indexWhere((topic) => topic.id == edited.id);
     device.topics[index] = edited;
-    runner.restart(device, [edited]);
-    _changed();
+    try {
+      if (runner.isRunning(edited.id)) {
+        runner.stopTopic(edited.id);
+        startTopic(device, edited);
+      }
+    } finally {
+      _changed();
+    }
   }
 
   void deleteTopic(SimulatedDevice device, SimulatedTopic topic) {
@@ -257,6 +315,62 @@ class Simulator {
       number++;
     }
     return candidate;
+  }
+
+  // a device that simulates VDA 5050 robots, named uniquely
+  SimulatedDevice newVda5050Device() => SimulatedDevice(
+      name: uniqueNewDeviceName('VDA 5050 robots'), kind: DeviceKind.vda5050, instanceCount: 5, vda5050: Vda5050Source());
+
+  SimulatedFleet? fleetOf(SimulatedDevice device) => runner.fleetOf(device.id);
+
+  // a device of Sparkplug B edge nodes, named uniquely, from the example (doc/sparkplug-design.md §10.3)
+  SimulatedDevice newSparkplugDevice() => SimulatedDevice(
+      name: uniqueNewDeviceName('Sparkplug edge nodes'),
+      kind: DeviceKind.sparkplug,
+      instanceCount: 2,
+      sparkplug: SparkplugSource.example());
+
+  SimulatedSparkplugDevice? sparkplugOf(SimulatedDevice device) => runner.sparkplugOf(device.id);
+
+  void injectSparkplugFault(SimulatedDevice device, SimulatedEdgeNode node, SparkplugFault fault) {
+    var run = runner.sparkplugOf(device.id);
+    if (run != null && run.isRunning) {
+      run.inject(node, fault);
+    }
+  }
+
+  void injectFault(SimulatedDevice device, SimulatedRobot robot, RobotFault fault) {
+    var fleet = runner.fleetOf(device.id);
+    if (fleet != null && fleet.isRunning && fleet.robots.contains(robot)) {
+      fleet.inject(robot, fault);
+    }
+  }
+
+  // the Topic Viewer subscription that receives every topic of the robots of a VDA 5050 device or of the edge nodes
+  // of a Sparkplug device; null for the other kinds
+  String? viewerSubscriptionOf(SimulatedDevice device) {
+    var vda5050 = device.vda5050;
+    if (device.isVda5050 && vda5050 != null) {
+      return '${vda5050.interfaceName}/${vda5050.version.topicLevel}/${vda5050.manufacturer}/+/#';
+    }
+    var sparkplug = device.sparkplug;
+    if (device.isSparkplug && sparkplug != null) {
+      return 'spBv1.0/${sparkplug.groupId}/#';
+    }
+    return null;
+  }
+
+  bool isDeviceSubscribedInViewer(SimulatedDevice device) {
+    var subscription = viewerSubscriptionOf(device);
+    return (_projectManager.currentProject?.topicSubscriptions ?? <TopicSubscription>[])
+        .any((sub) => sub.topic == subscription);
+  }
+
+  void subscribeDeviceInViewer(SimulatedDevice device) {
+    var subscription = viewerSubscriptionOf(device);
+    if (subscription != null && !isDeviceSubscribedInViewer(device)) {
+      GetIt.I.get<MessageViewer>().addTopicSubscription(TopicSubscription(subscription, MqttQos.atLeastOnce));
+    }
   }
 
   // the Topic Viewer subscription that receives all instances of the topic
@@ -311,8 +425,10 @@ class Simulator {
   void _onLibraryChanged(EventArgs? _) => refreshRecordings();
 
   void _onDisconnected(EventArgs _) {
-    if (runner.isAnyRunning) {
-      runner.stopAll();
+    var wasRunning = runner.isAnyRunning;
+    // also cancels recorded devices whose recording is still loading
+    runner.stopAll();
+    if (wasRunning) {
       stoppedByDisconnectEvent.broadcast();
     }
   }

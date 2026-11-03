@@ -1,8 +1,10 @@
-import 'package:mqttstudio/common/localstore.dart';
+import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/model/project.dart';
+import 'package:mqttstudio/project/project_manager.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 
 class OpenProjectViewmodel extends SrxChangeNotifier {
+  final ProjectManager _projectManager = GetIt.I.get<ProjectManager>();
   List<Project> projects = [];
 
   OpenProjectViewmodel() {
@@ -10,13 +12,12 @@ class OpenProjectViewmodel extends SrxChangeNotifier {
   }
 
   Future _loadProjects() async {
-    projects = await LocalStore().getProjects();
-    projects.sort((x, y) => (y.lastUsed ?? DateTime(2000, 1, 1)).compareTo((x.lastUsed ?? DateTime(2000, 1, 1))));
+    projects = await _projectManager.getProjects();
     notifyListeners();
   }
 
   Future deleteProject(Project project) async {
-    projects = await LocalStore().deleteProject(project);
+    projects = await _projectManager.deleteProject(project);
     notifyListeners();
   }
 }

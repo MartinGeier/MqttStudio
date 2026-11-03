@@ -114,11 +114,15 @@ class RecordDialog extends StatelessWidget {
     );
   }
 
-  Widget _durationField(RecordViewmodel vm, String name, String labelKey, String helperKey) {
+  Widget _durationField(RecordViewmodel vm, String name, String labelKey, String helperKey, {String? tooltipKey}) {
     return ReactiveTextField<String>(
       formControlName: name,
       decoration: InputDecoration(
-          border: OutlineInputBorder(), labelText: labelKey.tr(), helperText: helperKey.tr(), isDense: true),
+          border: OutlineInputBorder(),
+          labelText: labelKey.tr(),
+          helperText: helperKey.tr(),
+          isDense: true,
+          suffixIcon: tooltipKey == null ? null : Tooltip(message: tooltipKey.tr(), child: Icon(Icons.info_outline, size: 20))),
       validationMessages: {
         ValidationMessage.required: (_) => 'srx.common.fieldrequired'.tr(),
         'duration': (_) => 'recorddialog.duration.error'.tr(),
@@ -133,13 +137,20 @@ class RecordDialog extends StatelessWidget {
       SrxFormRow(children: [
         Expanded(flex: 3, child: _conditionField(vm, RecordViewmodel.startWhenField, 'recorddialog.startwhen.label')),
         SizedBox(width: 16),
-        Expanded(child: _durationField(vm, RecordViewmodel.preRollField, 'recorddialog.preroll.label', 'recorddialog.preroll.helper')),
+        Expanded(
+            child: _durationField(vm, RecordViewmodel.preRollField, 'recorddialog.preroll.label', 'recorddialog.preroll.helper',
+                tooltipKey: 'recorddialog.preroll.tooltip')),
       ]),
+      // the helper lines take the row's bottom padding, the next floating label needs room
+      SizedBox(height: 12),
       SrxFormRow(children: [
         Expanded(flex: 3, child: _conditionField(vm, RecordViewmodel.stopWhenField, 'recorddialog.stopwhen.label')),
         SizedBox(width: 16),
-        Expanded(child: _durationField(vm, RecordViewmodel.postRollField, 'recorddialog.postroll.label', 'recorddialog.postroll.helper')),
+        Expanded(
+            child: _durationField(vm, RecordViewmodel.postRollField, 'recorddialog.postroll.label', 'recorddialog.postroll.helper',
+                tooltipKey: 'recorddialog.postroll.tooltip')),
       ]),
+      SizedBox(height: 12),
     ]);
   }
 
@@ -157,10 +168,12 @@ class RecordDialog extends StatelessWidget {
         SizedBox(width: 16),
         Expanded(
             child: _durationField(
-                vm, RecordViewmodel.savePostRollField, 'recorddialog.savepostroll.label', 'recorddialog.savepostroll.helper')),
+                vm, RecordViewmodel.savePostRollField, 'recorddialog.savepostroll.label', 'recorddialog.savepostroll.helper',
+                tooltipKey: 'recorddialog.savepostroll.tooltip')),
         SizedBox(width: 16),
         Expanded(child: _intField(vm, RecordViewmodel.maxSavesField, 'recorddialog.maxsaves.label', null)),
       ]),
+      SizedBox(height: 12),
       SrxFormRow(children: [Expanded(child: _conditionField(vm, RecordViewmodel.saveWhenField, 'recorddialog.savewhen.label'))]),
     ]);
   }

@@ -11,6 +11,12 @@ import 'package:mqttstudio/simulator/engine/simulation_rules.dart';
 import 'package:mqttstudio/simulator/engine/simulator_runner.dart';
 import 'package:mqttstudio/simulator/model/simulation.dart';
 import 'package:mqttstudio/simulator/simulator.dart';
+import 'package:mqttstudio/simulator/sparkplug/simulated_edge_node.dart';
+import 'package:mqttstudio/simulator/sparkplug/simulated_sparkplug_device.dart';
+import 'package:mqttstudio/simulator/sparkplug/sparkplug_fault.dart';
+import 'package:mqttstudio/simulator/vda5050/robot_fault.dart';
+import 'package:mqttstudio/simulator/vda5050/simulated_fleet.dart';
+import 'package:mqttstudio/simulator/vda5050/simulated_robot.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 
 // Viewmodel of the simulator tab
@@ -71,22 +77,61 @@ class SimulatorViewmodel extends SrxChangeNotifier {
 
   bool get isAnyRunning => _simulator.runner.isAnyRunning;
 
-  bool get hasRetainedTopics => devices.any((device) => device.topics.any((topic) => topic.retain));
+  // VDA 5050 robots leave their retained connection message
+  bool get hasRetainedTopics =>
+      devices.any((device) =>
+          device.isVda5050 ||
+          (device.isSparkplug && device.sparkplug!.simulateHost && (device.sparkplug!.primaryHostId ?? '').isNotEmpty) ||
+          device.topics.any((topic) => topic.retain));
+
+  // something that isn't running yet, for Start all
+  bool get hasStoppedWork => devices.any((device) => device.isGenerated
+      ? device.topics.any((topic) => stateOf(topic) != TopicRunState.running)
+      : !_simulator.runner.isDeviceRunning(device.id));
 
   TopicRunState stateOf(SimulatedTopic topic) => _simulator.runner.stateOf(topic.id);
 
   TopicStats statsOf(SimulatedTopic topic) => _simulator.runner.statsOf(topic.id);
 
-  int runningCountOf(SimulatedDevice device) => device.isRecorded
-      ? (isRecordedRunning(device) ? recordedTopicsOf(device).length : 0)
-      : device.topics.where((topic) => stateOf(topic) == TopicRunState.running).length;
+  int runningCountOf(SimulatedDevice device) => switch (device.kind) {
+        DeviceKind.recorded => isRecordedRunning(device) ? recordedTopicsOf(device).length : 0,
+        DeviceKind.vda5050 || DeviceKind.sparkplug => isRecordedRunning(device) ? device.instanceCount : 0,
+        DeviceKind.generated => device.topics.where((topic) => stateOf(topic) == TopicRunState.running).length,
+      };
 
-  int errorCountOf(SimulatedDevice device) => device.isRecorded
-      ? (deviceStatsOf(device).error == null ? 0 : 1)
-      : device.topics.where((topic) => stateOf(topic) == TopicRunState.error).length;
+  int errorCountOf(SimulatedDevice device) => device.isGenerated
+      ? device.topics.where((topic) => stateOf(topic) == TopicRunState.error).length
+      : (deviceStatsOf(device).error == null ? 0 : 1);
+
+  // ---------- VDA 5050 devices ----------
+
+  SimulatedFleet? fleetOf(SimulatedDevice device) => _simulator.fleetOf(device);
+
+  SimulatedDevice newVda5050Device() => _simulator.newVda5050Device();
+
+  void injectFault(SimulatedDevice device, SimulatedRobot robot, RobotFault fault) =>
+      _simulator.injectFault(device, robot, fault);
+
+  // ---------- Sparkplug devices ----------
+
+  SimulatedDevice newSparkplugDevice() => _simulator.newSparkplugDevice();
+
+  SimulatedSparkplugDevice? sparkplugOf(SimulatedDevice device) => _simulator.sparkplugOf(device);
+
+  void injectSparkplugFault(SimulatedDevice device, SimulatedEdgeNode node, SparkplugFault fault) =>
+      _simulator.injectSparkplugFault(device, node, fault);
+
+  // ---------- VDA 5050 and Sparkplug devices in the Topic Viewer ----------
+
+  String? viewerSubscriptionOf(SimulatedDevice device) => _simulator.viewerSubscriptionOf(device);
+
+  bool isDeviceSubscribedInViewer(SimulatedDevice device) => _simulator.isDeviceSubscribedInViewer(device);
+
+  void subscribeDeviceInViewer(SimulatedDevice device) => _simulator.subscribeDeviceInViewer(device);
 
   // ---------- recorded devices ----------
 
+  // a recorded device plays or the robots of a VDA 5050 device drive
   bool isRecordedRunning(SimulatedDevice device) => _simulator.runner.isDeviceRunning(device.id);
 
   RecordingInfo? recordingOf(SimulatedDevice device) => _simulator.recordingOf(device);
@@ -156,7 +201,7 @@ class SimulatorViewmodel extends SrxChangeNotifier {
     selectedDeviceId = device.id;
   }
 
-  void updateDevice(SimulatedDevice device) => _simulator.updateDevice(device);
+  void updateDevice(SimulatedDevice device) => _guard(() => _simulator.updateDevice(device));
 
   void deleteDevice(SimulatedDevice device) => _simulator.deleteDevice(device);
 
@@ -169,7 +214,7 @@ class SimulatorViewmodel extends SrxChangeNotifier {
     _collapsed.remove(device.id);
   }
 
-  void updateTopic(SimulatedDevice device, SimulatedTopic topic) => _simulator.updateTopic(device, topic);
+  void updateTopic(SimulatedDevice device, SimulatedTopic topic) => _guard(() => _simulator.updateTopic(device, topic));
 
   void deleteTopic(SimulatedDevice device, SimulatedTopic topic) => _simulator.deleteTopic(device, topic);
 

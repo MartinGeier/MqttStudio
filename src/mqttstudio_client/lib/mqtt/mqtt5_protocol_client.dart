@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:mqtt5_client/mqtt5_client.dart';
 import 'mqttserver.dart' if (dart.library.html) 'mqttbrowser.dart' as mqttsetup;
 import 'package:mqttstudio/model/broker_info.dart';
@@ -9,6 +10,7 @@ import 'package:mqttstudio/model/mqtt_settings.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
 import 'package:mqttstudio/model/topic_subscription.dart';
 import 'package:mqttstudio/mqtt/mqtt_protocol_client.dart';
+import 'package:mqttstudio/mqtt/mqtt_will.dart';
 import 'package:mqttstudio/mqtt/mqtt_reason_codes.dart';
 import 'package:mqttstudio/service/service_error.dart';
 import 'package:srx_flutter/srx_flutter.dart';
@@ -32,7 +34,7 @@ class Mqtt5ProtocolClient extends MqttProtocolClient {
   String? get lastDisconnectReason => _lastDisconnectReason;
 
   @override
-  Future connect(MqttSettings mqttSettings) async {
+  Future connect(MqttSettings mqttSettings, {MqttWill? will}) async {
     _brokerInfo = null;
     _lastDisconnectReason = null;
     _client = mqttsetup.setup(MqttProtocolClient.serverAddressOf(mqttSettings), mqttSettings.clientId);
@@ -43,7 +45,7 @@ class Mqtt5ProtocolClient extends MqttProtocolClient {
     _client.onSubscribed = _onSubscribed;
     _client.onSubscribeFail = _onSubscribeFail;
     _client.onUnsubscribed = _onUnsubscribed;
-    _client.connectionMessage = _buildConnectMessage(mqttSettings);
+    _client.connectionMessage = buildConnectMessage(mqttSettings, will);
     _client.keepAlivePeriod = MqttProtocolClient.keepAlivePeriod;
     _client.logging(on: true);
     _client.websocketProtocols = ['mqtt'];
@@ -75,6 +77,10 @@ class Mqtt5ProtocolClient extends MqttProtocolClient {
 
     _client.updates.listen(_onDataReceived);
   }
+
+  // the package's own reaction to a broker that stopped answering: the socket is destroyed without DISCONNECT
+  @override
+  void dropConnection() => _client.disconnectOnNoPingResponse(DisconnectOnNoPingResponse());
 
   @override
   void disconnect() {
@@ -136,7 +142,8 @@ class Mqtt5ProtocolClient extends MqttProtocolClient {
     _client.publishUserMessage(message);
   }
 
-  MqttConnectMessage _buildConnectMessage(MqttSettings mqttSettings) {
+  @visibleForTesting
+  static MqttConnectMessage buildConnectMessage(MqttSettings mqttSettings, MqttWill? will) {
     var message = MqttConnectMessage().withClientIdentifier(mqttSettings.clientId).withRequestProblemInformation(true);
     // clean start is off by default. startSession() is not used because it turns an interval of 0 into
     // "never expires".
@@ -145,6 +152,16 @@ class Mqtt5ProtocolClient extends MqttProtocolClient {
     }
     if (mqttSettings.sessionExpiryInterval > 0) {
       message.withSessionExpiryInterval(mqttSettings.sessionExpiryInterval);
+    }
+    if (will != null) {
+      message
+        ..will()
+        ..withWillTopic(will.topic)
+        ..withWillPayload(Uint8Buffer()..addAll(will.payload))
+        ..withWillQos(will.qos);
+      if (will.retain) {
+        message.withWillRetain();
+      }
     }
     return message;
   }
