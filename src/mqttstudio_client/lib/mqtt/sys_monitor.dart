@@ -56,13 +56,23 @@ class SysMonitor {
 
   SysMonitor({MqttAdapter Function()? connectionFactory}) : _factory = connectionFactory ?? MqttAdapter.new;
 
-  // throws when the broker can't be reached
+  // throws when the broker can't be reached; returns without a connection when close() ran meanwhile
   Future<void> open(MqttSettings settings) async {
     var connection = SideConnection(_factory);
-    await connection.connect(SideConnection.settingsFor(settings, 'sys'));
+    // kept before connecting, so close() can stop the connect
+    _connection = connection;
+    try {
+      await connection.connect(SideConnection.settingsFor(settings, 'sys'));
+    } on SideConnectionClosedError {
+      return;
+    } catch (_) {
+      if (identical(_connection, connection)) {
+        _connection = null;
+      }
+      rethrow;
+    }
     connection.messageReceivedEvent.subscribe(_onMessage);
     connection.listen((adapter) => adapter.subscribeToTopic(TopicSubscription(filter, MqttQos.atMostOnce)));
-    _connection = connection;
   }
 
   void close() {

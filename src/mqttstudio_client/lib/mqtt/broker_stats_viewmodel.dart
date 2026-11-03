@@ -19,6 +19,7 @@ class BrokerStatsViewmodel extends SrxChangeNotifier {
   String _topicFilter = '';
   Timer? _noDataTimer;
   Timer? _refreshTimer;
+  bool _disposed = false;
 
   BrokerStatsViewmodel({MqttAdapter Function()? connectionFactory})
       : _monitor = SysMonitor(connectionFactory: connectionFactory) {
@@ -27,6 +28,7 @@ class BrokerStatsViewmodel extends SrxChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     _noDataTimer?.cancel();
     _refreshTimer?.cancel();
     _monitor.changedEvent.unsubscribe(_onChanged);
@@ -62,8 +64,15 @@ class BrokerStatsViewmodel extends SrxChangeNotifier {
     try {
       await _monitor.open(GetIt.I.get<ProjectManager>().currentProject!.mqttSettings);
     } catch (exc) {
+      if (_disposed) {
+        return;
+      }
       _error = exc.toString();
       _setState(BrokerStatsState.failed);
+      return;
+    }
+    // the dialog was closed while connecting
+    if (_disposed) {
       return;
     }
     if (_state == BrokerStatsState.connecting) {

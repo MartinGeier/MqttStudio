@@ -38,12 +38,11 @@ class MqttAdapter {
   final messageReceivedEvent = Event<ReceivedMqttMessage>();
   final subscribeFailedEvent = Event<SubscribeFailedEventArgs>();
   var _lock = new lock.Lock();
+  final MqttProtocolClient Function(MqttProtocolVersion protocolVersion)? _clientFactory;
+  _ConnectAttempt? _connecting;
 
-  MqttAdapter() {
-    if (!kIsWeb) {
-      TlsContext.loadBundledCa();
-    }
-  }
+  MqttAdapter({@visibleForTesting MqttProtocolClient Function(MqttProtocolVersion protocolVersion)? clientFactory})
+      : _clientFactory = clientFactory;
 
   MqttProtocolVersion get protocolVersion => _client.protocolVersion;
 
@@ -53,22 +52,58 @@ class MqttAdapter {
   // the reason the broker gave for closing the connection, MQTT 5 only
   String? get lastDisconnectReason => _client.lastDisconnectReason;
 
+  // A disconnect or another connect while this one is still running cancels it: the connection it built is closed
+  // and it throws a SrxServiceException with ServiceError.MqttConnectCancelled.
   Future connect(MqttSettings mqttSettings, {MqttWill? will}) async {
+    _connecting?.cancelled = true;
+    var attempt = _connecting = _ConnectAttempt();
+    if (!kIsWeb) {
+      await TlsContext.loadBundledCa();
+    }
+    if (attempt.cancelled) {
+      throw _cancelledException();
+    }
+
     if (_client.isConnected()) {
       _client.disconnect();
     }
-    _client = _createClient(mqttSettings.protocolVersion);
-    _client.onConnected = _onConnected;
-    _client.onDisconnected = _onDisconnected;
-    _client.onMessagesReceived = _onDataReceived;
-    _client.onSubscribed = _onSubscribed;
-    _client.onUnsubscribed = _onUnsubscribed;
-    _client.onSubscribeFailed = _onSubscribeFailed;
+    var client = _createClient(mqttSettings.protocolVersion);
+    _client = client;
+    // a client that was replaced by a newer connect must not report for the adapter
+    client.onConnected = () {
+      if (!attempt.cancelled) {
+        _onConnected();
+      }
+    };
+    client.onDisconnected = () {
+      if (identical(_client, client)) {
+        _onDisconnected();
+      }
+    };
+    client.onMessagesReceived = _onDataReceived;
+    client.onSubscribed = _onSubscribed;
+    client.onUnsubscribed = _onUnsubscribed;
+    client.onSubscribeFailed = _onSubscribeFailed;
 
-    await _client.connect(mqttSettings, will: will);
+    try {
+      await client.connect(mqttSettings, will: will);
+    } catch (_) {
+      if (attempt.cancelled) {
+        throw _cancelledException();
+      }
+      _connecting = null;
+      rethrow;
+    }
+    if (attempt.cancelled) {
+      client.disconnect();
+      throw _cancelledException();
+    }
+    _connecting = null;
   }
 
   void disconnect() {
+    _connecting?.cancelled = true;
+    _connecting = null;
     _client.disconnect();
   }
 
@@ -118,7 +153,13 @@ class MqttAdapter {
     _client.publish(topic, payloadBuilder.payload!, qos, retain, properties);
   }
 
+  SrxServiceException _cancelledException() =>
+      SrxServiceException('Connecting was cancelled', ServiceError.MqttConnectCancelled);
+
   MqttProtocolClient _createClient(MqttProtocolVersion protocolVersion) {
+    if (_clientFactory != null) {
+      return _clientFactory(protocolVersion);
+    }
     switch (protocolVersion) {
       case MqttProtocolVersion.v311:
         return Mqtt311ProtocolClient();
@@ -141,7 +182,12 @@ class MqttAdapter {
     print("message received");
     await _lock.synchronized(() async {
       for (var msg in messages) {
-        messageReceivedEvent.broadcast(msg);
+        // a failing subscriber must not keep the rest of the batch from the others
+        try {
+          messageReceivedEvent.broadcast(msg);
+        } catch (exc, stack) {
+          print('MQTT: handling a message of ${msg.topicName} failed [$exc]\n$stack');
+        }
       }
     });
   }
@@ -158,4 +204,8 @@ class MqttAdapter {
     print('MQTT: subscribing to $topic failed [${reason ?? 'no reason given'}]');
     subscribeFailedEvent.broadcast(SubscribeFailedEventArgs(topic, reason));
   }
+}
+
+class _ConnectAttempt {
+  bool cancelled = false;
 }

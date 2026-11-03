@@ -31,6 +31,8 @@ class SideConnection {
   final subscribeFailedEvent = Event<SubscribeFailedEventArgs>();
 
   MqttAdapter? _adapter;
+  // the adapter of a connect that is still running
+  MqttAdapter? _connecting;
   MqttSettings? _settings;
   MqttWill? _will;
   void Function(MqttAdapter adapter)? _subscribe;
@@ -47,22 +49,43 @@ class SideConnection {
 
   MqttAdapter? get adapter => _adapter;
 
-  // throws when the broker can't be reached; nothing is left open then. A reconnect leaves the same will.
+  // true once close() was called; a closed connection stays closed
+  bool get isClosed => _closed;
+
+  // Throws when the broker can't be reached; nothing is left open then. A reconnect leaves the same will.
+  // When close() runs before the connection is made, the connection is closed again and this throws a
+  // SideConnectionClosedError, a StateError that callers can tell from a broker error by it or by isClosed.
   Future<void> connect(MqttSettings settings, {MqttWill? will}) async {
+    if (_closed) {
+      throw SideConnectionClosedError();
+    }
     var adapter = _factory();
+    _connecting = adapter;
     try {
       await adapter.connect(settings, will: will);
     } catch (_) {
+      _connecting = null;
       adapter.disconnect();
+      if (_closed) {
+        throw SideConnectionClosedError();
+      }
       rethrow;
+    }
+    _connecting = null;
+    if (_closed) {
+      adapter.disconnect();
+      throw SideConnectionClosedError();
     }
     _adapter = adapter;
     _settings = settings;
     _will = will;
   }
 
-  // starts receiving: subscribe is called now and after every reconnect
+  // starts receiving: subscribe is called now and after every reconnect; does nothing once the connection is closed
   void listen(void Function(MqttAdapter adapter) subscribe) {
+    if (_closed) {
+      return;
+    }
     var adapter = _adapter!;
     _subscribe = subscribe;
     adapter.messageReceivedEvent.subscribe(_onMessage);
@@ -75,6 +98,8 @@ class SideConnection {
     _closed = true;
     _reconnectTimer?.cancel();
     _reconnecting = false;
+    // stops a connect that is still running; connect closes its connection if it gets made anyway
+    _connecting?.disconnect();
     var adapter = _adapter;
     if (adapter == null) {
       return;
@@ -131,8 +156,9 @@ class SideConnection {
     if (_closed) {
       return;
     }
+    var adapter = _adapter!;
     try {
-      await _adapter!.connect(_settings!, will: _will);
+      await adapter.connect(_settings!, will: _will);
     } catch (_) {
       if (!_closed) {
         _scheduleReconnect();
@@ -140,10 +166,17 @@ class SideConnection {
       return;
     }
     if (_closed) {
+      // close() ran during the reconnect, before this connection was made
+      adapter.disconnect();
       return;
     }
     _reconnecting = false;
-    _subscribe?.call(_adapter!);
+    _subscribe?.call(adapter);
     reconnectedEvent.broadcast();
   }
+}
+
+// connect() was stopped by close()
+class SideConnectionClosedError extends StateError {
+  SideConnectionClosedError() : super('The connection was closed while connecting');
 }
