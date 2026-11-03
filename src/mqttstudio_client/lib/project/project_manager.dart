@@ -14,6 +14,8 @@ class ProjectManager {
   // raised when a project is saved or deleted
   final projectsChangedEvent = Event();
   int? lastSavedProjectHash;
+  // the name the current project was last saved under, null while it was never saved
+  String? _savedName;
   final Future Function() _onClosingNotSaved;
   // asked before a project closes; one that returns false keeps it open, e.g. the recorder while recording
   final List<Future<bool> Function()> _closeGuards = [];
@@ -30,6 +32,9 @@ class ProjectManager {
 
   bool get isProjectOpen => _currentProject != null;
 
+  // the dialog renames the project in place, saving it then replaces the entry under this name
+  String? get savedProjectName => _savedName;
+
   void addCloseGuard(Future<bool> Function() guard) => _closeGuards.add(guard);
 
   void removeCloseGuard(Future<bool> Function() guard) => _closeGuards.remove(guard);
@@ -42,15 +47,9 @@ class ProjectManager {
     }
 
     _currentProject = newProject;
-    if (newProject?.lastUsed != null) {
-      _currentProject?.lastUsed = DateTime.now();
-      await saveProject();
-    } else {
-      _currentProject?.lastUsed = DateTime.now();
-    }
-
-    // keep the hash to check for changes
-    lastSavedProjectHash = _currentProject?.getHash();
+    _currentProject?.lastUsed = DateTime.now();
+    // also a new project, so closing it without changes does not lose it; this keeps the hash to check for changes
+    await saveProject();
 
     projectOpenedEvent.broadcast();
     return true;
@@ -77,8 +76,8 @@ class ProjectManager {
     }
 
     _mqttAdapter.disconnect();
-    projectClosedEvent.broadcast();
     _currentProject = null;
+    _savedName = null;
     lastSavedProjectHash = null;
     projectClosedEvent.broadcast();
     return true;
@@ -86,11 +85,20 @@ class ProjectManager {
 
   Future saveProject() async {
     if (currentProject != null) {
-      await LocalStore().saveProject(currentProject!);
+      await LocalStore().saveProject(currentProject!, previousName: _savedName);
+      _savedName = currentProject!.name;
       // the saved state is the new reference to check for changes
       lastSavedProjectHash = currentProject!.getHash();
       projectsChangedEvent.broadcast();
     }
+  }
+
+  // the names of the saved projects except the current one, a project can't be saved under them
+  Future<Set<String>> otherProjectNames() async {
+    return {
+      for (var project in await LocalStore().getProjects())
+        if (project.name != _savedName) project.name
+    };
   }
 
   // the saved projects, last used first

@@ -12,6 +12,18 @@ void main() {
   tearDown(tearDownServices);
 
   group('ProjectEditViewmodel for a new project', () {
+    test('rejects the name of a saved project', () {
+      var viewmodel = ProjectEditViewmodel(null, takenNames: {'Taken'});
+      viewmodel.form.control(ProjectEditViewmodel.projectNameField).value = 'Taken';
+      viewmodel.form.control(ProjectEditViewmodel.mqttHostnameField).value = 'test.mosquitto.org';
+
+      expect(viewmodel.saveModel(), isFalse);
+      expect(viewmodel.form.control(ProjectEditViewmodel.projectNameField).hasError('nameTaken'), isTrue);
+
+      viewmodel.form.control(ProjectEditViewmodel.projectNameField).value = 'Free';
+      expect(viewmodel.saveModel(), isTrue);
+    });
+
     test('suggests a client id and the default port', () {
       var viewmodel = ProjectEditViewmodel(null);
 
@@ -174,6 +186,18 @@ void main() {
       expect(project.mqttSettings.useWebSockets, isFalse);
       expect(project.mqttSettings.username, 'user');
     });
+
+    test('rejects the name of another saved project', () {
+      var viewmodel = ProjectEditViewmodel(existing(), takenNames: {'Other'});
+      var name = viewmodel.form.control(ProjectEditViewmodel.projectNameField);
+
+      expect(viewmodel.saveModel(), isTrue, reason: 'the project keeps its own name');
+
+      name.value = 'Other';
+      expect(viewmodel.saveModel(), isFalse);
+      expect(name.hasError('nameTaken'), isTrue);
+      expect(viewmodel.project!.name, 'Existing');
+    });
   });
 
   group('OpenProjectViewmodel', () {
@@ -214,6 +238,14 @@ void main() {
       expect(await viewmodel.closeProject(), isTrue);
       expect(viewmodel.isProjectOpen, isFalse);
       expect(notified, greaterThanOrEqualTo(2));
+    });
+
+    test('names the saved projects other than the open one', () async {
+      await LocalStore().saveProject(createProject('Other'));
+      var viewmodel = ProjectViewmodel();
+      await viewmodel.openProject(createProject('Current'));
+
+      expect(await viewmodel.otherProjectNames(), {'Other'});
     });
   });
 }

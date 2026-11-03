@@ -12,7 +12,10 @@ import 'package:srx_flutter/srx_flutter.dart';
 import 'package:easy_localization/easy_localization.dart';
 
 class ProjectEditDialog extends StatelessWidget {
-  const ProjectEditDialog({Key? key}) : super(key: key);
+  // names of the other saved projects, the project name must differ from them
+  final Set<String> takenNames;
+
+  const ProjectEditDialog({Key? key, this.takenNames = const {}}) : super(key: key);
 
   static const String MosquittoHostUrl = 'test.mosquitto.org';
   static const String HiveMqHostUrl = 'broker.hivemq.com';
@@ -41,7 +44,7 @@ class ProjectEditDialog extends StatelessWidget {
     var currentProject = context.read<ProjectViewmodel>().currentProject;
 
     return ChangeNotifierProvider<ProjectEditViewmodel>(
-        create: (_) => ProjectEditViewmodel(currentProject),
+        create: (_) => ProjectEditViewmodel(currentProject, takenNames: takenNames),
         builder: (context, child) {
           return Consumer<ProjectEditViewmodel>(builder: (context, viewmodel, child) {
             return _buildBody(context);
@@ -266,7 +269,8 @@ class ProjectEditDialog extends StatelessWidget {
       validationMessages: {
         'minLength': (error) => 'common.fieldcontenttoshort.error'.tr(),
         'maxLength': (error) => 'common.fieldcontenttolong.error'.tr(),
-        'required': (error) => 'srx.common.fieldrequired'.tr()
+        'required': (error) => 'srx.common.fieldrequired'.tr(),
+        'nameTaken': (error) => 'projectedit.projectname.error'.tr()
       },
     );
   }
@@ -476,7 +480,12 @@ class ProjectEditDialog extends StatelessWidget {
 // cancelled or a close guard kept the current project open.
 Future<Project?> editAndOpenProject(BuildContext context) async {
   var projectViewmodel = context.read<ProjectViewmodel>();
-  Project? project = await showDialog(context: context, builder: (context) => ProjectEditDialog());
+  var takenNames = await projectViewmodel.otherProjectNames();
+  if (!context.mounted) {
+    return null;
+  }
+  Project? project =
+      await showDialog(context: context, builder: (context) => ProjectEditDialog(takenNames: takenNames));
   if (project == null || !await projectViewmodel.openProject(project)) {
     return null;
   }

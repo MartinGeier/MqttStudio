@@ -46,6 +46,10 @@ class ProjectViewmodel extends SrxChangeNotifier {
     await _projectService.saveProject();
   }
 
+  Future<Set<String>> otherProjectNames() async {
+    return await _projectService.otherProjectNames();
+  }
+
   void _projectOpened(EventArgs _) {
     notifyListeners();
   }

@@ -30,6 +30,8 @@ class ProjectEditViewmodel extends SrxChangeNotifier {
   bool _isPasswordObscureText = true;
   bool _isKeyPasswordObscureText = true;
   Project? project;
+  // names of other saved projects, saving under one of them would overwrite that project
+  final Set<String> takenNames;
   late FormGroup form;
   List<StreamSubscription> _subscriptions = [];
 
@@ -53,7 +55,7 @@ class ProjectEditViewmodel extends SrxChangeNotifier {
   bool get isCertificateEnabled =>
       !kIsWeb && form.control(useSslField).value == true && form.control(useWebSocketField).value != true;
 
-  ProjectEditViewmodel(this.project) {
+  ProjectEditViewmodel(this.project, {this.takenNames = const {}}) {
     form = buildFormGroup();
     fromProject();
     _updateMqtt5Controls();
@@ -85,8 +87,12 @@ class ProjectEditViewmodel extends SrxChangeNotifier {
 
   FormGroup buildFormGroup() {
     return FormGroup({
-      projectNameField:
-          FormControl<String>(validators: [Validators.required, Validators.maxLength(30), Validators.minLength(3)]),
+      projectNameField: FormControl<String>(validators: [
+        Validators.required,
+        Validators.maxLength(30),
+        Validators.minLength(3),
+        Validators.delegate(_requireUnusedName)
+      ]),
       mqttHostnameField:
           FormControl<String>(validators: [Validators.required, Validators.maxLength(100), Validators.minLength(5)]),
       clientIdField: FormControl<String>(
@@ -193,6 +199,10 @@ class ProjectEditViewmodel extends SrxChangeNotifier {
         control.markAsDisabled(emitEvent: false);
       }
     }
+  }
+
+  Map<String, dynamic>? _requireUnusedName(AbstractControl<dynamic> control) {
+    return takenNames.contains(control.value) ? {'nameTaken': true} : null;
   }
 
   Map<String, dynamic>? _requireClientCertificate(AbstractControl<dynamic> control) {
