@@ -205,7 +205,8 @@ class _FleetViewerState extends State<FleetViewer> {
             message: 'fleetview.charging.tooltip'.tr(),
             child: Icon(Icons.bolt, size: 16, color: Theme.of(context).custom.connectedColor),
           ),
-        Text('${power.stateOfCharge.round()} %'),
+        // not round(), which throws for NaN
+        Text('${power.stateOfCharge.toStringAsFixed(0)} %'),
       ],
     );
   }

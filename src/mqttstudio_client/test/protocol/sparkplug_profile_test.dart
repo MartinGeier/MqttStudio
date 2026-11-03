@@ -194,6 +194,45 @@ void main() {
       expect(data.summary, 'Edge1 | Orders = DataSet 1 × 2 | seq 2');
     });
 
+    test('an empty data set gets no table without columns', () {
+      var payload = SparkplugWriter.write(
+        SpbPayload(
+          timestamp: _time,
+          seq: 2,
+          metrics: [
+            SpbMetric(
+              name: 'Empty',
+              datatype: SpbDataType.dataSet.code,
+              value: SpbDataSet(rows: [[]]),
+            ),
+          ],
+        ),
+      );
+      var data = interpret('spBv1.0/Plant1/NDATA/Edge1', payload);
+      expect(data.sections.whereType<TableSection>().where((table) => table.columns.isEmpty), isEmpty);
+      var empty = data.sections.whereType<KeyValueSection>().firstWhere((section) => section.key == 'dataset:Empty');
+      expect(empty.values.map((value) => value.value), ['none', '1']);
+    });
+
+    test('timestamps in nanoseconds are shown as numbers', () {
+      var nanoseconds = 1761552000000000000;
+      var payload = SparkplugWriter.write(
+        SpbPayload(
+          timestamp: nanoseconds,
+          seq: 1,
+          metrics: [
+            SpbMetric(name: 'At', timestamp: nanoseconds, datatype: SpbDataType.dateTime.code, value: nanoseconds),
+          ],
+        ),
+      );
+      var data = interpret('spBv1.0/Plant1/NDATA/Edge1', payload);
+      var header = data.sections.whereType<KeyValueSection>().first.values;
+      expect(header.firstWhere((value) => value.label == 'Timestamp').value, '$nanoseconds (not a time in milliseconds)');
+      expect(data.summary, 'Edge1 | At = $nanoseconds | seq 1');
+      var host = interpret('spBv1.0/STATE/scada1', {'online': true, 'timestamp': double.infinity});
+      expect(host.summary, 'Host scada1 | ONLINE');
+    });
+
     test('host state in the 3.0 JSON and the 2.2 text', () {
       var online = interpret('spBv1.0/STATE/scada1', {'online': true, 'timestamp': _time});
       expect(online.summary, 'Host scada1 | ONLINE');
@@ -266,8 +305,12 @@ void main() {
         SparkplugRules.bdSeqMissing,
       ]);
       check('spBv1.0/G/NBIRTH/E', nodeBirth(bdSeq: 7));
+      // the will of an older session: the node stays online
       expect(check('spBv1.0/G/NDEATH/E', death(bdSeq: 6)), [SparkplugRules.bdSeqMismatch]);
-      expect(check('spBv1.0/G/NDATA/E', nodeData(1)), [SparkplugRules.afterDeath]);
+      expect(check('spBv1.0/G/NDATA/E', nodeData(1)), isEmpty);
+      expect(check('spBv1.0/G/NDATA/E', nodeData(2)), isEmpty);
+      expect(check('spBv1.0/G/NDEATH/E', death(bdSeq: 7)), isEmpty);
+      expect(check('spBv1.0/G/NDATA/E', nodeData(3)), [SparkplugRules.afterDeath]);
       var badBirth = nodeBirth(
         extra: [
           SpbMetric(name: 'NoType', value: 1),

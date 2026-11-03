@@ -93,7 +93,11 @@ class FleetCanvasState<M> extends State<FleetCanvas<M>> {
     if (_center != null && _scale != null) {
       return (_center!, _scale!);
     }
-    var bounds = widget.fleet.boundsOf(widget.mapId) ?? Rectangle<double>(-5, -5, 10, 10);
+    var bounds = widget.fleet.boundsOf(widget.mapId);
+    // coordinates near the double range make the width infinite
+    if (bounds == null || !(bounds.left + bounds.width + bounds.top + bounds.height).isFinite) {
+      bounds = Rectangle<double>(-5, -5, 10, 10);
+    }
     // at least 10 m, and a margin so robots at the edge stay whole
     var width = max(bounds.width, 10.0) + 4;
     var height = max(bounds.height, 10.0) + 4;
@@ -223,6 +227,10 @@ class FleetPainter<M> extends CustomPainter {
   static const double robotLength = 0.8;
   static const double minRobotSize = 14;
   static const List<double> gridSteps = [0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500];
+  // a view that would need more grid lines, e.g. one fitted to absurd coordinates, gets no grid
+  static const int maxGridLines = 1000;
+  // a longer dashed line is drawn solid
+  static const int maxDashes = 5000;
 
   final FleetState<M> fleet;
   final String mapId;
@@ -304,12 +312,21 @@ class FleetPainter<M> extends CustomPainter {
       ..strokeWidth = 1;
     var topLeft = toWorld(Offset.zero, size, center, scale);
     var bottomRight = toWorld(Offset(size.width, size.height), size, center, scale);
-    for (var x = (topLeft.dx / step).floor() * step; x <= bottomRight.dx; x += step) {
-      var screenX = _screen(size, x, 0).dx;
+    // lines by index: adding the step to a huge coordinate changes nothing, and floor() throws for infinity
+    var firstX = (topLeft.dx / step).floorToDouble();
+    var firstY = (bottomRight.dy / step).floorToDouble();
+    var countX = (bottomRight.dx / step).floorToDouble() - firstX;
+    var countY = (topLeft.dy / step).floorToDouble() - firstY;
+    // also false for NaN
+    if (!(countX >= 0 && countX <= maxGridLines && countY >= 0 && countY <= maxGridLines)) {
+      return;
+    }
+    for (var i = 0; i <= countX; i++) {
+      var screenX = _screen(size, (firstX + i) * step, 0).dx;
       canvas.drawLine(Offset(screenX, 0), Offset(screenX, size.height), paint);
     }
-    for (var y = (bottomRight.dy / step).floor() * step; y <= topLeft.dy; y += step) {
-      var screenY = _screen(size, 0, y).dy;
+    for (var i = 0; i <= countY; i++) {
+      var screenY = _screen(size, 0, (firstY + i) * step).dy;
       canvas.drawLine(Offset(0, screenY), Offset(size.width, screenY), paint);
     }
     _paintText(canvas, gridLabel(step), Offset(8, size.height - 20), colors.hint);
@@ -492,7 +509,12 @@ class FleetPainter<M> extends CustomPainter {
       var from = points[i];
       var delta = points[i + 1] - from;
       var length = delta.distance;
-      if (length == 0) {
+      // also false for NaN
+      if (!(length > 0)) {
+        continue;
+      }
+      if (length / (dash + gap) > maxDashes) {
+        canvas.drawLine(from, points[i + 1], paint);
         continue;
       }
       var direction = delta / length;

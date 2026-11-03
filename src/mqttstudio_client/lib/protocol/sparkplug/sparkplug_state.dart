@@ -196,12 +196,26 @@ class SparkplugState<M> {
     if (match.messageType == SpbMessageType.state) {
       return _addState(match, data, receivedAt);
     }
+    // commands go to the edge node, they say nothing about its state and must not make up a device
+    if (SpbMessageType.isCommand(match.messageType)) {
+      return false;
+    }
     var payload = SparkplugProfile.payloadOf(data);
     if (payload == null) {
       return false;
     }
     var group = match.parameters[SparkplugProfile.groupKey]!;
     var edgeNode = match.parameters[SparkplugProfile.edgeNodeKey]!;
+    var known = _nodes['$group/$edgeNode'];
+    if (match.messageType == SpbMessageType.nDeath &&
+        known != null &&
+        SparkplugProfile.isStaleDeath(
+          SparkplugProfile.bdSeqOf(payload),
+          known.bdSeq,
+          online: known.status == SparkplugStatus.online,
+        )) {
+      return false;
+    }
     var node = _nodes.putIfAbsent('$group/$edgeNode', () => SparkplugNodeState<M>(group, edgeNode));
     var deviceId = match.parameters[SparkplugProfile.deviceKey];
     SparkplugEntryState<M> entry = deviceId == null
@@ -213,9 +227,8 @@ class SparkplugState<M> {
       ..messages += 1;
     switch (match.messageType) {
       case SpbMessageType.nBirth:
-        var bdSeq = payload.metric(SparkplugProfile.bdSeqMetric)?.value;
         node
-          ..bdSeq = bdSeq is int ? bdSeq : null
+          ..bdSeq = SparkplugProfile.bdSeqOf(payload)
           .._checkSeq(payload.seq, birth: true)
           .._setStatus(SparkplugStatus.online, receivedAt)
           .._define(payload, receivedAt, message);
@@ -247,10 +260,6 @@ class SparkplugState<M> {
         if (entry.since == null) {
           entry._setStatus(SparkplugStatus.unknown, receivedAt);
         }
-      default:
-        // commands go to the edge node, they say nothing about its state
-        entry.messages--;
-        return false;
     }
     return true;
   }
@@ -262,7 +271,8 @@ class SparkplugState<M> {
     }
     var hostId = match.parameters[SparkplugProfile.hostKey]!;
     var online = interpretation.summary.endsWith('ONLINE');
-    var timestamp = data is Map && data['timestamp'] is num ? (data['timestamp'] as num).toInt() : null;
+    var time = data is Map ? data['timestamp'] : null;
+    var timestamp = time is num && time.isFinite ? time.toInt() : null;
     _hosts[hostId] = SparkplugHostState(hostId, online, timestamp, receivedAt);
     return true;
   }

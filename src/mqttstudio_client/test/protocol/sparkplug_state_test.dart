@@ -149,8 +149,47 @@ void main() {
     expect(state.hosts.map((host) => (host.hostId, host.online)), [('old', false), ('scada', true)]);
     expect(add('spBv1.0/Plant1/NCMD/Edge1', _payload()), isFalse);
     expect(add('spBv1.0/Plant1/NDATA/Edge1', {'json': true}), isFalse);
-    expect(state.node('Plant1', 'Edge1')?.messages ?? 0, 0);
-    expect(state.groups, ['Plant1']);
+    expect(state.node('Plant1', 'Edge1'), isNull);
+    expect(state.groups, isEmpty);
+  });
+
+  test('commands change neither the last message nor the devices', () {
+    add('spBv1.0/Plant1/NBIRTH/Edge1', _payload(seq: 0, metrics: [_defined('Uptime', 1, SpbDataType.uInt64, 1)]));
+    var node = state.node('Plant1', 'Edge1')!;
+    expect(
+      add(
+        'spBv1.0/Plant1/NCMD/Edge1',
+        _payload(metrics: [SpbMetric(name: 'Node Control/Rebirth', datatype: SpbDataType.boolean.code, value: true)]),
+      ),
+      isFalse,
+    );
+    expect(
+      add(
+        'spBv1.0/Plant1/DCMD/Edge1/Phantom',
+        _payload(metrics: [SpbMetric(name: 'Running', datatype: SpbDataType.boolean.code, value: true)]),
+      ),
+      isFalse,
+    );
+    expect(node.lastMessage, 'spBv1.0/Plant1/NBIRTH/Edge1');
+    expect(node.messages, 1);
+    expect(node.devices, isEmpty);
+    expect(state.entry('Plant1/Edge1/Phantom'), isNull);
+  });
+
+  test('an NDEATH of an older session leaves the edge node online', () {
+    SpbMetric bdSeq(int value) => SpbMetric(name: 'bdSeq', datatype: SpbDataType.int64.code, value: value);
+    add('spBv1.0/Plant1/NBIRTH/Edge1', _payload(seq: 0, metrics: [bdSeq(4)]));
+    var node = state.node('Plant1', 'Edge1')!;
+    expect(add('spBv1.0/Plant1/NDEATH/Edge1', _payload(metrics: [bdSeq(3)])), isFalse);
+    expect(node.status, SparkplugStatus.online);
+    expect(node.lastSeq, 0);
+    add('spBv1.0/Plant1/NDEATH/Edge1', _payload(metrics: [bdSeq(4)]));
+    expect(node.status, SparkplugStatus.offline);
+  });
+
+  test('a host state with a timestamp that is no number', () {
+    expect(add('spBv1.0/STATE/scada', {'online': true, 'timestamp': double.nan}), isTrue);
+    expect(state.hosts.single.timestamp, isNull);
   });
 
   test('simulated edge nodes and their host fold into the state', () {

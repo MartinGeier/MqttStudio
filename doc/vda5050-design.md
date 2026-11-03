@@ -408,7 +408,7 @@ a preset. Findings are aggregated like the others (per concrete topic and rule).
 | Order update | error | all | Same `orderId` with a lower `orderUpdateId` than one seen before, or an update whose first node isn't the last base node of the previous update |
 | Order update content | error | 3.0 | A new order whose first message has an `orderUpdateId` other than 0, a repeated `orderUpdateId` with different content, or an update of an order cancelled by `cancelOrder` |
 | Duplicate action id | error | all | An `actionId` occurs twice in one order |
-| Response without request | warning | 3.0 | A `responses` entry whose `requestId` was never in the robot's state during the check |
+| Response without request | warning | 3.0 | A `responses` entry whose `requestId` was never in the robot's state during the check; only after the check has seen a state of the robot (a robot lists its open requests in every state), and not for retained responses |
 | Unanswered request | warning | 3.0 | A zone or edge request still without a response after 10 s (setting) |
 | Visualization ahead of state | warning | 3.0 | `referenceStateHeaderId` is greater than the last state header id seen |
 | Heartbeat missing | error | all | A robot whose last connection state is `ONLINE` (or that sent none) sends no `state` for more than 35 s. Reported once per silence; offline, broken or hibernating robots may be silent |
@@ -708,7 +708,8 @@ Changed for the viewers: `message_viewer_viewmodel.dart` (`interpret`, raw toggl
   severity; the findings panel, CSV and the CLI show the id. The check runs the rules on every message it receives,
   documented or not.
 - **A check that starts after the robots:** retained messages the broker sends on subscribing (`snapshot`) are not
-  checked for timestamp skew, they are as old as they are. "A new order starts with update id 0" is only reported
+  checked for timestamp skew, they are as old as they are, and don't count in the header ids: the next live message
+  starts the count again, also after the check reconnected. "A new order starts with update id 0" is only reported
   when the robot's last state showed another order, since the first update a check sees may belong to an order that
   began before it. Header id gaps stay warnings: QoS 0 messages do get lost, e.g. on a busy public broker.
 - **Check filters:** a check listened only to the last discovery's filters once a discovery was applied, so the

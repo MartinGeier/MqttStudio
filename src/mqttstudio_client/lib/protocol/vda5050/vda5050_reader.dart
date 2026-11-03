@@ -402,11 +402,16 @@ class Vda5050Reader {
 
   static String? _optStr(Object? value) => value == null ? null : _str(value);
 
-  static int _int(Object? value) => value is num ? value.toInt() : (int.tryParse(_str(value)) ?? 0);
+  // JSON reads 1e400 as Infinity, MessagePack and CBOR may hold NaN; neither is a usable number
+  static int _int(Object? value) =>
+      value is num ? (value.isFinite ? value.toInt() : 0) : (int.tryParse(_str(value)) ?? 0);
 
   static double _double(Object? value) => _optDouble(value) ?? 0;
 
-  static double? _optDouble(Object? value) => value is num ? value.toDouble() : double.tryParse(_str(value));
+  static double? _optDouble(Object? value) {
+    var number = value is num ? value.toDouble() : double.tryParse(_str(value));
+    return number != null && number.isFinite ? number : null;
+  }
 
   static bool _bool(Object? value) => value == true;
 

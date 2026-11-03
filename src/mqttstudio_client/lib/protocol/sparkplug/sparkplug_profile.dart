@@ -133,6 +133,17 @@ class SparkplugProfile implements ProtocolProfile {
       if (metric.alias != null) metric.alias!: metric,
   };
 
+  // An NDEATH whose bdSeq isn't the one of the online node's NBIRTH is the will of an older connection, which the broker
+  // may deliver late; specification 3.0 says to ignore it
+  static bool isStaleDeath(int? deathBdSeq, int? birthBdSeq, {required bool online}) =>
+      online && deathBdSeq != null && birthBdSeq != null && deathBdSeq != birthBdSeq;
+
+  // bdSeq is an Int64 or UInt64, a BigInt only when it is out of the int range
+  static int? bdSeqOf(SpbPayload payload) {
+    var value = payload.metric(bdSeqMetric)?.value;
+    return value is int ? value : (value is BigInt && value.isValidInt ? value.toInt() : null);
+  }
+
   @override
   ProtocolChecker createChecker() => SparkplugChecker(this);
 
@@ -180,7 +191,7 @@ class SparkplugProfile implements ProtocolProfile {
       var value = data['online'];
       online = value is bool ? value : null;
       var time = data['timestamp'];
-      timestamp = time is num ? time.toInt() : null;
+      timestamp = time is num && time.isFinite ? time.toInt() : null;
     } else if (data is Uint8List) {
       var text = utf8.decode(data, allowMalformed: true).trim();
       online = text == 'ONLINE' ? true : (text == 'OFFLINE' ? false : null);
@@ -205,8 +216,9 @@ class SparkplugProfile implements ProtocolProfile {
     );
   }
 
+  // e.g. a timestamp in nanoseconds is out of the DateTime range
   static String formatTimestamp(int millis) =>
-      DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true).toIso8601String();
+      SparkplugReader.dateTimeOf(millis)?.toIso8601String() ?? '$millis (not a time in milliseconds)';
 
   // one value as text, short enough for a table cell
   static String formatValue(SpbMetric metric) {
@@ -416,7 +428,7 @@ class _Builder {
       return;
     }
     var name = nameOf(metric);
-    if (value is num) {
+    if (value is num && value.isFinite) {
       values[name] = value.toDouble();
     } else if (value is BigInt) {
       values[name] = value.toDouble();
@@ -429,7 +441,15 @@ class _Builder {
   void _nested(SpbMetric metric) {
     var value = metric.value;
     var name = nameOf(metric);
-    if (value is SpbDataSet) {
+    if (value is SpbDataSet && value.columns.isEmpty) {
+      // a table needs columns
+      sections.add(
+        KeyValueSection('dataset:$name', 'DataSet $name', [
+          InterpretedValue('Columns', 'none'),
+          InterpretedValue('Rows', '${value.rows.length}'),
+        ]),
+      );
+    } else if (value is SpbDataSet) {
       sections.add(
         TableSection('dataset:$name', 'DataSet $name', value.columns, [
           for (var row in value.rows.take(SparkplugProfile.maxRows))

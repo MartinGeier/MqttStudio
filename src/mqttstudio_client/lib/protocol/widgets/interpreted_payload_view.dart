@@ -107,6 +107,10 @@ class InterpretedPayloadView extends StatelessWidget {
   }
 
   Widget _buildTable(BuildContext context, TableSection section) {
+    // a DataTable needs at least one column
+    if (section.columns.isEmpty) {
+      return SizedBox.shrink();
+    }
     var theme = Theme.of(context);
     var header = theme.textTheme.labelLarge!.copyWith(color: theme.hintColor);
     var cell = theme.textTheme.bodyMedium!;

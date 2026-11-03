@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:math';
 import 'dart:typed_data';
 
 // The Sparkplug B payload (sparkplug_b.proto of the Eclipse Sparkplug specification 3.0) and a reader and writer of
@@ -181,40 +180,81 @@ class SpbPayload {
 
 // ---------- 64 bit integers on every platform ----------
 
-// On the web, integers are doubles and shifts work on 32 bits, so varints are added up by multiplying. On the native
-// VM the multiplication wraps around, which gives the two's complement of negative 64 bit values for free.
+// On the web, integers are doubles, exact only up to 2^53, and shifts work on 32 bits. Varints are therefore read into
+// two unsigned 32 bit halves, which are exact on every platform and only then put together.
 final bool _isWeb = identical(0, 0.0);
-const double _two64 = 18446744073709551616.0;
-const double _two63 = 9223372036854775808.0;
+const int _two32 = 4294967296;
+const int _two31 = 2147483648;
+// a high half below this (or, for negative values, at least _two32 minus this) keeps the value within 2^53
+const int _safeHigh = 2097152;
 
-int _pow2(int exponent) => _isWeb ? pow(2, exponent).toInt() : 1 << exponent;
+// A 64 bit integer as its low and high 32 bits, both unsigned
+class SpbInt64 {
+  final int low;
+  final int high;
 
-// a varint read as a signed 64 bit value (the native VM wraps, the web gets the unsigned value)
-int _signed64(int raw) => _isWeb && raw >= _two63 ? (raw - _two64).toInt() : raw;
+  const SpbInt64(this.low, this.high);
 
-// a varint read as an unsigned 64 bit value; above the int range it is a BigInt on the native VM
-Object _unsigned64(int raw) => raw < 0 ? BigInt.from(raw).toUnsigned(64) : raw;
+  // the bits of an int (also a negative one) or a BigInt
+  factory SpbInt64.of(Object value) {
+    if (value is BigInt) {
+      var mask = BigInt.from(0xffffffff);
+      return SpbInt64((value & mask).toInt(), ((value >> 32) & mask).toInt());
+    }
+    var number = value as int;
+    var low = number % _two32;
+    return SpbInt64(low, ((number - low) ~/ _two32) % _two32);
+  }
 
-int _signed32(int raw) {
-  var value = raw % 4294967296;
-  return value >= 2147483648 ? value - 4294967296 : value;
+  bool get isZero => low == 0 && high == 0;
+
+  // as a signed value: an int, or a BigInt where the web can't hold it exactly; web is for the tests
+  Object signed({bool? web}) {
+    var negative = high >= _two31;
+    if ((web ?? _isWeb) && (negative ? high < _two32 - _safeHigh : high >= _safeHigh)) {
+      return ((BigInt.from(high) << 32) | BigInt.from(low)).toSigned(64);
+    }
+    return (negative ? high - _two32 : high) * _two32 + low;
+  }
+
+  // as an unsigned value: an int, or a BigInt above the int range (on the web above 2^53)
+  Object unsigned({bool? web}) {
+    if (high >= ((web ?? _isWeb) ? _safeHigh : _two31)) {
+      return (BigInt.from(high) << 32) | BigInt.from(low);
+    }
+    return high * _two32 + low;
+  }
+
+  // for lengths, keys and counters: signed on the native VM, so a huge value is negative; on the web the unsigned value,
+  // inexact above 2^53
+  int _toInt() => _isWeb ? high * _two32 + low : (high >= _two31 ? high - _two32 : high) * _two32 + low;
 }
 
-int _signed(int raw, int bits) {
-  var range = _pow2(bits);
-  var value = raw % range;
+int _signed32(int low) => low >= _two31 ? low - _two32 : low;
+
+// the low 8 or 16 bits as a signed value
+int _signed(int low, int bits) {
+  var range = bits == 8 ? 0x100 : 0x10000;
+  var value = low % range;
   return value >= range ~/ 2 ? value - range : value;
 }
+
+// milliseconds since the epoch; a value out of the DateTime range, e.g. nanoseconds, stays a number
+Object _dateTime(Object millis) => SparkplugReader.dateTimeOf(millis) ?? millis;
 
 // ---------- reading ----------
 
 class _Reader {
+  // templates and property sets nest; a crafted payload must not overflow the stack
+  static const int maxDepth = 200;
+
   final Uint8List bytes;
   final ByteData data;
   int position = 0;
   final int end;
+  final int depth;
 
-  _Reader(this.bytes, [int start = 0, int? end])
+  _Reader(this.bytes, [int start = 0, int? end, this.depth = 0])
     : data = ByteData.sublistView(bytes),
       position = start,
       end = end ?? bytes.length;
@@ -228,18 +268,28 @@ class _Reader {
     return bytes[position++];
   }
 
-  int varint() {
-    var result = 0;
-    for (var shift = 0; shift < 70; shift += 7) {
+  int varint() => varint64()._toInt();
+
+  SpbInt64 varint64() {
+    var low = 0;
+    var high = 0;
+    for (var index = 0; index < 10; index++) {
       var byte = _byte();
-      if (shift < 63) {
-        result += (byte & 0x7f) * _pow2(shift);
+      var bits = byte & 0x7f;
+      if (index < 4) {
+        low += bits * (1 << (7 * index));
+      } else if (index == 4) {
+        // bits 28 to 34: four for the low half, three for the high half
+        low += (bits & 0x0f) * (1 << 28);
+        high += bits >> 4;
+      } else if (index < 9) {
+        high += bits * (1 << (7 * index - 32));
       } else {
         // the tenth byte holds only the top bit
-        result += (byte & 0x01) * _pow2(63);
+        high += (bits & 0x01) * _two31;
       }
       if (byte & 0x80 == 0) {
-        return result;
+        return SpbInt64(low, high);
       }
     }
     throw FormatException('Sparkplug payload has a varint longer than 10 bytes', bytes, position);
@@ -268,7 +318,8 @@ class _Reader {
   // the bounds of a length-delimited field
   (int, int) delimited() {
     var length = varint();
-    if (length < 0 || position + length > end) {
+    // not position + length, which overflows for a huge length
+    if (length < 0 || length > end - position) {
       throw FormatException('Sparkplug payload has a field longer than the payload', bytes, position);
     }
     var start = position;
@@ -284,8 +335,11 @@ class _Reader {
   String string() => utf8.decode(bytesField(), allowMalformed: true);
 
   _Reader sub() {
+    if (depth >= maxDepth) {
+      throw FormatException('Sparkplug payload is nested too deep', bytes, position);
+    }
     var (start, stop) = delimited();
-    return _Reader(bytes, start, stop);
+    return _Reader(bytes, start, stop, depth + 1);
   }
 
   void skip(int wireType) {
@@ -315,9 +369,31 @@ class _Reader {
 }
 
 class SparkplugReader {
-  // throws a FormatException when the bytes aren't a Sparkplug B payload
+  // throws a FormatException when the bytes aren't a Sparkplug B payload, and nothing else
   static SpbPayload read(Uint8List bytes) {
-    var reader = _Reader(bytes);
+    try {
+      return _payload(_Reader(bytes));
+    } on FormatException {
+      rethrow;
+    } on ArgumentError catch (error) {
+      // a RangeError, which no malformed payload should cause any more
+      throw FormatException('Sparkplug payload can not be read: ${error.message}');
+    } on UnsupportedError catch (error) {
+      throw FormatException('Sparkplug payload can not be read: ${error.message}');
+    }
+  }
+
+  // milliseconds since the epoch as a DateTime, null when it isn't an int in the DateTime range
+  static DateTime? dateTimeOf(Object? millis) {
+    if (millis is! int || millis.abs() > _maxMillis) {
+      return null;
+    }
+    return DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true);
+  }
+
+  static const int _maxMillis = 8640000000000000;
+
+  static SpbPayload _payload(_Reader reader) {
     var payload = SpbPayload();
     for (var (field, wire) in reader.fields()) {
       switch ((field, wire)) {
@@ -340,8 +416,8 @@ class SparkplugReader {
 
   static SpbMetric _metric(_Reader reader) {
     var metric = SpbMetric();
-    int? intValue;
-    int? longValue;
+    SpbInt64? intValue;
+    SpbInt64? longValue;
     for (var (field, wire) in reader.fields()) {
       switch ((field, wire)) {
         case (1, 2):
@@ -363,9 +439,9 @@ class SparkplugReader {
         case (9, 2):
           metric.properties = _propertySet(reader.sub());
         case (10, 0):
-          intValue = reader.varint();
+          intValue = reader.varint64();
         case (11, 0):
-          longValue = reader.varint();
+          longValue = reader.varint64();
         case (12, 5):
           metric.value = reader.float32();
         case (13, 1):
@@ -403,34 +479,36 @@ class SparkplugReader {
     var value = metric.value;
     if (value is Uint8List && type.isArray) {
       metric.value = _array(value, type);
-    } else if (value is BigInt && type == SpbDataType.int64) {
-      metric.value = value.toSigned(64).toInt();
-    } else if (value is int && type == SpbDataType.dateTime) {
-      metric.value = DateTime.fromMillisecondsSinceEpoch(value, isUtc: true);
-    } else if (value is int && (type == SpbDataType.int8 || type == SpbDataType.int16 || type == SpbDataType.int32)) {
-      metric.value = _fromInt(value, type);
-    } else if (value is int && type == SpbDataType.boolean) {
-      metric.value = value != 0;
+      return;
     }
+    if (value is! int && value is! BigInt) {
+      return;
+    }
+    var bits = SpbInt64.of(value!);
+    metric.value = switch (type) {
+      SpbDataType.int8 || SpbDataType.int16 || SpbDataType.int32 || SpbDataType.boolean => _fromInt(bits, type),
+      SpbDataType.int64 => bits.signed(),
+      SpbDataType.dateTime => _dateTime(bits.signed()),
+      _ => value,
+    };
   }
 
-  // Int8, Int16 and Int32 travel as the two's complement in an uint32 (specification 3.0 §6.4.16)
-  static Object _fromInt(int raw, SpbDataType? type) => switch (type) {
-    SpbDataType.int8 => _signed(raw, 8),
-    SpbDataType.int16 => _signed(raw, 16),
-    SpbDataType.int32 => _signed32(raw),
-    SpbDataType.boolean => raw != 0,
-    _ => raw % 4294967296,
+  // Int8, Int16 and Int32 travel as the two's complement in an uint32 (specification 3.0 §6.4.16); some senders
+  // sign-extend them to 64 bits, the low half is the same
+  static Object _fromInt(SpbInt64 raw, SpbDataType? type) => switch (type) {
+    SpbDataType.int8 => _signed(raw.low, 8),
+    SpbDataType.int16 => _signed(raw.low, 16),
+    SpbDataType.int32 => _signed32(raw.low),
+    SpbDataType.boolean => !raw.isZero,
+    _ => raw.low,
   };
 
-  static Object _fromLong(int raw, SpbDataType? type) => switch (type) {
-    SpbDataType.int64 => _signed64(raw),
-    SpbDataType.dateTime => DateTime.fromMillisecondsSinceEpoch(raw, isUtc: true),
+  static Object _fromLong(SpbInt64 raw, SpbDataType? type) => switch (type) {
+    SpbDataType.int64 => raw.signed(),
+    SpbDataType.dateTime => _dateTime(raw.signed()),
     // 2.2 senders put small integers into long_value too
-    SpbDataType.int8 => _signed(raw, 8),
-    SpbDataType.int16 => _signed(raw, 16),
-    SpbDataType.int32 => _signed32(raw),
-    _ => _unsigned64(raw),
+    SpbDataType.int8 || SpbDataType.int16 || SpbDataType.int32 => _fromInt(raw, type),
+    _ => raw.unsigned(),
   };
 
   // arrays travel little endian in bytes_value (specification 3.0 §6.4.17)
@@ -461,10 +539,7 @@ class SparkplugReader {
       case SpbDataType.doubleArray:
         return fixed(8, (offset) => data.getFloat64(offset, Endian.little));
       case SpbDataType.dateTimeArray:
-        return fixed(
-          8,
-          (offset) => DateTime.fromMillisecondsSinceEpoch(_int64At(data, offset, signed: true) as int, isUtc: true),
-        );
+        return fixed(8, (offset) => _dateTime(_int64At(data, offset, signed: true)));
       case SpbDataType.booleanArray:
         // a 4 byte count of the booleans, then the bits, high bit first
         if (bytes.length < 4) {
@@ -492,10 +567,8 @@ class SparkplugReader {
 
   // two 32 bit halves, so the web reads them too
   static Object _int64At(ByteData data, int offset, {required bool signed}) {
-    var low = data.getUint32(offset, Endian.little);
-    var high = signed ? data.getInt32(offset + 4, Endian.little) : data.getUint32(offset + 4, Endian.little);
-    var value = high * 4294967296 + low;
-    return !signed && value < 0 ? BigInt.from(value).toUnsigned(64) : value;
+    var bits = SpbInt64(data.getUint32(offset, Endian.little), data.getUint32(offset + 4, Endian.little));
+    return signed ? bits.signed() : bits.unsigned();
   }
 
   static SpbMetaData _metaData(_Reader reader) {
@@ -543,8 +616,8 @@ class SparkplugReader {
 
   static SpbPropertyValue _propertyValue(_Reader reader) {
     var property = SpbPropertyValue();
-    int? intValue;
-    int? longValue;
+    SpbInt64? intValue;
+    SpbInt64? longValue;
     for (var (field, wire) in reader.fields()) {
       switch ((field, wire)) {
         case (1, 0):
@@ -552,9 +625,9 @@ class SparkplugReader {
         case (2, 0):
           property.isNull = reader.varint() != 0;
         case (3, 0):
-          intValue = reader.varint();
+          intValue = reader.varint64();
         case (4, 0):
-          longValue = reader.varint();
+          longValue = reader.varint64();
         case (5, 5):
           property.value = reader.float32();
         case (6, 1):
@@ -632,9 +705,9 @@ class SparkplugReader {
     for (var (field, wire) in reader.fields()) {
       switch ((field, wire)) {
         case (1, 0):
-          value = _fromInt(reader.varint(), type);
+          value = _fromInt(reader.varint64(), type);
         case (2, 0):
-          value = _fromLong(reader.varint(), type);
+          value = _fromLong(reader.varint64(), type);
         case (3, 5):
           value = reader.float32();
         case (4, 1):
@@ -680,9 +753,9 @@ class SparkplugReader {
         case (2, 0):
           parameter.type = reader.varint();
         case (3, 0):
-          parameter.value = _fromInt(reader.varint(), SpbDataType.of(parameter.type));
+          parameter.value = _fromInt(reader.varint64(), SpbDataType.of(parameter.type));
         case (4, 0):
-          parameter.value = _fromLong(reader.varint(), SpbDataType.of(parameter.type));
+          parameter.value = _fromLong(reader.varint64(), SpbDataType.of(parameter.type));
         case (5, 5):
           parameter.value = reader.float32();
         case (6, 1):
@@ -983,8 +1056,8 @@ class SparkplugWriter {
         var value = parameter.value;
         if (value is bool) {
           inner.boolean(7, value);
-        } else if (value is int) {
-          inner.varint(4, value);
+        } else if (value is int || value is BigInt) {
+          inner.varint(4, value!);
         } else if (value is double) {
           inner.float64(6, value);
         } else if (value is String) {

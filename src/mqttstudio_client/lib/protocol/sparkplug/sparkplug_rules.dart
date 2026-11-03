@@ -108,12 +108,14 @@ class SparkplugChecker extends ProtocolChecker {
         var bdSeq = _int(payload.metric(SparkplugProfile.bdSeqMetric)?.value);
         if (bdSeq == null) {
           add(SparkplugRules.bdSeqMissing, ProtocolSeverity.error, 'NDEATH without the bdSeq metric');
-        } else if (node.bdSeq != null && node.online == true && bdSeq != node.bdSeq) {
+        } else if (SparkplugProfile.isStaleDeath(bdSeq, node.bdSeq, online: node.online == true)) {
+          // the will of an older connection; the specification says to ignore it, the node stays online
           add(
             SparkplugRules.bdSeqMismatch,
             ProtocolSeverity.warning,
-            'NDEATH has bdSeq $bdSeq, the NBIRTH had ${node.bdSeq}; it belongs to another session',
+            'NDEATH has bdSeq $bdSeq, the NBIRTH had ${node.bdSeq}; it belongs to another session and is ignored',
           );
+          break;
         }
         node
           ..online = false

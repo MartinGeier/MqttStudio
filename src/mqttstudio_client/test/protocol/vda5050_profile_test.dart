@@ -219,6 +219,48 @@ void main() {
       expect(checker.tick(_start.add(Duration(seconds: 100))), isEmpty);
     });
 
+    test('a retained message does not count in the header ids, also after the check reconnected', () {
+      expect(check('connection', VdaConnection(header: _header(10))), isEmpty);
+      expect(check('connection', VdaConnection(header: _header(3)), snapshot: true), isEmpty);
+      expect(check('connection', VdaConnection(header: _header(11))), isEmpty);
+      expect(check('connection', VdaConnection(header: _header(12))), isEmpty);
+    });
+
+    test('3.0: a response may answer a request made before the check started', () {
+      VdaResponses response(int id, String requestId) =>
+          VdaResponses(header: _header(id), responses: [VdaResponse(requestId: requestId, grantType: VdaGrantType.granted)]);
+      // before the first state the check doesn't know which requests are open
+      expect(check('responses', response(0, 'r0')), isEmpty);
+      expect(check('responses', response(1, 'r1'), snapshot: true), isEmpty);
+      check('state', VdaState(header: _header(0)));
+      expect(check('responses', response(2, 'r2')), [Vda5050Rule.responseWithoutRequest]);
+    });
+
+    test('old orders and requests are forgotten', () {
+      expect(check('order', _order('o0', 5, [('A', true)])), isEmpty);
+      for (var i = 1; i <= Vda5050Checker.keepOrders; i++) {
+        expect(check('order', _order('o$i', 0, [('A', true)], header: i)), isEmpty);
+      }
+      // o0 is forgotten, so an older update of it is not compared any more
+      expect(check('order', _order('o0', 4, [('A', true)], header: Vda5050Checker.keepOrders + 1)), isEmpty);
+
+      var request = VdaZoneRequest(requestId: 'r1', zoneId: 'z', zoneSetId: 'zs');
+      check('state', VdaState(header: _header(0), zoneRequests: [request]));
+      check('responses',
+          VdaResponses(header: _header(0), responses: [VdaResponse(requestId: 'r1', grantType: VdaGrantType.granted)]));
+      var later = _start.add(Duration(minutes: 1));
+      check('state', VdaState(header: _header(1, at: later)), at: later);
+      checker.tick(_start.add(Vda5050Checker.keepRequests + Duration(seconds: 1)));
+      var muchLater = _start.add(Duration(minutes: 7));
+      expect(
+          check('responses',
+              VdaResponses(
+                  header: _header(1, at: muchLater),
+                  responses: [VdaResponse(requestId: 'r1', grantType: VdaGrantType.granted)]),
+              at: muchLater),
+          [Vda5050Rule.responseWithoutRequest]);
+    });
+
     test('2.x: edges must connect their neighbours', () {
       var order = _order('o1', 0, [('A', true), ('B', true)])
         ..header = _header(0, version: '2.1.0')

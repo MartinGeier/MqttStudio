@@ -214,6 +214,20 @@ void main() {
       expect(Vda5050Reader.read('unknown', {}), isNull);
     });
 
+    test('numbers that are not finite read as missing', () {
+      // jsonDecode reads 1e400 as Infinity, MessagePack and CBOR can hold NaN
+      var state = Vda5050Reader.read(VdaTopic.state, {
+        'headerId': double.infinity,
+        'orderUpdateId': double.nan,
+        'agvPosition': {'x': double.nan, 'y': 'Infinity', 'theta': double.negativeInfinity, 'mapId': 'hall'},
+        'batteryState': {'batteryCharge': 'NaN'},
+      }) as VdaState;
+      expect(state.header.headerId, 0);
+      expect(state.orderUpdateId, 0);
+      expect([state.position!.x, state.position!.y, state.position!.theta], [0, 0, 0]);
+      expect(state.powerSupply.stateOfCharge, 0);
+    });
+
     test('the version comes from the header, else the topic', () {
       expect(Vda5050Reader.versionOf({'version': '2.0.0'}), VdaVersion.v2);
       expect(Vda5050Reader.versionOf({'version': '3.1.0'}), VdaVersion.v3);

@@ -81,7 +81,7 @@ Run by the documentation check and the CLI's `doc check` for every Sparkplug top
 | `sparkplug.seqGap` | warning | `seq` isn't the previous one + 1 (mod 256); lost or reordered messages |
 | `sparkplug.timestampMissing` | warning | a birth, data or device death without payload timestamp |
 | `sparkplug.bdSeqMissing` | error | NBIRTH or NDEATH without the `bdSeq` metric |
-| `sparkplug.bdSeqMismatch` | warning | the NDEATH's `bdSeq` differs from the NBIRTH's |
+| `sparkplug.bdSeqMismatch` | warning | the NDEATH's `bdSeq` differs from the NBIRTH's; it is the will of an older session, which the specification says to ignore, so the node stays online (also in the Sparkplug view) |
 | `sparkplug.afterDeath` | error | data, device birth or death of an edge node after its NDEATH and before its next NBIRTH |
 | `sparkplug.deviceNotBorn` | error | DDATA of a device without DBIRTH since the NBIRTH, or after its DDEATH |
 | `sparkplug.datatypeMissing` | error | a birth metric without data type |

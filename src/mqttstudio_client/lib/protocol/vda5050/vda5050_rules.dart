@@ -35,6 +35,17 @@ class _OrderSeen {
   _OrderSeen(this.updateId, this.lastBaseNodeId, this.lastBaseSequenceId, this.content);
 }
 
+// a zone or edge request of a robot (3.0)
+class _Request {
+  final DateTime firstSeen;
+  // the last state that listed it; a response that came without a request has the time of the response
+  DateTime lastSeen;
+  bool answered = false;
+  bool reportedUnanswered = false;
+
+  _Request(this.firstSeen) : lastSeen = firstSeen;
+}
+
 // what the checker knows about one robot
 class _Device {
   // the robot's state topic, for findings that come from a tick
@@ -47,13 +58,11 @@ class _Device {
   String? connectionState;
   // the silence since lastStateAt is reported already
   bool reportedSilence = false;
+  // the latest orders, oldest first
   final Map<String, _OrderSeen> orders = {};
   String? currentOrderId;
   final Set<String> cancelledOrders = {};
-  // requests the robot made, with when they were first seen
-  final Map<String, DateTime> requests = {};
-  final Set<String> answered = {};
-  final Set<String> reportedUnanswered = {};
+  final Map<String, _Request> requests = {};
 }
 
 // Checks the VDA 5050 protocol over one check run (doc/vda5050-design.md §9.3): header against topic, header ids,
@@ -64,6 +73,10 @@ class Vda5050Checker extends ProtocolChecker {
   static const Duration answerWithin = Duration(seconds: 10);
   // state comes at least every 30 s; a little more before it counts as missing
   static const Duration heartbeat = Duration(seconds: 35);
+  // a request the robot no longer reports is forgotten after this, late responses to it included
+  static const Duration keepRequests = Duration(minutes: 5);
+  // orders a robot had before its latest ones are forgotten, so a long check doesn't grow
+  static const int keepOrders = 20;
 
   final Vda5050Profile profile;
   final Map<String, int> _lastHeaderIds = {};
@@ -106,16 +119,21 @@ class Vda5050Checker extends ProtocolChecker {
           ...state.zoneRequests.map((request) => request.requestId),
           ...state.edgeRequests.map((request) => request.requestId),
         ]) {
-          device.requests.putIfAbsent(id, () => receivedAt);
+          device.requests.putIfAbsent(id, () => _Request(receivedAt)).lastSeen = receivedAt;
         }
+        _forgetRequests(device, receivedAt);
       case VdaResponses responses:
         for (var response in responses.responses) {
-          device.answered.add(response.requestId);
-          if (!device.requests.containsKey(response.requestId)) {
+          var request = device.requests[response.requestId];
+          // A robot lists its open requests in every state, and sends a state when it makes one. Before the check has
+          // seen a state of the robot, a response may answer a request made before the check started; a retained
+          // response may be older than any request the robot still has.
+          if (request == null && !snapshot && device.lastStateAt != null) {
             findings.add(ProtocolFinding(Vda5050Rule.responseWithoutRequest, ProtocolSeverity.warning,
                 'Response to ${response.requestId}, which the robot never requested',
                 key: response.requestId));
           }
+          (request ?? (device.requests[response.requestId] = _Request(receivedAt))).answered = true;
         }
       case VdaVisualization visualization:
         var reference = visualization.referenceStateHeaderId;
@@ -135,15 +153,17 @@ class Vda5050Checker extends ProtocolChecker {
     var findings = <(String, ProtocolFinding)>[];
     for (var device in _devices.values) {
       _silence(device, now, findings);
+      _forgetRequests(device, now);
       for (var entry in device.requests.entries) {
         var id = entry.key;
-        if (device.answered.contains(id) ||
-            device.reportedUnanswered.contains(id) ||
-            now.difference(entry.value) < answerWithin ||
+        var request = entry.value;
+        if (request.answered ||
+            request.reportedUnanswered ||
+            now.difference(request.firstSeen) < answerWithin ||
             device.stateTopic == null) {
           continue;
         }
-        device.reportedUnanswered.add(id);
+        request.reportedUnanswered = true;
         findings.add((
           device.stateTopic!,
           ProtocolFinding(Vda5050Rule.unansweredRequest, ProtocolSeverity.warning,
@@ -154,6 +174,9 @@ class Vda5050Checker extends ProtocolChecker {
     }
     return findings;
   }
+
+  static void _forgetRequests(_Device device, DateTime now) =>
+      device.requests.removeWhere((id, request) => now.difference(request.lastSeen) > keepRequests);
 
   // a robot that is ONLINE must send state at least every 30 s; offline, broken or hibernating it may be silent
   void _silence(_Device device, DateTime now, List<(String, ProtocolFinding)> findings) {
@@ -188,17 +211,21 @@ class Vda5050Checker extends ProtocolChecker {
     }
     var last = _lastHeaderIds[topic];
     var id = header.headerId;
-    if (last != null) {
-      if (id <= last) {
+    // a retained message sent on subscribing, e.g. again after the check reconnected, is older than the messages that
+    // follow, and the check may have missed messages meanwhile; the next live message starts the count again
+    if (snapshot) {
+      _lastHeaderIds.remove(topic);
+    } else {
+      if (last != null && id <= last) {
         findings.add(ProtocolFinding(
             Vda5050Rule.headerIdOutOfOrder, ProtocolSeverity.warning, 'Header id $id after $last (a restart?)'));
-      } else if (id > last + 1) {
+      } else if (last != null && id > last + 1) {
         var missing = id - last - 1;
         findings.add(ProtocolFinding(Vda5050Rule.headerIdGap, ProtocolSeverity.warning,
             '$missing ${missing == 1 ? 'header id is' : 'header ids are'} missing between $last and $id'));
       }
+      _lastHeaderIds[topic] = id;
     }
-    _lastHeaderIds[topic] = id;
     // a retained message sent on subscribing is as old as it is, e.g. the connection message
     var skew = header.timestamp.difference(receivedAt);
     if (!snapshot && header.timestamp.millisecondsSinceEpoch > 0 && skew.abs() > maxSkew) {
@@ -264,8 +291,15 @@ class Vda5050Checker extends ProtocolChecker {
             'Order ${order.orderId} is updated after it was cancelled'));
       }
     }
-    device.orders[order.orderId] = seen;
+    device.orders
+      ..remove(order.orderId)
+      ..[order.orderId] = seen;
     device.currentOrderId = order.orderId;
+    while (device.orders.length > keepOrders) {
+      var oldest = device.orders.keys.first;
+      device.orders.remove(oldest);
+      device.cancelledOrders.remove(oldest);
+    }
   }
 
   // nodes and edges alternate with continuous sequence ids, the base comes before the horizon and, in 2.x, every edge
