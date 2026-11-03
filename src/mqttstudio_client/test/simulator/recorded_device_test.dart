@@ -41,6 +41,35 @@ class _Publisher implements SimulatorPublisher {
   List<String> topics() => sent.map((s) => s.topic).toSet().toList()..sort();
 }
 
+// a recording file whose content can't be read
+class _UnreadableFile implements RecordingFile {
+  final RecordingFile _file;
+  bool closed = false;
+
+  _UnreadableFile(this._file);
+
+  @override
+  String get name => _file.name;
+
+  @override
+  Future<int> length() => _file.length();
+
+  @override
+  Future<Uint8List> read(int position, int count) async => throw const FormatException('unreadable');
+
+  @override
+  Future<void> append(Uint8List bytes) => _file.append(bytes);
+
+  @override
+  Future<void> truncate(int length) => _file.truncate(length);
+
+  @override
+  Future<void> close() async {
+    closed = true;
+    await _file.close();
+  }
+}
+
 void main() {
   late MemoryRecordingStore store;
 
@@ -153,6 +182,46 @@ void main() {
     });
   });
 
+  test('a start that is stopped while the recording opens never plays', () {
+    fakeAsync((async) {
+      record(async);
+      var publisher = _Publisher(async);
+      var runner = runnerFor(publisher);
+      var line = device(instances: 2);
+      for (var cancel in <void Function()>[runner.stopAll, runner.reset, () => runner.stopDevice(line)]) {
+        runner.startDevice(line);
+        cancel();
+        async.elapse(const Duration(seconds: 5));
+        expect(runner.isDeviceRunning(line.id), isFalse);
+        expect(publisher.sent, isEmpty);
+      }
+      // the newer of two starts plays, once per instance
+      runner.startDevice(line);
+      runner.startDevice(line);
+      async.elapse(const Duration(seconds: 5));
+      expect(publisher.sent.where((s) => s.topic == 'test/1/a'), hasLength(3));
+      runner.dispose();
+    });
+  });
+
+  test('a recording that cannot be read is closed again', () {
+    fakeAsync((async) {
+      record(async);
+      var opened = <_UnreadableFile>[];
+      var runner = SimulatorRunner(_Publisher(async), seed: 1, openRecording: (source) async {
+        var file = _UnreadableFile(await store.open(source.fileName));
+        opened.add(file);
+        return file;
+      });
+      var line = device();
+      runner.startDevice(line);
+      async.flushMicrotasks();
+      expect(runner.deviceStatsOf(line.id).issue, SimulationIssueKind.recordingMissing);
+      expect(opened.single.closed, isTrue);
+      runner.dispose();
+    });
+  });
+
   test('recorded devices are validated', () {
     var noN = device(instances: 2, playback: PlaybackOptions());
     expect(SimulationRules.validateRecorded(noN).map((i) => i.kind), [SimulationIssueKind.recordedNeedsInstance]);
@@ -163,6 +232,9 @@ void main() {
     var none = SimulatedDevice(name: 'x', kind: DeviceKind.recorded);
     expect(SimulationRules.validateRecorded(none).map((i) => i.kind), [SimulationIssueKind.recordingNotChosen]);
     expect(SimulationRules.validateRecorded(device(instances: 3)), isEmpty);
+    expect(SimulationRules.validateRecorded(device(instances: 0)).map((i) => i.kind), [SimulationIssueKind.instanceCount]);
+    var wide = device(playback: PlaybackOptions(remaps: [TopicRemap('plant/', 'test/{n:40}/')]));
+    expect(SimulationRules.validateRecorded(wide).map((i) => i.kind), [SimulationIssueKind.placeholderTooWide]);
   });
 
   test('a recorded device survives JSON and old devices load as generated', () {

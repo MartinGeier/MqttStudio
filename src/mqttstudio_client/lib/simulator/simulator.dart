@@ -44,6 +44,8 @@ class Simulator {
 
   // the recordings of the recorded devices, by device id; null while it is missing
   final Map<String, RecordingInfo?> _recordings = {};
+  // counts the calls of refreshRecordings, so only the last one applies its result
+  int _refreshes = 0;
 
   // connectionFactory: the connections of Sparkplug edge nodes; tests pass fake ones
   Simulator({SimulatorRunner? runner, MqttAdapter Function()? connectionFactory}) {
@@ -84,15 +86,25 @@ class Simulator {
     return runner.recordedTopicsOf(device.id) ?? [];
   }
 
-  // finds the recordings of the recorded devices again, e.g. after the library changed
+  // Finds the recordings of the recorded devices again, e.g. after the library changed. The devices may change while
+  // it waits for the library, and the recordings found before stay until the new ones are known.
   Future<void> refreshRecordings() async {
+    var refresh = ++_refreshes;
     var library = _library;
-    _recordings.clear();
+    var found = <String, RecordingInfo?>{};
     if (library != null) {
-      for (var device in devices.where((device) => device.isRecorded && device.recorded != null)) {
-        _recordings[device.id] = await library.findSource(device.recorded!.recordingId, device.recorded!.fileName);
+      var recorded = devices.where((device) => device.isRecorded && device.recorded != null).toList();
+      for (var device in recorded) {
+        found[device.id] = await library.findSource(device.recorded!.recordingId, device.recorded!.fileName);
       }
     }
+    if (refresh != _refreshes) {
+      // a newer refresh is on its way
+      return;
+    }
+    _recordings
+      ..clear()
+      ..addAll(found);
     simulationChangedEvent.broadcast();
   }
 
@@ -178,27 +190,35 @@ class Simulator {
     return device;
   }
 
-  // replaces the device with the same id. Its running topics restart, so a new instance count applies at once.
+  // Replaces the device with the same id. Its running topics restart, so a new instance count applies at once (D19).
+  // The restart is checked against the rate limit like a start: above it, the edit is kept and the device stays
+  // stopped, and SimulationRateException is thrown.
   void updateDevice(SimulatedDevice edited) {
     var devices = simulation!.devices;
     var index = devices.indexWhere((device) => device.id == edited.id);
-    var running = devices[index].topics.where((topic) => runner.isRunning(topic.id)).map((topic) => topic.id).toSet();
+    var previous = devices[index];
+    var running = previous.topics.where((topic) => runner.isRunning(topic.id)).map((topic) => topic.id).toSet();
+    var deviceRunning = runner.isDeviceRunning(edited.id);
     devices[index] = edited;
-    if (edited.isRecorded) {
-      // D19: a playing recorded device restarts with its new settings
-      if (runner.isDeviceRunning(edited.id)) {
-        runner.startRecorded(edited);
+    try {
+      if (edited.isGenerated) {
+        var restarted = edited.topics.where((topic) => running.contains(topic.id)).toList();
+        if (restarted.isNotEmpty) {
+          runner.stopTopics(running);
+          _checkRate(restarted.map((topic) => (edited, topic)));
+          runner.start(edited, restarted);
+        }
+      } else if (deviceRunning) {
+        // recorded devices, robots and edge nodes start again with the new settings
+        runner.stopDevice(previous);
+        startDevice(edited);
       }
-      refreshRecordings();
-    } else if (edited.isVda5050 || edited.isSparkplug) {
-      // D19: running robots and edge nodes start again with the new settings
-      if (runner.isDeviceRunning(edited.id)) {
-        runner.startDevice(edited);
+    } finally {
+      if (edited.isRecorded) {
+        refreshRecordings();
       }
-    } else {
-      runner.restart(edited, edited.topics.where((topic) => running.contains(topic.id)));
+      _changed();
     }
-    _changed();
   }
 
   void deleteDevice(SimulatedDevice device) {
@@ -259,12 +279,19 @@ class Simulator {
     _changed();
   }
 
-  // replaces the topic with the same id and restarts it if it was running
+  // Replaces the topic with the same id and restarts it if it was running. Above the rate limit the edit is kept, the
+  // topic stays stopped and SimulationRateException is thrown.
   void updateTopic(SimulatedDevice device, SimulatedTopic edited) {
     var index = device.topics.indexWhere((topic) => topic.id == edited.id);
     device.topics[index] = edited;
-    runner.restart(device, [edited]);
-    _changed();
+    try {
+      if (runner.isRunning(edited.id)) {
+        runner.stopTopic(edited.id);
+        startTopic(device, edited);
+      }
+    } finally {
+      _changed();
+    }
   }
 
   void deleteTopic(SimulatedDevice device, SimulatedTopic topic) {
@@ -398,8 +425,10 @@ class Simulator {
   void _onLibraryChanged(EventArgs? _) => refreshRecordings();
 
   void _onDisconnected(EventArgs _) {
-    if (runner.isAnyRunning) {
-      runner.stopAll();
+    var wasRunning = runner.isAnyRunning;
+    // also cancels recorded devices whose recording is still loading
+    runner.stopAll();
+    if (wasRunning) {
       stoppedByDisconnectEvent.broadcast();
     }
   }

@@ -349,7 +349,7 @@ They are resolved in the topic, in template text and in user property values:
 | Placeholder | Meaning | Example (`n = 7`) |
 |---|---|---|
 | `{n}` | instance number | `7` |
-| `{n:3}` | instance number zero-padded to width 3 | `007` |
+| `{n:3}` | instance number zero-padded to width 3 (at most 12, a wider one is a validation error) | `007` |
 | `{device}` | device name, with `/`, `+`, `#` replaced by `_` | `Weather_station` |
 
 `{n}` and `{device}` are fixed per instance, so the topic string is resolved **once at start**,
@@ -427,8 +427,10 @@ none. The payload format indicator is set to UTF-8 for all text generators.
 | Start while disconnected | Start buttons disabled. Tooltip "Connect to a broker first" |
 | Disconnect (`onDisconnectedEvent`) | The runner reports it (D21). The app's viewmodel stops all, keeps stats, snackbar "Simulation stopped: disconnected" |
 | Project closed / another project opened | Stop all, clear stats |
-| Topic edited while running (D19) | On save, that topic restarts with the new config (its state resets, D9). Others keep running |
-| Device edited while running (D19) | On save, all running topics of that device restart. A changed instance count adds or removes instances |
+| Topic edited while running (D19) | On save, that topic restarts with the new config (its state resets, D9). Others keep running. The restart is checked against the rate limit like a start: above it, the edit is saved, the topic stays stopped and the rate limit message shows |
+| Device edited while running (D19) | On save, all running topics of that device restart. A changed instance count adds or removes instances. Rate limit as for a topic |
+| Stop all, stop of the device, disconnect or project close while a recording is loading | The start is cancelled and the recording closed; it never plays |
+| A device fails to start (e.g. an exception while it is built) | Its header row shows why (`startFailed`), Start all starts the others |
 | Topic/device deleted while running | Stopped first, then removed |
 | Generator throws (e.g. image folder deleted) | That `TopicRun` stops, the error shows in its row. Others continue |
 | Recording of a recorded device missing or unreadable (D23) | That device doesn't start, the error shows in its header row. Others continue |

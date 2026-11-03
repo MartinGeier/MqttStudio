@@ -201,7 +201,7 @@ class SimulatorViewmodel extends SrxChangeNotifier {
     selectedDeviceId = device.id;
   }
 
-  void updateDevice(SimulatedDevice device) => _simulator.updateDevice(device);
+  void updateDevice(SimulatedDevice device) => _guard(() => _simulator.updateDevice(device));
 
   void deleteDevice(SimulatedDevice device) => _simulator.deleteDevice(device);
 
@@ -214,7 +214,7 @@ class SimulatorViewmodel extends SrxChangeNotifier {
     _collapsed.remove(device.id);
   }
 
-  void updateTopic(SimulatedDevice device, SimulatedTopic topic) => _simulator.updateTopic(device, topic);
+  void updateTopic(SimulatedDevice device, SimulatedTopic topic) => _guard(() => _simulator.updateTopic(device, topic));
 
   void deleteTopic(SimulatedDevice device, SimulatedTopic topic) => _simulator.deleteTopic(device, topic);
 

@@ -126,6 +126,8 @@ class SimulatorRunner {
   final SimulatorConnections? connections;
   final Map<String, _TopicRun> _runs = {};
   final Map<String, _RecordedRun> _recordedRuns = {};
+  // the latest start of a recorded device while its recording loads; a stop or a newer start replaces it
+  final Map<String, Object> _recordedStarts = {};
   // the robots of the running VDA 5050 devices, by device id (D26)
   final Map<String, SimulatedFleet> _fleets = {};
   // the fleets that ran last, so their robots and statistics stay visible after a stop
@@ -202,31 +204,40 @@ class SimulatorRunner {
   // recorded devices start once their recording is open, their errors go to deviceStatsOf
   void startAll(Simulation simulation) {
     for (var device in simulation.devices) {
-      if (device.isRecorded) {
-        startRecorded(device);
-      } else if (device.isVda5050) {
-        _startFleet(device);
-      } else if (device.isSparkplug) {
-        _startSparkplug(device);
-      } else {
-        _startTopics(device, device.topics);
-      }
+      _startDevice(device);
     }
     runStateChangedEvent.broadcast();
   }
 
   void startDevice(SimulatedDevice device) {
-    if (device.isRecorded) {
-      startRecorded(device);
-    } else if (device.isVda5050) {
-      _startFleet(device);
-      runStateChangedEvent.broadcast();
-    } else if (device.isSparkplug) {
-      _startSparkplug(device);
-      runStateChangedEvent.broadcast();
-    } else {
-      start(device, device.topics);
+    _startDevice(device);
+    runStateChangedEvent.broadcast();
+  }
+
+  // a device that fails to start shows why in its row, the others start anyway
+  void _startDevice(SimulatedDevice device) {
+    try {
+      switch (device.kind) {
+        case DeviceKind.recorded:
+          unawaited(startRecorded(device));
+        case DeviceKind.vda5050:
+          _startFleet(device);
+        case DeviceKind.sparkplug:
+          _startSparkplug(device);
+        case DeviceKind.generated:
+          _startTopics(device, device.topics);
+      }
+    } catch (error) {
+      _fleets.remove(device.id)?.stop(goodbye: false);
+      _stopSparkplug(device.id);
+      _setStartFailed(device, error);
     }
+  }
+
+  void _setStartFailed(SimulatedDevice device, Object error) {
+    var detail = error is GeneratorException ? error.message : '$error';
+    var issue = SimulationIssue(SimulationIssueKind.startFailed, device: device.name, detail: detail);
+    _setDeviceError(device, issue.kind, issue.describe(), issue.detail);
   }
 
   void start(SimulatedDevice device, Iterable<SimulatedTopic> topics) {
@@ -253,6 +264,7 @@ class SimulatorRunner {
 
   void stopDevice(SimulatedDevice device) {
     if (device.isRecorded) {
+      _recordedStarts.remove(device.id);
       _recordedRuns.remove(device.id)?.cancel();
       runStateChangedEvent.broadcast();
     } else if (device.isVda5050) {
@@ -271,6 +283,7 @@ class SimulatorRunner {
       run.cancel();
     }
     _runs.clear();
+    _recordedStarts.clear();
     for (var run in _recordedRuns.values) {
       run.cancel();
     }
@@ -349,10 +362,11 @@ class SimulatorRunner {
   // the robots of a connected device say goodbye (OFFLINE); without a connection they just stop
   void _stopFleet(String deviceId) => _fleets.remove(deviceId)?.stop(goodbye: _publisher.isConnected);
 
-  void _publishJson(TopicStats stats, String topic, Map<String, Object?> json, MqttQos qos, bool retain) {
+  // false when the message could not be sent
+  bool _publishJson(TopicStats stats, String topic, Map<String, Object?> json, MqttQos qos, bool retain) {
     if (!_publisher.isConnected) {
       _reportConnectionLost();
-      return;
+      return false;
     }
     try {
       var payload = Uint8Buffer()..addAll(utf8.encode(jsonEncode(json)));
@@ -362,38 +376,60 @@ class SimulatorRunner {
       _publisher.publish(topic, payload, qos, retain, properties);
     } on Exception {
       _reportConnectionLost();
-      return;
+      return false;
     }
     _connectionLostReported = false;
     stats
       ..sent += 1
       ..lastPublishedAt = clock.now();
+    return true;
   }
 
   // Plays the recording of a recorded device, one player per instance (D22, D24). {n} and {device} in the remap
   // targets are resolved per instance. Problems end up in deviceStatsOf.
   Future<void> startRecorded(SimulatedDevice device) async {
     _recordedRuns.remove(device.id)?.cancel();
+    var start = Object();
+    _recordedStarts[device.id] = start;
     var deviceStats = deviceStatsOf(device.id)
       ..sent = 0
       .._clearError();
     var issues = SimulationRules.validateRecorded(device);
     if (issues.isNotEmpty) {
+      _recordedStarts.remove(device.id);
       _setDeviceError(device, issues.first.kind, issues.first.describe(), issues.first.detail);
       return;
     }
     var source = device.recorded!;
     var readers = await _openReaders(device, source);
-    if (readers == null) {
-      return;
-    }
-    if (_recordedRuns.containsKey(device.id)) {
-      // started twice while the recording was opening
-      for (var reader in readers) {
-        reader.close();
+    if (_recordedStarts[device.id] != start) {
+      // stopped, or started again, while the recording was opening
+      for (var reader in readers ?? <RecordingReader>[]) {
+        await _closeQuietly(reader.file);
       }
       return;
     }
+    _recordedStarts.remove(device.id);
+    if (readers == null) {
+      var issue = SimulationIssue(SimulationIssueKind.recordingMissing, device: device.name, detail: source.recordingName);
+      _setDeviceError(device, issue.kind, issue.describe(), issue.detail);
+      return;
+    }
+    try {
+      _playRecorded(device, readers);
+    } catch (error) {
+      for (var reader in readers) {
+        await _closeQuietly(reader.file);
+      }
+      _setStartFailed(device, error);
+      return;
+    }
+    deviceStats.sent = 0;
+    runStateChangedEvent.broadcast();
+  }
+
+  void _playRecorded(SimulatedDevice device, List<RecordingReader> readers) {
+    var source = device.recorded!;
     var footer = readers.first.footer!;
     var options = source.playback;
     var rate = RecordingPlayer.estimateFooter(footer, options).rate * device.instanceCount;
@@ -422,49 +458,72 @@ class SimulatorRunner {
       player.connectionLostEvent.subscribe((_) => _reportConnectionLost());
       player.finishedEvent.subscribe((_) => _recordedFinished(run));
       run.players.add(player);
-      if (source.instanceStart == InstanceStart.staggered && stagger > Duration.zero) {
-        run.startTimers.add(Timer(stagger * _random.nextDouble(), player.play));
-      } else {
-        player.play();
+    }
+    try {
+      for (var player in run.players) {
+        if (source.instanceStart == InstanceStart.staggered && stagger > Duration.zero) {
+          run.startTimers.add(Timer(stagger * _random.nextDouble(), player.play));
+        } else {
+          player.play();
+        }
       }
+    } catch (_) {
+      // the caller closes the readers
+      for (var timer in run.startTimers) {
+        timer.cancel();
+      }
+      for (var player in run.players) {
+        player.dispose();
+      }
+      rethrow;
     }
     _recordedRuns[device.id] = run;
-    deviceStats.sent = 0;
-    runStateChangedEvent.broadcast();
   }
 
-  // One reader per instance. A small recording is read once and shared from memory.
+  // One reader per instance. A small recording is read once and shared from memory. Null when it can't be read.
   Future<List<RecordingReader>?> _openReaders(SimulatedDevice device, RecordedSource source) async {
     var readers = <RecordingReader>[];
+    // the file that is open but has no reader yet
+    RecordingFile? file;
     try {
       if (openRecording == null) {
         throw StateError('no recordings');
       }
-      var file = await openRecording!(source);
+      file = await openRecording!(source);
       var length = await file.length();
       if (length <= maxSharedRecordingBytes) {
         var shared = BytesRecordingFile(file.name, await file.read(0, length));
-        await file.close();
+        var opened = file;
+        file = null;
+        await opened.close();
         for (var i = 0; i < device.instanceCount; i++) {
           readers.add(await RecordingReader.open(shared));
         }
       } else {
-        readers.add(await RecordingReader.open(file));
-        for (var i = 1; i < device.instanceCount; i++) {
-          readers.add(await RecordingReader.open(await openRecording!(source)));
+        for (var i = 0; i < device.instanceCount; i++) {
+          file ??= await openRecording!(source);
+          readers.add(await RecordingReader.open(file));
+          file = null;
         }
       }
-      if (!readers.first.isComplete) {
+      if (readers.isEmpty || !readers.first.isComplete) {
         throw StateError('unfinished recording');
       }
       return readers;
     } catch (_) {
+      await _closeQuietly(file);
       for (var reader in readers) {
-        reader.close();
+        await _closeQuietly(reader.file);
       }
-      var issue = SimulationIssue(SimulationIssueKind.recordingMissing, device: device.name, detail: source.recordingName);
-      _setDeviceError(device, issue.kind, issue.describe(), issue.detail);
       return null;
+    }
+  }
+
+  static Future<void> _closeQuietly(RecordingFile? file) async {
+    try {
+      await file?.close();
+    } catch (_) {
+      // it is given up anyway
     }
   }
 
@@ -617,6 +676,14 @@ class SimulatorRunner {
       }
     } on GeneratorException catch (exc) {
       _setGeneratorError(device, topic, exc);
+      return;
+    } catch (error) {
+      var issue = SimulationIssue(SimulationIssueKind.startFailed, device: device.name, topic: topic.topic, detail: '$error');
+      stats
+        ..error = issue.describe()
+        ..issue = issue.kind
+        ..errorDetail = issue.detail;
+      _reportError(device, topic, stats.error!);
       return;
     }
 

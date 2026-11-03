@@ -14,6 +14,7 @@ enum SimulationIssueKind {
   intervalTooShort,
   intervalRange,
   instanceCount,
+  placeholderTooWide,
   deviceNameEmpty,
   deviceNameDuplicate,
   templateUnknownField,
@@ -42,6 +43,7 @@ enum SimulationIssueKind {
   sparkplugSettingOutOfRange,
   sparkplugNoConnections,
   sparkplugHostFailed,
+  startFailed,
 }
 
 // A rule a simulation breaks. The CLI prints describe(), the app shows a localized text per kind.
@@ -68,6 +70,8 @@ class SimulationIssue {
         return '$where: "up to" must not be smaller than the interval';
       case SimulationIssueKind.instanceCount:
         return '$where: the number of instances must be between 1 and ${SimulationRules.maxInstances}';
+      case SimulationIssueKind.placeholderTooWide:
+        return '$where: {n:width} pads to at most ${Placeholders.maxWidth} digits';
       case SimulationIssueKind.deviceNameEmpty:
         return 'A device has no name';
       case SimulationIssueKind.deviceNameDuplicate:
@@ -124,6 +128,8 @@ class SimulationIssue {
         return '$where: Sparkplug edge nodes need connections of their own, which are not available here';
       case SimulationIssueKind.sparkplugHostFailed:
         return '$where: the simulated primary host could not connect: $detail';
+      case SimulationIssueKind.startFailed:
+        return '$where: could not start: $detail';
     }
   }
 
@@ -170,6 +176,13 @@ class SimulationRules {
     if (device.instanceCount > 1 && !Placeholders.containsInstance(topic.topic)) {
       add(SimulationIssueKind.topicNeedsInstance);
     }
+    if (!isValidInstanceCount(device)) {
+      add(SimulationIssueKind.instanceCount);
+    }
+    if (Placeholders.hasTooWideInstance(topic.topic) ||
+        topic.mqtt5.userProperties.any((property) => Placeholders.hasTooWideInstance(property.value))) {
+      add(SimulationIssueKind.placeholderTooWide);
+    }
     if (topic.interval.minMs < minIntervalMs) {
       add(SimulationIssueKind.intervalTooShort);
     }
@@ -188,6 +201,9 @@ class SimulationRules {
       issues.add((SimulationIssueKind.routeTooShort, ''));
     }
     if (generator is TemplateGenerator) {
+      if (Placeholders.hasTooWideInstance(generator.template)) {
+        issues.add((SimulationIssueKind.placeholderTooWide, ''));
+      }
       for (var name in unknownTemplateFields(generator)) {
         issues.add((SimulationIssueKind.templateUnknownField, name));
       }
@@ -210,23 +226,22 @@ class SimulationRules {
     } else if (isDuplicateDeviceName(device.name, simulation, exceptId: device.id)) {
       issues.add(SimulationIssue(SimulationIssueKind.deviceNameDuplicate, device: device.name));
     }
-    if (device.instanceCount < 1 || device.instanceCount > maxInstances) {
+    if (!isValidInstanceCount(device)) {
       issues.add(SimulationIssue(SimulationIssueKind.instanceCount, device: device.name));
     }
-    if (device.isRecorded) {
-      issues.addAll(validateRecorded(device));
-    }
-    if (device.isSparkplug) {
-      issues.addAll(validateSparkplug(device));
-    }
-    if (device.isVda5050) {
-      issues.addAll(validateVda5050(device));
-    }
-    for (var topic in device.topics) {
-      issues.addAll(validateTopic(device, topic));
-    }
+    var kindIssues = [
+      if (device.isRecorded) ...validateRecorded(device),
+      if (device.isSparkplug) ...validateSparkplug(device),
+      if (device.isVda5050) ...validateVda5050(device),
+      for (var topic in device.topics) ...validateTopic(device, topic),
+    ];
+    // the instance count is reported once for the device
+    issues.addAll(kindIssues.where((issue) => issue.kind != SimulationIssueKind.instanceCount));
     return issues;
   }
+
+  static bool isValidInstanceCount(SimulatedDevice device) =>
+      device.instanceCount >= 1 && device.instanceCount <= maxInstances;
 
   // D24, D25: instances need {n} in a remapping so they don't publish to the same topics
   static List<SimulationIssue> validateRecorded(SimulatedDevice device) {
@@ -235,8 +250,14 @@ class SimulationRules {
       return [SimulationIssue(SimulationIssueKind.recordingNotChosen, device: device.name)];
     }
     var issues = <SimulationIssue>[];
+    if (!isValidInstanceCount(device)) {
+      issues.add(SimulationIssue(SimulationIssueKind.instanceCount, device: device.name));
+    }
     if (device.instanceCount > 1 && !source.playback.remaps.any((remap) => Placeholders.containsInstance(remap.to))) {
       issues.add(SimulationIssue(SimulationIssueKind.recordedNeedsInstance, device: device.name));
+    }
+    if (source.playback.remaps.any((remap) => Placeholders.hasTooWideInstance(remap.to))) {
+      issues.add(SimulationIssue(SimulationIssueKind.placeholderTooWide, device: device.name));
     }
     if (source.playback.isMaxSpeed) {
       issues.add(SimulationIssue(SimulationIssueKind.recordedMaxSpeed, device: device.name));
@@ -267,8 +288,14 @@ class SimulationRules {
         add(SimulationIssueKind.vdaNameInvalid, name);
       }
     }
+    if (!isValidInstanceCount(device)) {
+      add(SimulationIssueKind.instanceCount);
+    }
     if (device.instanceCount > 1 && !Placeholders.containsInstance(source.serialNumber)) {
       add(SimulationIssueKind.vdaSerialNeedsInstance);
+    }
+    if (Placeholders.hasTooWideInstance(source.serialNumber)) {
+      add(SimulationIssueKind.placeholderTooWide);
     }
     if (device.instanceCount > maxRobots) {
       add(SimulationIssueKind.vdaTooManyRobots);
@@ -315,8 +342,15 @@ class SimulationRules {
     if (host != null && host.isNotEmpty && invalidLevel(host)) {
       add(SimulationIssueKind.sparkplugNameInvalid, 'primary host id');
     }
+    if (!isValidInstanceCount(device)) {
+      add(SimulationIssueKind.instanceCount);
+    }
     if (device.instanceCount > 1 && !Placeholders.containsInstance(source.edgeNodeId)) {
       add(SimulationIssueKind.sparkplugNodeNeedsInstance);
+    }
+    if (Placeholders.hasTooWideInstance(source.edgeNodeId) ||
+        source.devices.any((spec) => Placeholders.hasTooWideInstance(spec.id))) {
+      add(SimulationIssueKind.placeholderTooWide);
     }
     if (device.instanceCount > maxEdgeNodes) {
       add(SimulationIssueKind.sparkplugTooManyNodes);
@@ -372,6 +406,9 @@ class SimulationRules {
       if (!SparkplugValues.scalarTypes.contains(metric.type) ||
           !SparkplugValues.generatorFits(metric.type, metric.generator)) {
         add(SimulationIssueKind.sparkplugGeneratorType, name);
+      }
+      for (var issue in validateGenerator(metric.generator)) {
+        add(issue.$1, issue.$2);
       }
       if (metric.deadband < 0) {
         add(SimulationIssueKind.sparkplugSettingOutOfRange, 'deadband');

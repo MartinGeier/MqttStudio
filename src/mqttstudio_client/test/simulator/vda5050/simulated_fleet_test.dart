@@ -370,6 +370,24 @@ void main() {
     });
   });
 
+  test('robots count only the messages that were sent', () {
+    fakeAsync((async) {
+      var publisher = _Publisher(async)..isConnected = false;
+      var runner = SimulatorRunner(publisher, seed: 1);
+      var device = _device(VdaVersion.v3);
+      runner.startDevice(device);
+      async.elapse(const Duration(seconds: 5));
+      var fleet = runner.fleetOf(device.id)!;
+      expect(fleet.sent, 0);
+      expect(fleet.robots.every((robot) => robot.lastPublishedAt == null), isTrue);
+      publisher.isConnected = true;
+      async.elapse(const Duration(seconds: 5));
+      expect(fleet.sent, greaterThan(0));
+      expect(fleet.sent, publisher.sent.length);
+      runner.dispose();
+    });
+  });
+
   group('rules', () {
     test('a VDA 5050 device needs {n}, valid names and room on the layout', () {
       var device = _device(VdaVersion.v3, robots: 2)..vda5050!.serialNumber = 'R1';
@@ -388,6 +406,12 @@ void main() {
         ..columns = 50
         ..rows = 50;
       expect(SimulationRules.validateVda5050(device).map((i) => i.kind), [SimulationIssueKind.vdaTooManyRobots]);
+      device.instanceCount = 0;
+      expect(SimulationRules.validateVda5050(device).map((i) => i.kind), [SimulationIssueKind.instanceCount]);
+      device
+        ..instanceCount = 2
+        ..vda5050!.serialNumber = 'R{n:13}';
+      expect(SimulationRules.validateVda5050(device).map((i) => i.kind), [SimulationIssueKind.placeholderTooWide]);
     });
 
     test('the zones keep the grid connected and the blocked node out', () {

@@ -19,7 +19,8 @@ class RecordedDeviceViewmodel extends SrxChangeNotifier {
   final Simulation simulation;
   final _library = GetIt.I.get<RecordingLibrary>();
   late final FormGroup form;
-  late final StreamSubscription _subscription;
+  final List<StreamSubscription> _subscriptions = [];
+  bool _disposed = false;
 
   List<RecordingInfo> recordings = [];
   bool loading = true;
@@ -39,21 +40,29 @@ class RecordedDeviceViewmodel extends SrxChangeNotifier {
           FormControl<int>(value: device?.firstInstance ?? 1, validators: [Validators.required, Validators.min(0)]),
       instanceStartField: FormControl<InstanceStart>(value: device?.recorded?.instanceStart ?? InstanceStart.staggered),
     });
-    _subscription = form.valueChanges.listen((_) => notifyListeners());
-    form.control(recordingField).valueChanges.listen(_onRecordingChanged);
+    _subscriptions.add(form.valueChanges.listen((_) => notifyListeners()));
+    _subscriptions.add(form.control(recordingField).valueChanges.listen(_onRecordingChanged));
     _load();
   }
 
   @override
   void dispose() {
-    _subscription.cancel();
+    _disposed = true;
+    for (var subscription in _subscriptions) {
+      subscription.cancel();
+    }
     super.dispose();
   }
 
   bool get isNew => device == null;
 
   Future<void> _load() async {
-    recordings = await _library.list();
+    var listed = await _library.list();
+    // the dialog was closed while the library was listed
+    if (_disposed) {
+      return;
+    }
+    recordings = listed;
     var source = device?.recorded;
     if (source != null && recording == null) {
       // found by file name after a copy (D23)

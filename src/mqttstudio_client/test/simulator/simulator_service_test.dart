@@ -4,8 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/model/project.dart';
 import 'package:mqttstudio/project/project_manager.dart';
+import 'package:mqttstudio/recorder/model/playback_options.dart';
+import 'package:mqttstudio/recorder/storage/recording_library.dart';
 import 'package:mqttstudio/simulator/model/payload_generators.dart';
 import 'package:mqttstudio/simulator/model/simulation.dart';
+import 'package:mqttstudio/simulator/recorded_device_viewmodel.dart';
 import 'package:mqttstudio/simulator/simulator.dart';
 import '../helpers/fake_mqtt_adapter.dart';
 import '../helpers/test_setup.dart';
@@ -129,6 +132,65 @@ void main() {
       async.elapse(const Duration(seconds: 2));
       expect(utf8.decode(adapter.published.first.payload.toList()), '50');
       simulator.stopAll();
+    });
+  });
+
+  test('editing a running topic or device is checked against the rate limit like a start', () {
+    fakeAsync((async) {
+      openProject(async);
+      var device = simulator.addDevice(SimulatedDevice(name: 'Many', instanceCount: 100));
+      var topic = addTopic('a/{n}', device: device);
+      simulator.startDevice(device);
+
+      var fast = SimulatedTopic(
+          id: topic.id, topic: 'a/{n}', generator: const CounterGenerator(), interval: PublishInterval(minMs: 50));
+      expect(() => simulator.updateTopic(device, fast), throwsA(isA<SimulationRateException>()));
+      // the edit is kept, the topic stays stopped
+      expect(device.topics.single.interval.minMs, 50);
+      expect(simulator.runner.isRunning(topic.id), isFalse);
+
+      var slow = SimulatedTopic(
+          id: topic.id, topic: 'a/{n}', generator: const CounterGenerator(), interval: PublishInterval(minMs: 500));
+      simulator.updateTopic(device, slow);
+      simulator.startDevice(device);
+      var more = device.copy()..instanceCount = 1000;
+      expect(() => simulator.updateDevice(more), throwsA(isA<SimulationRateException>()));
+      expect(project.simulation.deviceById(device.id)!.instanceCount, 1000);
+      expect(simulator.runner.isAnyRunning, isFalse);
+    });
+  });
+
+  test('refreshing the recordings tolerates devices added meanwhile and keeps the known recordings', () {
+    fakeAsync((async) {
+      openProject(async);
+      late RecordingInfo info;
+      recordInLibrary('line', ['plant/a']).then((recorded) => info = recorded);
+      async.flushMicrotasks();
+      var first = simulator.addRecordedDevice(info, PlaybackOptions());
+      async.flushMicrotasks();
+      expect(simulator.recordingOf(first), isNotNull);
+
+      Object? error;
+      simulator.refreshRecordings().catchError((Object e) => error = e);
+      expect(simulator.recordingOf(first), isNotNull);
+      var second = simulator.addRecordedDevice(info, PlaybackOptions());
+      async.flushMicrotasks();
+      expect(error, isNull);
+      expect(simulator.recordingOf(first), isNotNull);
+      expect(simulator.recordingOf(second), isNotNull);
+    });
+  });
+
+  test('the recorded device dialog closed while the library is listed loads nothing', () {
+    fakeAsync((async) {
+      openProject(async);
+      recordInLibrary('line', ['plant/a']);
+      async.flushMicrotasks();
+      var vm = RecordedDeviceViewmodel(null, project.simulation);
+      vm.dispose();
+      async.flushMicrotasks();
+      expect(vm.recordings, isEmpty);
+      expect(vm.form.control(RecordedDeviceViewmodel.recordingField).value, isNull);
     });
   });
 

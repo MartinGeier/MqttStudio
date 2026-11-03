@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mqtt5_client/mqtt5_client.dart' show MqttQos;
@@ -117,6 +118,58 @@ void main() {
     });
   });
 
+  test('a simulated primary host that drops connects again, and the edge nodes are born again', () {
+    fakeAsync((async) {
+      setUpRunner();
+      var device = sparkplugDevice(edgeNodes: 1, host: 'scada');
+      runner.startDevice(device);
+      async.elapse(const Duration(seconds: 5));
+      var run = runner.sparkplugOf(device.id)!;
+      var node = run.nodes.single;
+      expect(node.state, EdgeNodeState.online);
+
+      broker.online.firstWhere((connection) => connection.clientId!.contains('spb-host')).drop();
+      async.flushMicrotasks();
+      expect(run.host!.isOnline, isFalse);
+      expect(node.state, isNot(EdgeNodeState.online));
+      async.elapse(const Duration(seconds: 10));
+      expect(run.host!.isOnline, isTrue);
+      expect(node.state, EdgeNodeState.online);
+      var states = [
+        for (var message in broker.messagesOn('spBv1.0/STATE/scada')) jsonDecode(message.text) as Map<String, Object?>,
+      ];
+      expect(states.map((state) => state['online']), [true, false, true]);
+      expect(states.last['timestamp'] as int, greaterThan(states.first['timestamp'] as int));
+      expect(broker.messagesOn('spBv1.0/Plant1/NBIRTH/Edge1'), hasLength(2));
+
+      // a stop while the host waits for its next attempt ends the attempts
+      broker.refuseConnections = true;
+      broker.online.firstWhere((connection) => connection.clientId!.contains('spb-host')).drop();
+      async.elapse(const Duration(seconds: 10));
+      runner.stopAll();
+      broker.refuseConnections = false;
+      async.elapse(const Duration(seconds: 60));
+      expect(broker.online, isEmpty);
+    });
+  });
+
+  test('a Sparkplug device that cannot start does not keep Start all from starting the others', () {
+    fakeAsync((async) {
+      setUpRunner();
+      var broken = sparkplugDevice(edgeNodes: 1)
+        ..sparkplug!.nodeMetrics.add(
+          SparkplugMetricSpec(name: 'Position', type: SpbDataType.string, generator: const GpsTrackGenerator(mode: GpsMode.route)),
+        );
+      var other = sparkplugDevice(edgeNodes: 1)..name = 'Line 2';
+      runner.startAll(Simulation(devices: [broken, other]));
+      async.elapse(const Duration(seconds: 5));
+      expect(runner.deviceStatsOf(broken.id).issue, SimulationIssueKind.routeTooShort);
+      expect(runner.isDeviceRunning(broken.id), isFalse);
+      expect(runner.isDeviceRunning(other.id), isTrue);
+      runner.stopAll();
+    });
+  });
+
   test('without connections a Sparkplug device reports why it cannot run', () {
     fakeAsync((async) {
       var runner = SimulatorRunner(_MainConnection());
@@ -203,6 +256,16 @@ void main() {
           SparkplugMetricSpec(name: 'Level', type: SpbDataType.double, generator: const RandomStringGenerator()),
         );
       expect(kinds(mismatch), contains(SimulationIssueKind.sparkplugGeneratorType));
+      var route = sparkplugDevice()
+        ..sparkplug!.nodeMetrics.add(
+          SparkplugMetricSpec(name: 'Position', type: SpbDataType.string, generator: const GpsTrackGenerator(mode: GpsMode.route)),
+        );
+      expect(kinds(route), contains(SimulationIssueKind.routeTooShort));
+      expect(kinds(sparkplugDevice(edgeNodes: 0)), contains(SimulationIssueKind.instanceCount));
+      expect(
+        kinds(sparkplugDevice()..sparkplug!.edgeNodeId = 'Edge{n:20}'),
+        contains(SimulationIssueKind.placeholderTooWide),
+      );
       // 20 edge nodes with 12 metrics each, 10 scans a second
       var fast = sparkplugDevice(edgeNodes: 20)..sparkplug!.scanMs = 100;
       fast.sparkplug!.devices.first

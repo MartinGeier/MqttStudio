@@ -3,11 +3,14 @@ import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mqtt5_client/mqtt5_client.dart';
 import 'package:mqttstudio/model/mqtt_message_properties.dart';
+import 'package:mqttstudio/simulator/engine/simulation_rules.dart';
 import 'package:mqttstudio/simulator/engine/simulator_publisher.dart';
 import 'package:mqttstudio/simulator/engine/simulator_runner.dart';
 import 'package:mqttstudio/simulator/model/payload_generators.dart';
 import 'package:mqttstudio/simulator/model/simulation.dart';
+import 'package:mqttstudio/simulator/model/sparkplug_source.dart';
 import 'package:typed_data/typed_buffers.dart';
+import '../helpers/fake_broker.dart';
 
 class SentMessage {
   final String topic;
@@ -273,6 +276,38 @@ void main() {
       runner.reset();
       expect(runner.statsOf(topic.id).sent, 0);
       expect(runner.isAnyRunning, isFalse);
+    });
+  });
+
+  test('a device without instances does not run, as in the CLI', () {
+    fakeAsync((async) {
+      var runner = SimulatorRunner(FakePublisher(async), seed: 1);
+      var topic = counterTopic('a');
+      runner.startDevice(SimulatedDevice(name: 'd', instanceCount: 0, topics: [topic]));
+      expect(runner.isRunning(topic.id), isFalse);
+      expect(runner.statsOf(topic.id).issue, SimulationIssueKind.instanceCount);
+      runner.dispose();
+    });
+  });
+
+  test('a device that fails to start shows why in its row, Start all starts the others', () {
+    fakeAsync((async) {
+      var publisher = FakePublisher(async);
+      var runner = SimulatorRunner(publisher,
+          seed: 1,
+          connections:
+              SimulatorConnections(settings: () => throw StateError('no project'), factory: FakeBroker().newConnection));
+      var edgeNodes = SimulatedDevice(name: 'Edge', kind: DeviceKind.sparkplug, sparkplug: SparkplugSource.example());
+      var topic = counterTopic('a');
+      runner.startAll(Simulation(devices: [edgeNodes, SimulatedDevice(name: 'd', topics: [topic])]));
+      var stats = runner.deviceStatsOf(edgeNodes.id);
+      expect(stats.issue, SimulationIssueKind.startFailed);
+      expect(stats.errorDetail, contains('no project'));
+      expect(runner.isDeviceRunning(edgeNodes.id), isFalse);
+      expect(runner.isRunning(topic.id), isTrue);
+      async.elapse(const Duration(seconds: 2));
+      expect(publisher.to('a'), isNotEmpty);
+      runner.dispose();
     });
   });
 }

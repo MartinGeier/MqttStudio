@@ -12,8 +12,9 @@ import 'package:mqttstudio/simulator/vda5050/fleet_layout.dart';
 import 'package:mqttstudio/simulator/vda5050/robot_fault.dart';
 import 'package:mqttstudio/simulator/vda5050/simulated_robot.dart';
 
-// sends one VDA 5050 message; the runner encodes it and hands it to the SimulatorPublisher
-typedef VdaPublish = void Function(String topic, Map<String, Object?> json, MqttQos qos, bool retain);
+// sends one VDA 5050 message; the runner encodes it and hands it to the SimulatorPublisher. False when it was not
+// sent, e.g. while disconnected.
+typedef VdaPublish = bool Function(String topic, Map<String, Object?> json, MqttQos qos, bool retain);
 
 class _ScheduledClear {
   final SimulatedRobot robot;
@@ -165,7 +166,9 @@ class SimulatedFleet {
       {MqttQos qos = MqttQos.atMostOnce, bool retain = false, void Function(Map<String, Object?> json)? change}) {
     var json = writer.toJson(message);
     change?.call(json);
-    _publish('${robot.topicPrefix}/${message.topic}', json, qos, retain);
+    if (!_publish('${robot.topicPrefix}/${message.topic}', json, qos, retain)) {
+      return;
+    }
     robot
       ..sent += 1
       ..lastPublishedAt = clock.now();
