@@ -3,6 +3,33 @@
 Six read-only reviewers each took one area of `src/mqttstudio_client/lib` (about 54,000 lines, not counting `*.g.dart`). Nothing was edited or run.
 Paths below are relative to `src/mqttstudio_client/lib/`.
 
+## Status: fixed
+
+Every finding below is fixed on `mqtt5`, each with tests. The full suite passes (937 tests).
+
+| Area | Commit |
+|---|---|
+| Topic viewer buffer | `a9a1eb2` |
+| Core: `SideConnection` | `286b373` |
+| Core: projects | `b2bc7ea` |
+| Documentation | `1684310` |
+| Simulator | `cf2568a` |
+| Topic viewer, payload decoders | `cac2b93` |
+| Protocols | `97c2e82` |
+| Recorder, and recorded devices in CLI `--reconnect` | `3774027` |
+| Fitting the areas together | `69c0d38` |
+
+Three findings were partly wrong:
+- **CLEAR keeping the selected message:** the CLEAR button already cleared it. The viewmodel now clears it too, which covers clearing a recording.
+- **`RecordedDeviceViewmodel` notifying after it was closed:** `SrxChangeNotifier` already ignores that. Only the uncancelled form subscriptions and the late library list were real.
+- **Grouped view changing the shown list:** the incremental grouping was removed in `a9a1eb2`.
+
+Behaviour that changed on purpose:
+- **Recorded playback during an outage:** a recording's playback keeps its schedule and skips messages while disconnected, instead of stopping.
+- **New projects:** a new project is saved as soon as it is opened.
+- **Project names:** the name of another saved project is rejected.
+- **Wide placeholders:** `{n:width}` allows at most 12 digits.
+
 **✔ = I checked it against the code myself.** The other findings come from the reviewers' reading, and each one cites a line. Severity: H high, M medium, L low.
 
 ## Patterns that recur across areas
