@@ -117,8 +117,11 @@ class RecentProjectsPanel extends StatelessWidget {
                         overflow: TextOverflow.ellipsis),
                     SizedBox(height: 4),
                     Text(_broker(project), style: hintStyle, maxLines: 1, overflow: TextOverflow.ellipsis),
-                    SizedBox(height: 4),
-                    Text(_lastUsed(project), style: theme.textTheme.bodySmall!.copyWith(color: theme.hintColor)),
+                    if (project.lastUsed != null) ...[
+                      SizedBox(height: 4),
+                      Text(_lastUsed(project.lastUsed!),
+                          style: theme.textTheme.bodySmall!.copyWith(color: theme.hintColor)),
+                    ],
                   ],
                 ),
               ),
@@ -134,9 +137,8 @@ class RecentProjectsPanel extends StatelessWidget {
     return '${settings.hostname}:${settings.port} | ${settings.protocolVersion.displayName}';
   }
 
-  String _lastUsed(Project project) {
-    var lastUsed = project.lastUsed;
-    return lastUsed == null ? '' : 'recentprojects.lastused'.tr(args: [_lastUsedFormat.format(lastUsed.toLocal())]);
+  String _lastUsed(DateTime lastUsed) {
+    return 'recentprojects.lastused'.tr(args: [_lastUsedFormat.format(lastUsed.toLocal())]);
   }
 
   Future _openProject(BuildContext context, Project project) async {
@@ -144,11 +146,7 @@ class RecentProjectsPanel extends StatelessWidget {
   }
 
   Future _newProject(BuildContext context) async {
-    var projectViewmodel = context.read<ProjectViewmodel>();
-    Project? project = await showDialog(context: context, builder: (context) => ProjectEditDialog());
-    if (project != null) {
-      await projectViewmodel.openProject(project);
-    }
+    await editAndOpenProject(context);
   }
 
   Future _showOpenProjectDialog(BuildContext context) async {

@@ -1,4 +1,5 @@
 import 'package:event/event.dart';
+import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/model/project.dart';
 import 'package:mqttstudio/project/project_manager.dart';
@@ -11,24 +12,31 @@ class RecentProjectsViewmodel extends SrxChangeNotifier {
   final ProjectManager _projectManager = GetIt.I.get<ProjectManager>();
   List<Project> projects = [];
   bool isLoaded = false;
-  bool _disposed = false;
+  // loads can overlap when the projects change while one runs; only the newest one sets the projects
+  int _loadCount = 0;
 
   RecentProjectsViewmodel() {
-    _projectManager.projectDeletedEvent.subscribe(_projectDeleted);
+    _projectManager.projectsChangedEvent.subscribe(_projectsChanged);
     _loadProjects();
   }
 
   @override
   void dispose() {
-    _disposed = true;
-    _projectManager.projectDeletedEvent.unsubscribe(_projectDeleted);
+    _projectManager.projectsChangedEvent.unsubscribe(_projectsChanged);
     super.dispose();
   }
 
   Future _loadProjects() async {
-    var saved = await _projectManager.getProjects();
-    // the panel goes away when a project opens, possibly before the projects are loaded
-    if (_disposed) {
+    var load = ++_loadCount;
+    List<Project> saved;
+    try {
+      saved = await _projectManager.getProjects();
+    } catch (exc) {
+      // unreadable saved projects show as none instead of a panel that never loads
+      debugPrint('Loading the recent projects failed: $exc');
+      saved = [];
+    }
+    if (load != _loadCount) {
       return;
     }
     projects = saved.take(maxProjects).toList();
@@ -36,7 +44,7 @@ class RecentProjectsViewmodel extends SrxChangeNotifier {
     notifyListeners();
   }
 
-  Future _projectDeleted(EventArgs _) async {
+  Future _projectsChanged(EventArgs _) async {
     await _loadProjects();
   }
 }

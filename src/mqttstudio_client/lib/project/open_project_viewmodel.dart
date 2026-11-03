@@ -17,7 +17,7 @@ class OpenProjectViewmodel extends SrxChangeNotifier {
   }
 
   Future deleteProject(Project project) async {
-    await _projectManager.deleteProject(project);
-    await _loadProjects();
+    projects = await _projectManager.deleteProject(project);
+    notifyListeners();
   }
 }

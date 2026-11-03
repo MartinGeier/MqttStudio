@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mqttstudio/mqtt/mqtt_connection_viewmodel.dart';
 import 'package:mqttstudio/project/project_edit_dialog.dart';
-import 'package:mqttstudio/model/project.dart';
 import 'package:mqttstudio/project/project_viewmodel.dart';
 import 'package:provider/provider.dart';
 import 'package:srx_flutter/srx_flutter.dart';
@@ -89,14 +88,8 @@ class ConnectButton extends StatelessWidget {
       mqttConnectionViewmodel.disconnect();
     } else {
       var projectViewmodel = context.read<ProjectViewmodel>();
-      if (!projectViewmodel.isProjectOpen) {
-        Project? project = await showDialog(context: context, builder: (context) => ProjectEditDialog());
-        if (project == null) {
-          return;
-        }
-        if (!await projectViewmodel.openProject(project)) {
-          return;
-        }
+      if (!projectViewmodel.isProjectOpen && await editAndOpenProject(context) == null) {
+        return;
       }
 
       mqttConnectionViewmodel.connect(projectViewmodel.currentProject!.mqttSettings);

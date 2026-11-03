@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/common/widgets/checkbox_field.dart';
 import 'package:mqttstudio/model/mqtt_protocol_version.dart';
+import 'package:mqttstudio/model/project.dart';
 import 'package:mqttstudio/project/project_viewmodel.dart';
 import 'package:mqttstudio/project/project_edit_viewmodel.dart';
 import 'package:provider/provider.dart';
@@ -469,4 +470,15 @@ class ProjectEditDialog extends StatelessWidget {
       viewmodel.form.control(ProjectEditViewmodel.portField).value = port;
     }
   }
+}
+
+// Edits the current project, or a new one while none is open, and opens the result. Null when the dialog was
+// cancelled or a close guard kept the current project open.
+Future<Project?> editAndOpenProject(BuildContext context) async {
+  var projectViewmodel = context.read<ProjectViewmodel>();
+  Project? project = await showDialog(context: context, builder: (context) => ProjectEditDialog());
+  if (project == null || !await projectViewmodel.openProject(project)) {
+    return null;
+  }
+  return project;
 }

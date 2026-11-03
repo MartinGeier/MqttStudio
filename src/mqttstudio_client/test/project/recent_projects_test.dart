@@ -8,6 +8,7 @@ import 'package:mqttstudio/project/open_project_viewmodel.dart';
 import 'package:mqttstudio/project/project_manager.dart';
 import 'package:mqttstudio/project/recent_projects_panel.dart';
 import 'package:mqttstudio/project/recent_projects_viewmodel.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:srx_flutter/srx_flutter.dart';
 import '../helpers/test_app.dart';
 import '../helpers/test_setup.dart';
@@ -33,11 +34,17 @@ void main() {
     }
   }
 
-  Future<RecentProjectsViewmodel> loadedViewmodel() async {
-    var viewmodel = RecentProjectsViewmodel();
-    while (!viewmodel.isLoaded) {
+  // lets the background loads run until the condition holds, failing instead of hanging when it never does
+  Future until(bool Function() condition) async {
+    for (var i = 0; i < 100 && !condition(); i++) {
       await Future.delayed(Duration.zero);
     }
+    expect(condition(), isTrue);
+  }
+
+  Future<RecentProjectsViewmodel> loadedViewmodel() async {
+    var viewmodel = RecentProjectsViewmodel();
+    await until(() => viewmodel.isLoaded);
     return viewmodel;
   }
 
@@ -51,15 +58,26 @@ void main() {
       expect(names, ['Project 2', 'Project 1', 'Project 0', 'Never used']);
     });
 
-    test('deleting a project removes it and notifies', () async {
-      await saveProjects(2);
-      var deleted = 0;
-      manager.projectDeletedEvent.subscribe((_) => deleted++);
+    test('deleting a project returns the remaining ones last used first and notifies', () async {
+      await saveProjects(3);
+      var changes = 0;
+      manager.projectsChangedEvent.subscribe((_) => changes++);
 
-      await manager.deleteProject((await manager.getProjects()).first);
+      var remaining = await manager.deleteProject((await manager.getProjects())[1]);
 
-      expect((await manager.getProjects()).map((x) => x.name), ['Project 0']);
-      expect(deleted, 1);
+      expect(remaining.map((x) => x.name), ['Project 2', 'Project 0']);
+      expect((await manager.getProjects()).map((x) => x.name), ['Project 2', 'Project 0']);
+      expect(changes, 1);
+    });
+
+    test('saving the current project notifies', () async {
+      await openNewProject();
+      var changes = 0;
+      manager.projectsChangedEvent.subscribe((_) => changes++);
+
+      await manager.saveProject();
+
+      expect(changes, 1);
     });
   });
 
@@ -78,9 +96,17 @@ void main() {
       var viewmodel = await loadedViewmodel();
 
       await OpenProjectViewmodel().deleteProject(viewmodel.projects.first);
-      await Future.delayed(Duration.zero);
 
+      await until(() => viewmodel.projects.length == 1);
       expect(viewmodel.projects.map((x) => x.name), ['Project 0']);
+    });
+
+    test('shows no projects when the saved projects cannot be read', () async {
+      SharedPreferences.setMockInitialValues({LocalStore.localStoreKey: 'not json'});
+
+      var viewmodel = await loadedViewmodel();
+
+      expect(viewmodel.projects, isEmpty);
     });
   });
 
@@ -117,6 +143,15 @@ void main() {
           expect(find.text('No recent projects'), findsOneWidget);
           expect(find.text('NEW PROJECT'), findsOneWidget);
           expect(find.text('OPEN PROJECT'), findsOneWidget);
+        }));
+
+    testWidgets('leaves out the last use of a never used project', (tester) => ignoringOverflowErrors(() async {
+          await tester.runAsync(() => LocalStore().saveProject(createProject('Never used')));
+          await tester.pumpWidget(testApp(SingleChildScrollView(child: RecentProjectsPanel())));
+          await tester.pumpAndSettle();
+
+          expect(find.text('Never used'), findsOneWidget);
+          expect(find.textContaining('Last used'), findsNothing);
         }));
 
     testWidgets('the Sarix banner stays visible below the recent projects', (tester) => ignoringOverflowErrors(() async {
