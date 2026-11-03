@@ -96,6 +96,18 @@ void main() {
       expect(buffer.getGroupMessages(MessageGroupTimePeriod.hour, null).length, 2);
     });
 
+    // differs from whole hours since the epoch only in time zones with a half-hour offset
+    test('begins hours on the local clock', () {
+      buffer.storeMessage(message('a', '1', receivedOn: DateTime(2026, 10, 23, 9, 20)));
+      buffer.storeMessage(message('a', '2', receivedOn: DateTime(2026, 10, 23, 9, 50)));
+      buffer.storeMessage(message('a', '3', receivedOn: DateTime(2026, 10, 23, 10, 10)));
+
+      var groups = buffer.getGroupMessages(MessageGroupTimePeriod.hour, null);
+
+      expect(groups.map((x) => x.beginOfPeriod), [DateTime(2026, 10, 23, 10), DateTime(2026, 10, 23, 9)]);
+      expect(groups.map((x) => x.messages.length), [1, 2]);
+    });
+
     test('only groups messages matching the filter', () {
       buffer.storeMessage(message('home/temp', '1', receivedOn: start));
       buffer.storeMessage(message('office/temp', '2', receivedOn: start.add(Duration(seconds: 30))));
@@ -228,6 +240,20 @@ void main() {
 
       expect(buffer.getMessagesTree(null).children.length, 2);
       expect(buffer.getMessagesTree(MessageFilter.create('  ')).children.length, 2);
+    });
+
+    test('keeps the leading slash of a topic as an empty first level', () {
+      buffer.storeMessage(message('/plant/temp', '1'));
+      buffer.storeMessage(message('plant/temp', '2'));
+
+      expect(buffer.findNode('/plant/temp')!.message!.topicName, '/plant/temp');
+      expect(buffer.findNode('plant/temp')!.message!.topicName, 'plant/temp');
+      expect(MQTTMessageBuffer.topicOf(null, ''), '');
+      expect(MQTTMessageBuffer.topicOf('', 'plant'), '/plant');
+
+      var tree = buffer.getMessagesTree(MessageFilter('/plant/+'));
+      expect(tree.children.single.topicLevelName, '');
+      expect(tree.children.single.children.single.children.single.message!.topicName, '/plant/temp');
     });
   });
 }

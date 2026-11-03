@@ -59,8 +59,11 @@ class MQTTMessageBuffer {
     }
 
     // create a filtered copy of the messages tree
-    return _getFilteredMessagesTree(filter, _messagesTree, '') ?? MessageNode('', null);
+    return _getFilteredMessagesTree(filter, _messagesTree, null) ?? MessageNode('', null);
   }
+
+  // the topic of a node below the given one, null for the root; a topic like /a/b has the empty first level
+  static String topicOf(String? parentTopic, String level) => parentTopic == null ? level : '$parentTopic/$level';
 
   List<ReceivedMqttMessage> getMessages(MessageFilter? filter) {
     var newestFirst = _newestFirst(_buffer);
@@ -127,14 +130,12 @@ class MQTTMessageBuffer {
       return groupedMessages;
     }
 
-    DateTime groupEndTime = _calcGroupEndTime(messages.first.receivedOn, period);
-    DateTime groupBeginTime = _calcGroupBeginTime(groupEndTime, period);
+    DateTime groupBeginTime = _calcGroupBeginTime(messages.first.receivedOn, period);
     MessageGroup msgGroup = MessageGroup(groupBeginTime);
     groupedMessages.add(msgGroup);
     for (var msg in messages) {
       if (msg.receivedOn.isBefore(groupBeginTime)) {
-        groupEndTime = _calcGroupEndTime(msg.receivedOn, period);
-        groupBeginTime = _calcGroupBeginTime(groupEndTime, period);
+        groupBeginTime = _calcGroupBeginTime(msg.receivedOn, period);
         msgGroup = MessageGroup(groupBeginTime);
         groupedMessages.add(msgGroup);
       }
@@ -177,29 +178,20 @@ class MQTTMessageBuffer {
     }
   }
 
-  DateTime _calcGroupEndTime(DateTime lastEntryTime, MessageGroupTimePeriod period) {
+  // A message exactly on a boundary closes the period before it. Hours begin on the local clock's hours, which are
+  // not whole hours since the epoch in time zones with a half-hour offset.
+  DateTime _calcGroupBeginTime(DateTime receivedOn, MessageGroupTimePeriod period) {
+    var micros = receivedOn.microsecondsSinceEpoch - 1;
     switch (period) {
       case MessageGroupTimePeriod.second:
-        return DateTime.fromMicrosecondsSinceEpoch(((lastEntryTime.microsecondsSinceEpoch / 1000000).ceil()) * 1000000);
+        return DateTime.fromMicrosecondsSinceEpoch((micros / 1000000).floor() * 1000000);
       case MessageGroupTimePeriod.tenSeconds:
-        return DateTime.fromMicrosecondsSinceEpoch(((lastEntryTime.microsecondsSinceEpoch / 1000000 / 10).ceil()) * 1000000 * 10);
+        return DateTime.fromMicrosecondsSinceEpoch((micros / 1000000 / 10).floor() * 1000000 * 10);
       case MessageGroupTimePeriod.minute:
-        return DateTime.fromMicrosecondsSinceEpoch(((lastEntryTime.microsecondsSinceEpoch / 1000000 / 60).ceil()) * 1000000 * 60);
+        return DateTime.fromMicrosecondsSinceEpoch((micros / 1000000 / 60).floor() * 1000000 * 60);
       case MessageGroupTimePeriod.hour:
-        return DateTime.fromMicrosecondsSinceEpoch(((lastEntryTime.microsecondsSinceEpoch / 1000000 / 3600).ceil()) * 1000000 * 3600);
-    }
-  }
-
-  DateTime _calcGroupBeginTime(DateTime groupEndTime, MessageGroupTimePeriod period) {
-    switch (period) {
-      case MessageGroupTimePeriod.second:
-        return DateTime.fromMicrosecondsSinceEpoch((((groupEndTime.microsecondsSinceEpoch - 1) / 1000000).floor()) * 1000000);
-      case MessageGroupTimePeriod.tenSeconds:
-        return DateTime.fromMicrosecondsSinceEpoch((((groupEndTime.microsecondsSinceEpoch - 1) / 1000000 / 10).floor()) * 1000000 * 10);
-      case MessageGroupTimePeriod.minute:
-        return DateTime.fromMicrosecondsSinceEpoch((((groupEndTime.microsecondsSinceEpoch - 1) / 1000000 / 60).floor()) * 1000000 * 60);
-      case MessageGroupTimePeriod.hour:
-        return DateTime.fromMicrosecondsSinceEpoch((((groupEndTime.microsecondsSinceEpoch - 1) / 1000000 / 3600).floor()) * 1000000 * 3600);
+        var local = DateTime.fromMicrosecondsSinceEpoch(micros);
+        return DateTime(local.year, local.month, local.day, local.hour);
     }
   }
 
@@ -225,10 +217,10 @@ class MQTTMessageBuffer {
   }
 
   // Keeps the topics that match and the levels above them. Payload filters test the last message of a topic.
-  MessageNode? _getFilteredMessagesTree(MessageFilter filter, MessageNode node, String topicPath) {
+  MessageNode? _getFilteredMessagesTree(MessageFilter filter, MessageNode node, String? topicPath) {
     var newNode = node.clone();
     for (var childNode in node.children) {
-      var childPath = topicPath.isEmpty ? childNode.topicLevelName : '$topicPath/${childNode.topicLevelName}';
+      var childPath = topicOf(topicPath, childNode.topicLevelName);
       var clonedChild = _getFilteredMessagesTree(filter, childNode, childPath);
       if (clonedChild != null) {
         newNode.children.add(clonedChild);
@@ -236,7 +228,7 @@ class MQTTMessageBuffer {
     }
 
     var matches = node.isTopic &&
-        (filter.filtersPayload ? filter.matches(node.message!) : filter.matchesTopic(topicPath));
+        (filter.filtersPayload ? filter.matches(node.message!) : filter.matchesTopic(topicPath!));
     return matches || newNode.children.isNotEmpty ? newNode : null;
   }
 }

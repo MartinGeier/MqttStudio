@@ -149,8 +149,8 @@ class MessageViewer implements MessageSource {
   }
 
   void _onMqttConntected() {
-    // subscribe to all topics
-    if (_projectManager.currentProject != null) {
+    // subscribe to all topics, unless everything is paused
+    if (_projectManager.currentProject != null && !paused) {
       for (var sub in _projectManager.currentProject!.topicSubscriptions) {
         if (!sub.paused) {
           _subscribeToTopic(sub);

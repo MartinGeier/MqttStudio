@@ -7,7 +7,8 @@ import 'package:mqttstudio/recorder/model/message_condition.dart';
 enum MessageFilterMode { topic, payload, condition }
 
 // The filter of the topic viewer's command bar:
-// - topic: part of the topic, ignoring case, or an MQTT topic filter when the text has + or # (plant/+/temp)
+// - topic: part of the topic, ignoring case, or an MQTT topic filter when the text has # or a + that fills a whole
+//   level (plant/+/temp)
 // - payload: text in the payload, ignoring case
 // - condition: the recorder's condition syntax (MessageCondition); without a topic filter in front it applies to
 //   all topics, e.g. $.status == "error" or > 80
@@ -41,7 +42,7 @@ class MessageFilter {
       }
       return;
     }
-    if (mode == MessageFilterMode.topic && (trimmed.contains('+') || trimmed.contains('#'))) {
+    if (mode == MessageFilterMode.topic && _isWildcardFilter(trimmed)) {
       if (RecorderRules.validateFilter(trimmed) != null) {
         throw FormatException('+ and # must fill a whole level, # only the last one');
       }
@@ -56,6 +57,9 @@ class MessageFilter {
     }
     return MessageFilter(text, mode: mode, regex: regex);
   }
+
+  // a + inside a level is searched as text, e.g. c++
+  static bool _isWildcardFilter(String text) => text.contains('#') || text.split('/').contains('+');
 
   bool get filtersPayload => mode != MessageFilterMode.topic;
 

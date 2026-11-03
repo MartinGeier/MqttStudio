@@ -113,7 +113,7 @@ class _RetainedMessagesDialogState extends State<RetainedMessagesDialog> {
           Text('retaineddialog.scanning'.plural(vm.found), style: style),
         ]);
       case RetainedScanState.failed:
-        return Text('retaineddialog.failed'.tr(args: [vm.error ?? '']),
+        return Text(vm.connectionLost ? 'retaineddialog.lost'.tr() : 'retaineddialog.failed'.tr(args: [vm.error ?? '']),
             style: style!.copyWith(color: Theme.of(context).colorScheme.error));
       case RetainedScanState.done:
         var found = vm.messages.isEmpty

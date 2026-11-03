@@ -116,6 +116,20 @@ void main() {
 
       expect(adapter.subscribed, ['a/#']);
     });
+
+    test('stays paused when the connection is established again', () async {
+      project.topicSubscriptions.add(subscription('a/#'));
+      await adapter.connect(project.mqttSettings);
+      viewer.pauseAllTopics();
+      adapter.dropConnection();
+      adapter.subscribed.clear();
+
+      await adapter.connect(project.mqttSettings);
+
+      expect(adapter.subscribed, isEmpty);
+      viewer.playAllTopics();
+      expect(adapter.subscribed, ['a/#']);
+    });
   });
 
   group('MessageViewer messages', () {

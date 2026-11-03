@@ -184,6 +184,25 @@ void main() {
         expect(adapter.subscribed, ['plant/line1/#']);
       });
     });
+
+    testWidgets('keeps the leading slash of a topic in the context menu', (tester) async {
+      await ignoringOverflowErrors(() async {
+        await pumpViewer(tester, mode: TopicViewMode.Tree);
+        await receive(tester, '/plant/line1', '20', 0);
+        viewmodel.expandAll();
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('line1'), buttons: kSecondaryButton);
+        await tester.pumpAndSettle();
+
+        expect(find.text('Copy /plant/line1'), findsOneWidget);
+        expect(find.text('Copy /plant/+'), findsOneWidget);
+        await tester.tap(find.text('Subscribe to /plant/line1/#'));
+        await tester.pumpAndSettle();
+
+        expect(project.topicSubscriptions.single.topic, '/plant/line1/#');
+      });
+    });
   });
 
   group('retained messages dialog', () {

@@ -23,6 +23,8 @@ class DecodedPayload {
 class PayloadDecoding {
   static const int maxHexDumpBytes = 64 * 1024;
   static const int _maxDepth = 200;
+  // the range of DateTime, 100,000,000 days either side of 1970
+  static const int _maxDateSeconds = 8640000000000;
 
   static DecodedPayload decode(Uint8List payload, PayloadDecoder decoder) {
     try {
@@ -43,6 +45,9 @@ class PayloadDecoding {
       // ArchiveException is a FormatException too
     } on FormatException catch (exc) {
       return DecodedPayload(payload, error: exc.message);
+    } catch (exc) {
+      // damaged data must not break the viewers, whatever a decoder throws
+      return DecodedPayload(payload, error: 'The payload can\'t be decoded: $exc');
     }
   }
 
@@ -175,7 +180,15 @@ class PayloadDecoding {
 
   static String _keyText(Object? key) {
     var compatible = toJsonCompatible(key);
-    return compatible is String ? compatible : jsonEncode(compatible);
+    if (compatible is String) {
+      return compatible;
+    }
+    try {
+      return jsonEncode(compatible);
+    } on JsonUnsupportedObjectError {
+      // NaN and infinity
+      return '$compatible';
+    }
   }
 
   static Object? decodeMessagePack(Uint8List payload) {
@@ -235,7 +248,7 @@ class PayloadDecoding {
       case 0xce:
         return reader.uint(4);
       case 0xcf:
-        return reader.uint(8);
+        return reader.uint64();
       case 0xd0:
         return reader.signed(1);
       case 0xd1:
@@ -306,7 +319,10 @@ class PayloadDecoding {
       if (length == 12) {
         var nanos = view.uint(4);
         var seconds = view.signed(8);
-        return DateTime.fromMicrosecondsSinceEpoch(seconds * 1000000 + nanos ~/ 1000, isUtc: true);
+        // seconds beyond the range of DateTime would overflow the microseconds, they keep the extension's data
+        if (seconds.abs() <= _maxDateSeconds) {
+          return DateTime.fromMicrosecondsSinceEpoch(seconds * 1000000 + nanos ~/ 1000, isUtc: true);
+        }
       }
     }
     return {'ext': type, 'data': data};
@@ -339,19 +355,21 @@ class PayloadDecoding {
     if (indefinite && (major == 0 || major == 1 || major == 6)) {
       throw FormatException('Invalid CBOR item at byte $start');
     }
+    // an int, or a BigInt beyond the int range
     var argument = indefinite ? -1 : _cborArgument(reader, info, start);
     switch (major) {
       case 0:
         return argument;
       case 1:
-        return -1 - argument;
+        return argument is int ? -1 - argument : -BigInt.one - (argument as BigInt);
       case 2:
-        return indefinite ? _cborChunks(reader, 2, depth) : reader.bytes(argument);
+        return indefinite ? _cborChunks(reader, 2, depth) : reader.bytes(_cborLength(reader, argument));
       case 3:
-        return indefinite ? utf8.decode(_cborChunks(reader, 3, depth)) : reader.utf8Text(argument);
+        return indefinite ? utf8.decode(_cborChunks(reader, 3, depth)) : reader.utf8Text(_cborLength(reader, argument));
       case 4:
+        var length = indefinite ? 0 : _cborLength(reader, argument);
         var list = <Object?>[];
-        while (indefinite || list.length < argument) {
+        while (indefinite || list.length < length) {
           var item = _readCbor(reader, depth + 1);
           if (identical(item, _break)) {
             if (!indefinite) {
@@ -363,9 +381,10 @@ class PayloadDecoding {
         }
         return list;
       case 5:
+        var length = indefinite ? 0 : _cborLength(reader, argument);
         var map = <Object?, Object?>{};
         var entries = 0;
-        while (indefinite || entries < argument) {
+        while (indefinite || entries < length) {
           var key = _readCbor(reader, depth + 1);
           if (identical(key, _break)) {
             if (!indefinite) {
@@ -382,11 +401,20 @@ class PayloadDecoding {
         }
         return map;
       default:
-        return _cborTag(argument, _readCbor(reader, depth + 1));
+        // no tag beyond the int range has a meaning here
+        return _cborTag(argument is int ? argument : -1, _readCbor(reader, depth + 1));
     }
   }
 
-  static int _cborArgument(_ByteReader reader, int info, int start) {
+  // a length beyond the int range can only run past the end of the data
+  static int _cborLength(_ByteReader reader, Object argument) {
+    if (argument is! int) {
+      throw FormatException('The data ends early at byte ${reader.length}');
+    }
+    return argument;
+  }
+
+  static Object _cborArgument(_ByteReader reader, int info, int start) {
     if (info < 24) {
       return info;
     }
@@ -398,7 +426,7 @@ class PayloadDecoding {
       case 26:
         return reader.uint(4);
       case 27:
-        return reader.uint(8);
+        return reader.uint64();
     }
     throw FormatException('Invalid CBOR item at byte $start');
   }
@@ -449,7 +477,8 @@ class PayloadDecoding {
 
   // dates (tags 0 and 1) and big numbers (tags 2 and 3) are decoded, other tags only show their content
   static Object? _cborTag(int tag, Object? content) {
-    if (tag == 1 && content is num) {
+    // NaN, infinity and seconds beyond the range of DateTime stay a number
+    if (tag == 1 && content is num && content.isFinite && content.abs() <= _maxDateSeconds) {
       return DateTime.fromMicrosecondsSinceEpoch((content * 1000000).round(), isUtc: true);
     }
     if ((tag == 2 || tag == 3) && content is Uint8List) {
@@ -479,10 +508,16 @@ class PayloadDecoding {
 
 // Reads big endian numbers without ByteData.getUint64, which the browser doesn't support
 class _ByteReader {
+  // ints are exact up to 2^63 - 1 natively, up to 2^53 in the browser
+  static const bool _isWeb = identical(0, 0.0);
+  static const int _maxIntHigh = _isWeb ? 0x200000 : 0x80000000;
+
   final Uint8List _bytes;
   int position = 0;
 
   _ByteReader(this._bytes);
+
+  int get length => _bytes.length;
 
   int byte() {
     if (position >= _bytes.length) {
@@ -513,6 +548,16 @@ class _ByteReader {
       value = value * 256 + byte();
     }
     return value;
+  }
+
+  // an int, or a BigInt where an int would wrap or lose digits
+  Object uint64() {
+    var high = uint(4);
+    var low = uint(4);
+    if (high < _maxIntHigh) {
+      return high * 0x100000000 + low;
+    }
+    return (BigInt.from(high) << 32) | BigInt.from(low);
   }
 
   int signed(int length) {

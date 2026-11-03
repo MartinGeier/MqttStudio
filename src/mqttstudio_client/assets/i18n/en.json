@@ -507,6 +507,7 @@
     "retaineddialog.scanning.one": "Scanning … 1 retained message found",
     "retaineddialog.scanning.other": "Scanning … {} retained messages found",
     "retaineddialog.failed": "The broker can't be reached: {}",
+    "retaineddialog.lost": "The connection to the broker was lost. SCAN connects again.",
     "retaineddialog.none": "No retained messages in {}",
     "retaineddialog.found.one": "1 retained message in {filter}.",
     "retaineddialog.found.other": "{} retained messages in {filter}.",

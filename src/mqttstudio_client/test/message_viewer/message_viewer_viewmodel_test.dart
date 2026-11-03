@@ -1,3 +1,4 @@
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mqttstudio/documentation/documentation_service.dart';
@@ -128,6 +129,79 @@ void main() {
       await GetIt.I.get<ProjectManager>().closeProject(true);
 
       expect(viewmodel.selectedMessage, isNull);
+    });
+
+    test('the selection is cleared with the messages', () {
+      receiveAndSelect('home/temp', ['1']);
+      viewmodel.markForCompare();
+
+      viewmodel.clearMessages();
+
+      expect(viewmodel.selectedMessage, isNull);
+      expect(viewmodel.markedMessage, isNull);
+    });
+  });
+
+  group('MessageViewerViewmodel refresh', () {
+    late MessageViewerViewmodel throttled;
+    late int notified;
+
+    void start(FakeAsync async) {
+      // the viewmodel of setUp would refresh on the same messages
+      viewmodel.dispose();
+      throttled = MessageViewerViewmodel();
+      notified = 0;
+      throttled.addListener(() => notified++);
+      async.elapse(Duration(seconds: 1));
+    }
+
+    test('shows the last messages of a burst at the end of the period', () {
+      fakeAsync((async) {
+        start(async);
+        adapter.receive(message('a', '1'));
+        expect(notified, 1);
+
+        adapter.receive(message('a', '2'));
+        adapter.receive(message('a', '3'));
+        expect(notified, 1);
+
+        async.elapse(Duration(milliseconds: 500));
+        expect(notified, 2);
+        async.elapse(Duration(seconds: 2));
+        expect(notified, 2);
+        throttled.dispose();
+      });
+    });
+
+    test('waits while the view scrolls', () {
+      fakeAsync((async) {
+        start(async);
+        adapter.receive(message('a', '1'));
+        async.elapse(Duration(milliseconds: 300));
+        adapter.receive(message('a', '2'));
+        async.elapse(Duration(milliseconds: 100));
+
+        throttled.delayViewUpdate();
+        async.elapse(Duration(milliseconds: 400));
+        expect(notified, 1);
+
+        async.elapse(Duration(milliseconds: 100));
+        expect(notified, 2);
+        throttled.dispose();
+      });
+    });
+
+    test('dispose cancels the pending refresh', () {
+      fakeAsync((async) {
+        start(async);
+        adapter.receive(message('a', '1'));
+        adapter.receive(message('a', '2'));
+
+        throttled.dispose();
+
+        expect(async.pendingTimers, isEmpty);
+        expect(notified, 1);
+      });
     });
   });
 

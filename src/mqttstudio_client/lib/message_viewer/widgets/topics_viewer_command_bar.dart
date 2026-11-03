@@ -24,12 +24,13 @@ class TopicsViewCommandBar extends StatefulWidget {
 }
 
 class _TopicsViewCommandBarState extends State<TopicsViewCommandBar> {
-  var _filterController = TextEditingController();
+  final _filterController = TextEditingController();
   Timer? _debounce;
 
   @override
   void dispose() {
     _debounce?.cancel();
+    _filterController.dispose();
     super.dispose();
   }
 
@@ -309,12 +310,7 @@ class _TopicsViewCommandBarState extends State<TopicsViewCommandBar> {
               color: Colors.blue,
               tooltip: 'topicsviewer_commandbar.pause.tooltip'.tr()),
           IconButton(
-            onPressed: live
-                ? () {
-                    messageViewerViewmodel.clearMessages();
-                    messageViewerViewmodel.selectedMessage = null;
-                  }
-                : null,
+            onPressed: live ? () => messageViewerViewmodel.clearMessages() : null,
             icon: Icon(Icons.not_interested),
             tooltip: 'topicsviewer_commandbar.clear.tooltip'.tr(),
           ),

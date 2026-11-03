@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:clock/clock.dart';
 import 'package:darq/darq.dart';
 import 'package:event/event.dart';
 import 'package:flutter/foundation.dart';
@@ -64,7 +65,9 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
   MessageFilter? _filter;
   String? _filterError;
   final _refreshPeriod = 500;
-  DateTime _lastRefresh = DateTime.now();
+  DateTime _lastRefresh = clock.now();
+  // the refresh at the end of the period for messages that arrived within it
+  Timer? _refreshTimer;
   // the payload decoder chosen per topic in the detail view, for this session only
   final Map<String, PayloadDecoder> _decoders = {};
   final Map<PayloadDecoder, Expando<DecodedPayload>> _decoded = {};
@@ -122,6 +125,7 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
   @override
   void dispose() {
     _statsTimer?.cancel();
+    _refreshTimer?.cancel();
     // only remove our own handlers, the events are shared with other services and viewmodels
     GetIt.I.get<ProjectManager>().projectClosedEvent.unsubscribe(_projectClosed);
     _documentation.documentationChangedEvent.unsubscribe(_documentationChanged);
@@ -849,16 +853,29 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
       }
     }
 
-    // limit rebuild frequency
-    if (DateTime.now().subtract(Duration(milliseconds: _refreshPeriod)).isAfter(_lastRefresh)) {
-      _lastRefresh = DateTime.now();
+    _refreshThrottled();
+  }
+
+  // Limits the rebuild frequency. A message within the period is shown by one refresh at its end, so the last
+  // messages of a burst aren't left out; the view delays it further while it scrolls.
+  void _refreshThrottled() {
+    var wait = _lastRefresh.add(Duration(milliseconds: _refreshPeriod)).difference(clock.now());
+    if (wait <= Duration.zero) {
+      _refreshTimer?.cancel();
+      _refreshTimer = null;
+      _lastRefresh = clock.now();
       notifyListeners();
+    } else {
+      _refreshTimer ??= Timer(wait, () {
+        _refreshTimer = null;
+        _refreshThrottled();
+      });
     }
   }
 
   // called by the view to delay any updating of the view. Used to prevent the view updating during scrolling
   void delayViewUpdate() {
-    _lastRefresh = DateTime.now();
+    _lastRefresh = clock.now();
   }
 
   void _topicSubriptionsChanged(EventArgs _) {
@@ -878,6 +895,8 @@ class MessageViewerViewmodel extends SrxChangeNotifier {
   }
 
   void _messagesCleared(EventArgs _) {
+    _selectedMessage = null;
+    _selectedMetric = null;
     _markedMessage = null;
     _protocols.clearCache();
     _fleet = null;

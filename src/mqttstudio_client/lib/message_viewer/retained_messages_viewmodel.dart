@@ -21,6 +21,8 @@ class RetainedMessagesViewmodel extends SrxChangeNotifier {
   int _found = 0;
   int _cleared = 0;
   String? _error;
+  bool _connectionLost = false;
+  bool _disposed = false;
   String _scannedFilter = '';
 
   RetainedMessagesViewmodel({String filter = '#', MqttAdapter Function()? connectionFactory})
@@ -32,6 +34,7 @@ class RetainedMessagesViewmodel extends SrxChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     _scanner.close();
     super.dispose();
   }
@@ -49,6 +52,9 @@ class RetainedMessagesViewmodel extends SrxChangeNotifier {
   int get cleared => _cleared;
 
   String? get error => _error;
+
+  // the scan failed because the connection was lost; scanning again connects again
+  bool get connectionLost => _connectionLost;
 
   String get scannedFilter => _scannedFilter;
 
@@ -82,6 +88,7 @@ class RetainedMessagesViewmodel extends SrxChangeNotifier {
     _error = null;
     _cleared = 0;
     _found = 0;
+    _connectionLost = false;
     if (!_scanner.isOpen) {
       _setState(RetainedScanState.connecting);
       try {
@@ -91,12 +98,22 @@ class RetainedMessagesViewmodel extends SrxChangeNotifier {
         _setState(RetainedScanState.failed);
         return;
       }
+      // closed while connecting
+      if (_disposed) {
+        return;
+      }
     }
     _setState(RetainedScanState.scanning);
-    _messages = await _scanner.scan(filter, onFound: (count) {
-      _found = count;
-      notifyListeners();
-    });
+    try {
+      _messages = await _scanner.scan(filter, onFound: (count) {
+        _found = count;
+        notifyListeners();
+      });
+    } on RetainedConnectionLostException {
+      _connectionLost = true;
+      _setState(RetainedScanState.failed);
+      return;
+    }
     _scannedFilter = filter;
     _selected
       ..clear()

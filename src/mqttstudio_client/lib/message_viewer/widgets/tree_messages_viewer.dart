@@ -37,7 +37,7 @@ class TreeMessagesViewer extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<MessageViewerViewmodel>(builder: (context, viewmodel, child) {
       var rootNode = viewmodel.messageBuffer.getMessagesTree(viewmodel.filter);
-      var nodes = _buildNodes(rootNode.children, '', viewmodel, context, viewmodel.statsReference);
+      var nodes = _buildNodes(rootNode.children, null, viewmodel, context, viewmodel.statsReference);
       return Expanded(
           child: Padding(
         padding: const EdgeInsets.only(top: 8),
@@ -57,11 +57,11 @@ class TreeMessagesViewer extends StatelessWidget {
     });
   }
 
-  List<TreeNode> _buildNodes(List<MessageNode> messageNodes, String parentPath, MessageViewerViewmodel viewmodel,
+  List<TreeNode> _buildNodes(List<MessageNode> messageNodes, String? parentPath, MessageViewerViewmodel viewmodel,
       BuildContext context, DateTime reference) {
     List<TreeNode> result = [];
     for (var msgNode in messageNodes) {
-      var path = parentPath.isEmpty ? msgNode.topicLevelName : '$parentPath/${msgNode.topicLevelName}';
+      var path = MQTTMessageBuffer.topicOf(parentPath, msgNode.topicLevelName);
       var childNodes = _buildNodes(msgNode.children, path, viewmodel, context, reference);
       var realTopic = msgNode.isTopic;
       var title = realTopic ? viewmodel.documentedTitleOf(msgNode.message!.topicName) : null;

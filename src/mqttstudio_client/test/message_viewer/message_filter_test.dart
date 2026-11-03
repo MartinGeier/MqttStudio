@@ -24,8 +24,17 @@ void main() {
     });
 
     test('rejects wildcards that do not fill a level', () {
-      expect(() => MessageFilter('plant/li+'), throwsFormatException);
       expect(() => MessageFilter('plant/#/temp'), throwsFormatException);
+      expect(() => MessageFilter('plant/li#'), throwsFormatException);
+      expect(() => MessageFilter('plant/+/li+'), throwsFormatException);
+    });
+
+    test('searches a + inside a level as text', () {
+      var filter = MessageFilter('c++');
+
+      expect(filter.matches(message('lang/C++/build', '1')), isTrue);
+      expect(filter.matches(message('lang/c/build', '1')), isFalse);
+      expect(MessageFilter('plant/li+').matches(message('plant/li+ne', '1')), isTrue);
     });
 
     test('takes regular expressions, ignoring case', () {

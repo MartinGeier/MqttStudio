@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'dart:typed_data';
 import 'package:archive/archive.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -120,6 +121,25 @@ void main() {
 
       expect(decoded.value, {'a': '0x0aff'});
     });
+
+    test('keeps uint64 values beyond the int range positive', () {
+      expect(PayloadDecoding.decodeMessagePack(hex('cfffffffffffffffff')), BigInt.parse('18446744073709551615'));
+    });
+
+    test('keeps timestamps beyond the range of dates as extension data', () {
+      // timestamp 96: nanoseconds, then seconds 2^63 - 1
+      var value = PayloadDecoding.decodeMessagePack(hex('c70cff000000007fffffffffffffff'));
+
+      expect(value, isA<Map<String, Object>>());
+      expect((value as Map)['ext'], -1);
+    });
+
+    test('shows NaN map keys as text', () {
+      var decoded = PayloadDecoding.decode(hex('81cb7ff800000000000001'), PayloadDecoder.messagePack);
+
+      expect(decoded.error, isNull);
+      expect(decoded.value, {'NaN': 1});
+    });
   });
 
   group('PayloadDecoding CBOR', () {
@@ -169,6 +189,38 @@ void main() {
 
       expect(decoded.value, {'1': 'a'});
       expect(PayloadDecoding.decode(hex('ff'), PayloadDecoder.cbor).error, isNotNull);
+    });
+
+    test('keeps 64 bit integers beyond the int range', () {
+      expect(PayloadDecoding.decodeCbor(hex('1bffffffffffffffff')), BigInt.parse('18446744073709551615'));
+      expect(PayloadDecoding.decodeCbor(hex('3bffffffffffffffff')), BigInt.parse('-18446744073709551616'));
+    });
+
+    test('reports lengths beyond the int range as data that ends early', () {
+      for (var payload in ['5bffffffffffffffff', '7bffffffffffffffff00', '9bffffffffffffffff', 'bbffffffffffffffff']) {
+        expect(() => PayloadDecoding.decodeCbor(hex(payload)), throwsFormatException, reason: payload);
+        expect(PayloadDecoding.decode(hex(payload), PayloadDecoder.cbor).error, isNotNull, reason: payload);
+      }
+    });
+
+    test('keeps dates that are no valid time as numbers', () {
+      // half float NaN, infinity and 1e300
+      expect(PayloadDecoding.decodeCbor(hex('c1f97e00')), isNaN);
+      expect(PayloadDecoding.decodeCbor(hex('c1f97c00')), double.infinity);
+      expect(PayloadDecoding.decodeCbor(hex('c1fb7e37e43c8800759c')), 1e300);
+      expect(PayloadDecoding.decodeCbor(hex('c11b7fffffffffffffff')), 0x7fffffffffffffff);
+    });
+  });
+
+  group('PayloadDecoding damaged data', () {
+    test('never throws, whatever the decoder', () {
+      var random = Random(7);
+      for (var i = 0; i < 2000; i++) {
+        var payload = bytes(List.generate(random.nextInt(24), (_) => random.nextInt(256)));
+        for (var decoder in PayloadDecoder.values) {
+          expect(() => PayloadDecoding.decode(payload, decoder), returnsNormally);
+        }
+      }
     });
   });
 }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:fake_async/fake_async.dart';
@@ -16,7 +17,11 @@ import 'package:mqttstudio/model/project.dart';
 import 'package:mqttstudio/model/received_mqtt_message.dart';
 import 'package:mqttstudio/model/topic_subscription.dart';
 import 'package:mqttstudio/mqtt/broker_stats_viewmodel.dart';
+import 'package:mqttstudio/model/mqtt_settings.dart';
+import 'package:mqttstudio/mqtt/mqtt_will.dart';
 import 'package:mqttstudio/mqtt/sys_monitor.dart';
+import 'package:mqttstudio/service/service_error.dart';
+import 'package:srx_flutter/srx_flutter.dart';
 import 'package:typed_data/typed_buffers.dart';
 import '../helpers/fake_mqtt_adapter.dart';
 import '../helpers/test_setup.dart';
@@ -148,6 +153,8 @@ void main() {
       fakeAsync((async) {
         var ticking = MessageViewerViewmodel();
         adapter.receive(message('a', '1'));
+        // the refresh for the message
+        async.elapse(Duration(milliseconds: 500));
         var notified = 0;
         ticking.addListener(() => notified++);
 
@@ -236,6 +243,68 @@ void main() {
         expect(side.disconnectCount, 1);
       });
     });
+
+    test('fails when the connection is lost during a scan and connects again', () {
+      fakeAsync((async) {
+        scanner = RetainedScanner(connectionFactory: () => side = _StrictAdapter());
+        scanner.open(project.mqttSettings);
+        async.flushMicrotasks();
+        Object? error;
+        scanner.scan('#').then((_) {}, onError: (Object exc) {
+          error = exc;
+        });
+        side.receive(message('a', '1', retain: true));
+
+        side.dropConnection();
+        async.flushMicrotasks();
+
+        expect(error, isA<RetainedConnectionLostException>());
+        expect(scanner.isOpen, isFalse);
+        async.elapse(RetainedScanner.maxDuration);
+        expect(side.unsubscribed, isEmpty);
+
+        var lost = side;
+        scanner.open(project.mqttSettings);
+        async.flushMicrotasks();
+        expect(scanner.isOpen, isTrue);
+        expect(side, isNot(same(lost)));
+        scanner.close();
+      });
+    });
+
+    test('fails without a connection', () {
+      fakeAsync((async) {
+        open(async);
+        side.dropConnection();
+        Object? error;
+
+        scanner.scan('#').then((_) {}, onError: (Object exc) {
+          error = exc;
+        });
+        async.flushMicrotasks();
+
+        expect(error, isA<RetainedConnectionLostException>());
+        expect(side.subscribed, isEmpty);
+        scanner.close();
+      });
+    });
+
+    test('closes a connection that is made after it was closed', () {
+      fakeAsync((async) {
+        var gate = Completer<void>();
+        scanner = RetainedScanner(connectionFactory: () => side = _StrictAdapter(gate: gate));
+        scanner.open(project.mqttSettings);
+        async.flushMicrotasks();
+
+        scanner.close();
+        gate.complete();
+        async.flushMicrotasks();
+
+        expect(side.connectedWith, isNotNull);
+        expect(side.connected, isFalse);
+        expect(scanner.isOpen, isFalse);
+      });
+    });
   });
 
   group('RetainedMessagesViewmodel', () {
@@ -259,6 +328,51 @@ void main() {
         expect(retained.messages.map((m) => m.topicName), ['plant/a']);
         expect(retained.cleared, 1);
         retained.dispose();
+      });
+    });
+
+    test('leaves the busy state when the connection is lost and scans again', () {
+      fakeAsync((async) {
+        late FakeMqttAdapter side;
+        var retained = RetainedMessagesViewmodel(filter: 'plant/#', connectionFactory: () => side = _StrictAdapter());
+        retained.scan();
+        async.flushMicrotasks();
+        expect(retained.state, RetainedScanState.scanning);
+
+        side.dropConnection();
+        async.flushMicrotasks();
+
+        expect(retained.state, RetainedScanState.failed);
+        expect(retained.connectionLost, isTrue);
+        expect(retained.isBusy, isFalse);
+
+        retained.scan();
+        async.flushMicrotasks();
+        expect(retained.state, RetainedScanState.scanning);
+        expect(retained.connectionLost, isFalse);
+        async.elapse(RetainedScanner.firstMessageWait);
+        expect(retained.state, RetainedScanState.done);
+        retained.dispose();
+      });
+    });
+
+    test('closing while it connects leaves no connection open', () {
+      fakeAsync((async) {
+        var gate = Completer<void>();
+        late FakeMqttAdapter side;
+        var retained = RetainedMessagesViewmodel(
+            filter: 'plant/#', connectionFactory: () => side = _StrictAdapter(gate: gate));
+        retained.scan();
+        async.flushMicrotasks();
+        expect(retained.state, RetainedScanState.connecting);
+
+        retained.dispose();
+        gate.complete();
+        async.flushMicrotasks();
+
+        expect(side.connected, isFalse);
+        expect(side.subscribed, isEmpty);
+        expect(async.pendingTimers, isEmpty);
       });
     });
 
@@ -318,4 +432,35 @@ void main() {
     });
   });
 
+}
+
+// throws when not connected, like MqttAdapter, and connects once the gate opens
+class _StrictAdapter extends FakeMqttAdapter {
+  final Completer<void>? gate;
+
+  _StrictAdapter({this.gate});
+
+  @override
+  Future connect(MqttSettings mqttSettings, {MqttWill? will}) async {
+    await gate?.future;
+    await super.connect(mqttSettings, will: will);
+  }
+
+  @override
+  void subscribeToTopic(TopicSubscription subscription) {
+    _checkConnected();
+    super.subscribeToTopic(subscription);
+  }
+
+  @override
+  void unSubscribeFromTopic(String topic) {
+    _checkConnected();
+    super.unSubscribeFromTopic(topic);
+  }
+
+  void _checkConnected() {
+    if (!connected) {
+      throw SrxServiceException('Not connected to MQTT broker', ServiceError.MqttNotConnected);
+    }
+  }
 }
