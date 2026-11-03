@@ -14,6 +14,9 @@ abstract class RecordingFile {
 
   Future<void> truncate(int length);
 
+  // marks the file as written now without changing it, so the library sees that a quiet recording is still running
+  Future<void> touch();
+
   Future<void> close();
 }
 
@@ -126,6 +129,9 @@ class _IoRecordingFile implements RecordingFile {
   Future<void> truncate(int length) => _serial(() => _file.truncate(length));
 
   @override
+  Future<void> touch() => _serial(() => File(_file.path).setLastModified(DateTime.now()));
+
+  @override
   Future<void> close() => _serial(() async {
         await _file.flush();
         await _file.close();
@@ -201,6 +207,9 @@ class _MemoryRecordingFile implements RecordingFile {
   }
 
   @override
+  Future<void> touch() async {}
+
+  @override
   Future<void> close() async {}
 }
 
@@ -229,6 +238,9 @@ class BytesRecordingFile implements RecordingFile {
 
   @override
   Future<void> truncate(int length) => throw UnsupportedError('$name is read only');
+
+  @override
+  Future<void> touch() => throw UnsupportedError('$name is read only');
 
   @override
   Future<void> close() async {}

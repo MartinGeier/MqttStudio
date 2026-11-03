@@ -4,8 +4,8 @@ import 'package:idb_shim/idb.dart';
 import 'package:mqttstudio/recorder/storage/recording_storage.dart';
 
 // The recordings library in the browser (doc/recorder-design.md §4.4): each file in 1 MB chunks in IndexedDB, plus
-// one record per file with its length and time, so listing doesn't read the chunks. An opened file is kept in memory
-// and every change is written through, in order.
+// one record per file with its length and time, so listing doesn't read the chunks. A file is kept in memory while
+// it is open and every change is written through, in order.
 class IndexedDbRecordingStore implements RecordingStore {
   static const String databaseName = 'mqttstudio_recordings';
   static const String filesStore = 'files';
@@ -14,9 +14,10 @@ class IndexedDbRecordingStore implements RecordingStore {
 
   final IdbFactory _factory;
   Database? _database;
-  // the files that were opened, shared by all their handles
+  // the files that are open, shared by all their handles; the last close lets go of the bytes
   final Map<String, _ChunkedData> _loaded = {};
-  // writes go to IndexedDB one after the other, so an older state never overwrites a newer one
+  // writes go to IndexedDB one after the other, so an older state never overwrites a newer one. A failed write only
+  // fails for its caller; the chain goes on with the next one.
   Future<void> _writes = Future.value();
 
   IndexedDbRecordingStore(this._factory);
@@ -67,6 +68,11 @@ class IndexedDbRecordingStore implements RecordingStore {
   Future<RecordingFile> open(String name) async {
     var data = _loaded[name];
     if (data == null) {
+      // a file that was just closed may still be on its way into IndexedDB
+      await _writes;
+      data = _loaded[name];
+    }
+    if (data == null) {
       var meta = await _meta(name);
       if (meta == null) {
         throw StateError('No such recording: $name');
@@ -82,14 +88,20 @@ class IndexedDbRecordingStore implements RecordingStore {
       await txn.completed;
       data = _loaded[name] ??= _ChunkedData(chunks, length);
     }
+    data.handles++;
     return _IdbRecordingFile(name, this, data);
   }
 
   @override
   Future<RecordingFile> create(String name) async {
-    var data = _ChunkedData([], 0);
+    var data = _ChunkedData([], 0)..handles = 1;
     _loaded[name] = data;
-    await _persist(name, data, {});
+    try {
+      await _persist(name, data, {});
+    } catch (_) {
+      _loaded.remove(name);
+      rethrow;
+    }
     return _IdbRecordingFile(name, this, data);
   }
 
@@ -98,7 +110,7 @@ class IndexedDbRecordingStore implements RecordingStore {
     var data = _loaded.remove(name);
     var meta = await _meta(name);
     var length = data?.length ?? (meta?['length'] as int? ?? 0);
-    _writes = _writes.then((_) async {
+    await _enqueue(() async {
       var db = await _db();
       var txn = db.transaction([filesStore, chunksStore], idbModeReadWrite);
       await txn.objectStore(filesStore).delete(name);
@@ -108,14 +120,26 @@ class IndexedDbRecordingStore implements RecordingStore {
       }
       await txn.completed;
     });
-    await _writes;
+  }
+
+  Future<void> _enqueue(Future<void> Function() write) {
+    var result = _writes.then((_) => write());
+    _writes = result.then((_) {}, onError: (Object _) {});
+    return result;
+  }
+
+  void _release(String name, _ChunkedData data) {
+    data.handles--;
+    if (data.handles <= 0 && identical(_loaded[name], data)) {
+      _loaded.remove(name);
+    }
   }
 
   // writes the changed chunks and the file record; chunks past the end are removed
   Future<void> _persist(String name, _ChunkedData data, Set<int> changed, {int removedFrom = -1, int removedTo = -1}) {
     var snapshot = {for (var index in changed) if (index < data.chunks.length) index: Uint8List.fromList(data.chunks[index])};
     var length = data.length;
-    _writes = _writes.then((_) async {
+    return _enqueue(() async {
       var db = await _db();
       var txn = db.transaction([filesStore, chunksStore], idbModeReadWrite);
       var chunks = txn.objectStore(chunksStore);
@@ -128,7 +152,6 @@ class IndexedDbRecordingStore implements RecordingStore {
       await txn.objectStore(filesStore).put({'length': length, 'modified': DateTime.now().millisecondsSinceEpoch}, name);
       await txn.completed;
     });
-    return _writes;
   }
 
   static Uint8List _bytesOf(Object? value) {
@@ -146,6 +169,8 @@ class IndexedDbRecordingStore implements RecordingStore {
 class _ChunkedData {
   final List<Uint8List> chunks;
   int length;
+  // open handles
+  int handles = 0;
 
   _ChunkedData(this.chunks, this.length);
 }
@@ -157,6 +182,7 @@ class _IdbRecordingFile implements RecordingFile {
   final String name;
   final IndexedDbRecordingStore _store;
   final _ChunkedData _data;
+  bool _closed = false;
 
   _IdbRecordingFile(this.name, this._store, this._data);
 
@@ -222,6 +248,15 @@ class _IdbRecordingFile implements RecordingFile {
     return _store._persist(name, _data, changed, removedFrom: keep, removedTo: oldCount);
   }
 
+  // the time of the file record is the library's sign that the file is still written (recording_library.dart)
   @override
-  Future<void> close() async {}
+  Future<void> touch() => _store._persist(name, _data, {});
+
+  @override
+  Future<void> close() async {
+    if (!_closed) {
+      _closed = true;
+      _store._release(name, _data);
+    }
+  }
 }

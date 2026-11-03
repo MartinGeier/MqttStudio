@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:convert';
 import 'dart:typed_data';
+import 'package:clock/clock.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mqtt5_client/mqtt5_client.dart' show MqttQos;
 import 'package:mqttstudio/model/mqtt_message_properties.dart';
@@ -37,6 +38,43 @@ RecordedMessage text(int offsetMs, String topic, String payload, {bool retain = 
 Future<List<RecordingEntry>> readAll(RecordingReader reader, {int? from}) => reader.entries(from: from).toList();
 
 Future<RecordingReader> reopen(MemoryRecordingStore store, String name) async => RecordingReader.open(await store.open(name));
+
+// a file whose next append fails after writing the given number of bytes, as when the disk runs full
+class FailingFile implements RecordingFile {
+  final RecordingFile inner;
+  int? failAfter;
+
+  FailingFile(this.inner);
+
+  @override
+  String get name => inner.name;
+
+  @override
+  Future<int> length() => inner.length();
+
+  @override
+  Future<Uint8List> read(int position, int count) => inner.read(position, count);
+
+  @override
+  Future<void> append(Uint8List bytes) async {
+    var written = failAfter;
+    if (written == null) {
+      return inner.append(bytes);
+    }
+    failAfter = null;
+    await inner.append(Uint8List.sublistView(bytes, 0, written));
+    throw const FileSystemException('There is not enough space on the disk');
+  }
+
+  @override
+  Future<void> truncate(int length) => inner.truncate(length);
+
+  @override
+  Future<void> touch() => inner.touch();
+
+  @override
+  Future<void> close() => inner.close();
+}
 
 void main() {
   late MemoryRecordingStore store;
@@ -164,6 +202,32 @@ void main() {
     expect(entries.last, isA<MarkerEntry>());
   });
 
+  test('after a failed append the length is what the file holds and only abandoning is left', () async {
+    var file = FailingFile(await store.create('full.mqttrec'));
+    var writer = await RecordingWriter.start(file, header());
+    writer.addMessage(text(0, 'plant/temp', '1'));
+    await writer.flush();
+    writer.addMessage(text(100, 'plant/temp', '2'));
+    file.failAfter = 3;
+    await expectLater(writer.flush(), throwsA(isA<FileSystemException>()));
+    expect(writer.length, await file.length());
+    writer.addMessage(text(200, 'plant/temp', '3'));
+    await writer.flush();
+    expect(writer.length, await file.length());
+    await expectLater(writer.finish(name: 'Full', durationMicros: 200000), throwsStateError);
+    await writer.abandon();
+
+    var reader = await reopen(store, 'full.mqttrec');
+    var footer = await reader.recover('Full');
+    expect(footer.summary.messages, 1);
+  });
+
+  test('a header of the wrong shape is a FormatException', () async {
+    var file = await store.create('shape.mqttrec');
+    await file.append(RecordCodec.encodeStart({'id': 5, 'startedAt': true}));
+    await expectLater(reopen(store, 'shape.mqttrec'), throwsFormatException);
+  });
+
   test('reading stops at a record with a wrong checksum', () async {
     var writer = await RecordingWriter.start(await store.create('bad.mqttrec'), header());
     writer.addMessage(text(0, 'plant/temp', 'one'));
@@ -230,6 +294,24 @@ void main() {
     await reader.close();
   });
 
+  test('a quiet recording touches its file, so another library does not recover it', () async {
+    var folder = await Directory.systemTemp.createTemp('mqttrec');
+    addTearDown(() => folder.delete(recursive: true));
+    var cli = RecordingLibrary(FolderRecordingStore(folder));
+    var file = await cli.create('Quiet', DateTime(2026, 10, 23));
+    var path = '${folder.path}${Platform.pathSeparator}${file.name}';
+    var started = DateTime.now();
+    var writer = await withClock(Clock.fixed(started), () => RecordingWriter.start(file, header()));
+    var app = RecordingLibrary(FolderRecordingStore(folder));
+
+    // nothing was written for a minute, so without the touch the file would look like the leftover of a crash
+    await File(path).setLastModified(started.subtract(const Duration(minutes: 1)));
+    await withClock(Clock.fixed(started.add(RecordingWriter.touchInterval)), () => writer.flush());
+    expect(await app.list(), isEmpty);
+    await writer.abandon();
+    cli.finishedWriting(file.name);
+  });
+
   test('the file name holds the name and the start time', () {
     var name = RecordingNames.fileNameFor('Line 1: night/shift', DateTime(2026, 10, 23, 22, 0, 4));
     expect(name, 'Line 1_ night_shift 2026-10-23 220004.mqttrec');
@@ -284,6 +366,13 @@ void main() {
       await library.delete(renamed);
       expect(await library.list(), isEmpty);
       expect(changes, 2);
+    });
+
+    test('a file it cannot read does not hide the others', () async {
+      await record('Good', DateTime(2026, 10, 23), id: 'g');
+      var file = await store.create('Broken 2026-10-23 220004.mqttrec');
+      await file.append(RecordCodec.encodeStart({'id': 5}));
+      expect((await library.list()).map((info) => info.name), ['Good']);
     });
 
     test('two recordings with the same name and time get different files', () async {

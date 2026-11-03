@@ -77,6 +77,8 @@ class RecorderService {
   List<RecorderFilter> _filters = [];
   MqttSettings? _settings;
   SideConnection? _connection;
+  // the connection start() is still connecting; a stop meanwhile sets it to null, so start() records nothing
+  SideConnection? _startingConnection;
   RecordingWriter? _writer;
   // offset in the session where the recording starts: 0, or the first pre-roll message of a start trigger
   int _writerBase = 0;
@@ -98,6 +100,8 @@ class RecorderService {
   int _flightSaves = 0;
   Stopwatch? _stopwatch;
   int _subscribedAtMicros = 0;
+  // the last subscriptions were sent again after a reconnect
+  bool _resubscribed = false;
   int _received = 0;
   int _excluded = 0;
   final List<Bookmark> _bookmarks = [];
@@ -209,23 +213,43 @@ class RecorderService {
     _bookmarks.clear();
     _topicColors.clear();
     _seenTopics.clear();
+    _resubscribed = false;
     _setState(RecorderState.connecting);
 
     // without a start trigger the file is created right away, so a problem shows before anything is recorded
     var immediate = !config.isFlightRecorder && config.startWhen == null;
     var connection = SideConnection(_connectionFactory, reconnect: reconnect);
+    _startingConnection = connection;
+    RecordingWriter? writer;
     try {
       await connection.connect(_settings!);
-      _appVersionText = await _appVersion();
-      _sessionStartedAt = clock.now().toUtc();
-      if (immediate) {
-        _writer = await _createWriter(config.name, _sessionStartedAt, RecordingOrigin.live);
+      if (_startingConnection == connection) {
+        _appVersionText = await _appVersion();
+        _sessionStartedAt = clock.now().toUtc();
+      }
+      if (immediate && _startingConnection == connection) {
+        writer = await _createWriter(config.name, _sessionStartedAt, RecordingOrigin.live);
       }
     } catch (_) {
       connection.close();
+      if (_startingConnection != connection) {
+        // stopped while connecting, so the failure doesn't matter any more
+        return;
+      }
+      _startingConnection = null;
       _setState(RecorderState.idle);
       rethrow;
     }
+    if (_startingConnection != connection) {
+      // stopped or the project closed while connecting; the stop already reported it
+      connection.close();
+      if (writer != null) {
+        await _discard(writer);
+      }
+      return;
+    }
+    _startingConnection = null;
+    _writer = writer;
 
     if (config.isFlightRecorder) {
       var flight = config.flightOptions;
@@ -277,6 +301,19 @@ class RecorderService {
       library.finishedWriting(file.name);
       await library.store.delete(file.name);
       rethrow;
+    }
+  }
+
+  // removes a file that was created for a start that was stopped before it recorded anything
+  Future<void> _discard(RecordingWriter writer) async {
+    try {
+      await writer.abandon();
+      await library.store.delete(writer.file.name);
+    } catch (exc) {
+      // the library recovers the file as an empty recording the next time it lists it
+      errorEvent.broadcast(RecorderErrorEventArgs(exc.toString()));
+    } finally {
+      library.finishedWriting(writer.file.name);
     }
   }
 
@@ -356,7 +393,19 @@ class RecorderService {
     if (_state == RecorderState.idle) {
       return Future.value(null);
     }
+    if (_state == RecorderState.connecting) {
+      _cancelStart(reason);
+      return Future.value(null);
+    }
     return _stopping ??= _finish(reason).whenComplete(() => _stopping = null);
+  }
+
+  // start() is still connecting: it closes the new connection once its connect returns and records nothing
+  void _cancelStart(RecordingStopReason reason) {
+    _startingConnection?.close();
+    _startingConnection = null;
+    _setState(RecorderState.idle);
+    finishedEvent.broadcast(RecordingFinishedEventArgs(null, reason));
   }
 
   Future<RecordingInfo?> _finish(RecordingStopReason reason) async {
@@ -367,13 +416,15 @@ class RecorderService {
     _postRollTimer = null;
     _statsTimer?.cancel();
     _statsTimer = null;
-    var connection = _connection!;
-    connection.messageReceivedEvent.unsubscribe(_onMessage);
-    connection.lostEvent.unsubscribe(_onConnectionLost);
-    connection.reconnectingEvent.unsubscribe(_onReconnecting);
-    connection.reconnectedEvent.unsubscribe(_onReconnected);
-    connection.subscribeFailedEvent.unsubscribe(_onSubscribeFailed);
-    connection.close();
+    var connection = _connection;
+    if (connection != null) {
+      connection.messageReceivedEvent.unsubscribe(_onMessage);
+      connection.lostEvent.unsubscribe(_onConnectionLost);
+      connection.reconnectingEvent.unsubscribe(_onReconnecting);
+      connection.reconnectedEvent.unsubscribe(_onReconnected);
+      connection.subscribeFailedEvent.unsubscribe(_onSubscribeFailed);
+      connection.close();
+    }
     // a save the user asked for is written now instead of after its post-roll
     if (_flightSaveTimer != null) {
       _flightSaveTimer!.cancel();
@@ -381,7 +432,7 @@ class RecorderService {
     }
     await _flightWriting;
     await _opening;
-    _stopwatch!.stop();
+    _stopwatch?.stop();
 
     var writer = _writer;
     if (writer == null) {
@@ -441,6 +492,7 @@ class RecorderService {
               _config!.recordRetainedSnapshot ? SubscriptionRetainHandling.sendOnSubscribe : SubscriptionRetainHandling.doNotSend));
     }
     _subscribedAtMicros = _stopwatch!.elapsedMicroseconds;
+    _resubscribed = _state == RecorderState.reconnecting;
   }
 
   void _onMessage(ReceivedMqttMessage? message) {
@@ -456,7 +508,7 @@ class RecorderService {
     var config = _config!;
     var offset = _stopwatch!.elapsedMicroseconds;
     var firstOfTopic = _seenTopics.add(message.topicName);
-    var snapshot = message.retain && firstOfTopic && _isSnapshotTime(offset);
+    var snapshot = message.retain && (firstOfTopic && _isSnapshotTime(offset) || _isResentRetained(offset));
     if (snapshot && !config.recordRetainedSnapshot) {
       return;
     }
@@ -610,6 +662,15 @@ class RecorderService {
   // MQTT 5 keeps it (retain as published), so only the first message of a topic right after subscribing counts.
   bool _isSnapshotTime(int offsetMicros) =>
       _settings!.protocolVersion == MqttProtocolVersion.v311 ||
+      offsetMicros - _subscribedAtMicros <= snapshotWindow.inMicroseconds;
+
+  // After a reconnect the recorder subscribes again and the broker sends its retained messages once more, also for
+  // topics that were recorded before. Within the snapshot window after that resubscription a retained message is
+  // such a resend, not a live publish: it is recorded as snapshot, or dropped without the retained snapshot. An MQTT 5
+  // broker asked not to send retained messages sends none, so there a retained message stays live.
+  bool _isResentRetained(int offsetMicros) =>
+      _resubscribed &&
+      (_settings!.protocolVersion == MqttProtocolVersion.v311 || _config!.recordRetainedSnapshot) &&
       offsetMicros - _subscribedAtMicros <= snapshotWindow.inMicroseconds;
 
   void _checkLimits() {

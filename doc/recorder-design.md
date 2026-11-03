@@ -429,6 +429,10 @@ class TopicRemap {
   sent first, retained, before message 1. With a range, the snapshot is the last retained message
   per topic before `rangeStart` (or the recorded snapshot), so the state at the range start is
   right. Looping doesn't send the snapshot again.
+- **Loop:** a pass ends at the range end (the gap after the last message counts, shortened like
+  any other gap), and lasts at least 1 s, so a one-message recording doesn't republish without a
+  pause. A pass after the first that has nothing to play, e.g. a recording of only the snapshot,
+  ends the playback.
 - **Remap:** the resolved topic must not contain `+` or `#` and must stay a valid topic (validation
   in the options editor, with a preview of the first three topics). Without a matching rule the
   topic stays as recorded.
@@ -475,6 +479,7 @@ device in the open project with the current playback options.
 | End of range without loop | Stops, snackbar "Playback finished: <n> messages" |
 | Recording file missing or unreadable | Error dialog. In the simulator: start error of that device, like a missing image folder |
 | Publish throws | Treated like a disconnect |
+| Publisher without connection (`RecordingPlayer`) | The player keeps its schedule, skips (counts in `skipped`) what is due and raises `connectionLostEvent` once per outage; after a reconnect it goes on at the current position and `finishedEvent` still comes at the end. The recorder tab and the CLI's single replay stop on that event; recorded devices go on |
 | Recording deleted while playing | Deleting is disabled while it plays |
 
 ## 7. Analysis
@@ -876,11 +881,17 @@ All phases are implemented. Where the code differs from the text above:
   `entries()` is a stream on top of it. The player pulls from a cursor, which keeps stopping and
   looping free of stream cancellation.
 - **Library recovery** only touches an unfinished file that hasn't been written for 15 s, so a
-  recording another process (the CLI) is writing is left alone. Files this app writes are not
-  listed until they are finished.
+  recording another process (the CLI) is writing is left alone. A writer that has nothing to
+  write touches its file every 5 s, so a quiet recording stays alive. Files this app writes are
+  not listed until they are finished. An unfinished `.mqttrec` that is imported is recovered at
+  once. A file whose header or footer can't be read is left out of the list.
+- **Write errors:** after a failed append the writer only holds what reached the file; it can't
+  finish the recording any more, so the recorder abandons it and recovery cuts it at its last
+  intact record.
 - **Web (phase 10):** `IndexedDbRecordingStore` keeps each file in 1 MB chunks in the IndexedDB
-  database `mqttstudio_recordings` (stores `files` and `chunks`) through `idb_shim`; an opened
-  file is held in memory and every append or truncate is written through, in order. The
+  database `mqttstudio_recordings` (stores `files` and `chunks`) through `idb_shim`; an open
+  file is held in memory until its last handle closes, and every append or truncate is written
+  through, in order. A failed write (e.g. the quota) fails only for its caller. The
   browser's leave-page prompt is armed while a recording runs (`common/leave_page_guard_web.dart`).
   The recordings list says that recordings stay in the browser, at most 100 MB each; the flight
   recorder holds at most 50 MB there (R17).
@@ -893,9 +904,12 @@ All phases are implemented. Where the code differs from the text above:
   or replace the recording. Deleting retries for about 3 s, because sync clients such as OneDrive
   open new files for a moment.
 - **Retained snapshot (§5.2):** the 2 s window starts when the recorder sends its subscriptions,
-  not at the SUBACK. For both protocols only the first message of a topic can be the snapshot,
-  so retained messages the broker sends again after a reconnect are stored with retain but
-  without the snapshot flag.
+  not at the SUBACK. For both protocols only the first message of a topic can be the snapshot.
+  After a reconnect the broker sends its retained messages again: within the 2 s window after the
+  new subscriptions every retained message counts as snapshot (dropped without "Record retained
+  snapshot"), so these resends are not taken for live messages.
+- **STOP while connecting** cancels the start: nothing is recorded and the new connection is
+  closed as soon as its connect returns.
 - **`PlaybackOptions.topics`** is `null` for all topics (also those recorded later) and a list
   otherwise; an empty list plays nothing.
 - **`PlaybackService`** (GetIt singleton) owns the app's player, like `Simulator` owns the

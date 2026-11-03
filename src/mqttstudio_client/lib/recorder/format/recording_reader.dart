@@ -100,7 +100,8 @@ class RecordingReader {
     if (headerLength == null) {
       throw FormatException('${file.name} is not an MQTT Studio recording');
     }
-    var header = RecordingHeader.fromJson(RecordCodec.decodeJson(await file.read(RecordCodec.prefixLength, headerLength)));
+    var headerBytes = await file.read(RecordCodec.prefixLength, headerLength);
+    var header = _parse(file, () => RecordingHeader.fromJson(RecordCodec.decodeJson(headerBytes)));
     var reader = RecordingReader._(file, header, RecordCodec.prefixLength + headerLength);
     await reader._readFooter();
     return reader;
@@ -123,8 +124,19 @@ class RecordingReader {
     if (record == null || record.type != RecordCodec.typeFooter) {
       return;
     }
-    footer = RecordingFooter.fromJson(RecordCodec.decodeJson(record.body));
+    footer = _parse(file, () => RecordingFooter.fromJson(RecordCodec.decodeJson(record.body)));
     footerPosition = position;
+  }
+
+  // JSON of the wrong shape throws TypeError and the like from fromJson; callers only expect a FormatException
+  static T _parse<T>(RecordingFile file, T Function() parse) {
+    try {
+      return parse();
+    } on FormatException {
+      rethrow;
+    } catch (exc) {
+      throw FormatException('${file.name} has a damaged header or footer: $exc');
+    }
   }
 
   // the messages and markers in file order, from the given position (a seek index entry) on
