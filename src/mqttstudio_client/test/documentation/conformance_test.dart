@@ -145,6 +145,18 @@ void main() {
       expect(snapshot.containsKey(FindingRule.retainDiffers), isFalse);
     });
 
+    test("discovery's exclude filters leave undocumented topics out", () {
+      var docs = documentation()
+        ..lastDiscoveryAt = start
+        ..discoverySettings =
+            DiscoverySettings(filters: [RecorderFilter('#'), RecorderFilter('debug/#', exclude: true)]);
+      var checker = ConformanceChecker(docs);
+      checker.check(message('debug/trace', '1'), start);
+      expect(checker.findings, isEmpty);
+      checker.check(message('other/topic', '1'), start);
+      expect(checker.findings.single.rule, FindingRule.undocumented);
+    });
+
     test('a topic is stale once it was silent for its threshold', () {
       var checker = ConformanceChecker(documentation());
       checker.start(start);

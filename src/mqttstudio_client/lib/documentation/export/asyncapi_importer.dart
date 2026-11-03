@@ -42,11 +42,19 @@ class AsyncApiImporter {
     }
     var version = parsed['asyncapi'] as String;
     var importer = AsyncApiImporter._(parsed);
-    var documentation = version.startsWith('3.')
-        ? importer._read3()
-        : version.startsWith('2.')
-            ? importer._read2()
-            : throw FormatException('AsyncAPI $version is not supported, only 2.x and 3.x');
+    TopicDocumentation documentation;
+    try {
+      documentation = version.startsWith('3.')
+          ? importer._read3()
+          : version.startsWith('2.')
+              ? importer._read2()
+              : throw FormatException('AsyncAPI $version is not supported, only 2.x and 3.x');
+    } on TypeError catch (exc) {
+      // the callers catch FormatException only; a value of the wrong type must not crash them
+      throw FormatException('A value has the wrong type: $exc');
+    } on ArgumentError catch (exc) {
+      throw FormatException('A value is not valid: $exc');
+    }
     documentation.sortNodes();
     return ImportedDocumentation(documentation, version, importer._warnings);
   }
@@ -81,7 +89,7 @@ class AsyncApiImporter {
       var node = _topic(address, channel, messages.firstOrNull, _map(_map(operation?['bindings'])['mqtt']),
           title: _string(channel['title']) ?? _string(operation?['summary']));
       if (node != null) {
-        documentation.nodes.add(node);
+        _addTopic(documentation, node);
       }
     }
     _namespaces(documentation);
@@ -106,7 +114,7 @@ class AsyncApiImporter {
       var node = _topic(entry.key, channel, message.isEmpty ? null : message, _map(_map(operation['bindings'])['mqtt']),
           title: _string(channel['title']) ?? _string(operation['summary']));
       if (node != null) {
-        documentation.nodes.add(node);
+        _addTopic(documentation, node);
       }
     }
     _namespaces(documentation);
@@ -114,6 +122,35 @@ class AsyncApiImporter {
   }
 
   // ---------- shared ----------
+
+  // two channels with the same address, or templates that match the same topics, would be two documented topics for
+  // one topic; the first one is kept
+  void _addTopic(TopicDocumentation documentation, DocNode node) {
+    var parsed = DocPath.tryParse(node.path);
+    for (var other in documentation.nodes) {
+      var otherPath = DocPath.tryParse(other.path);
+      if (other.path == node.path) {
+        _warnings.add('${node.path}: another channel has the same address, left out');
+        return;
+      }
+      if (parsed != null && otherPath != null && parsed.sameShape(otherPath)) {
+        _warnings.add('${node.path}: ${other.path} matches the same topics, left out');
+        return;
+      }
+    }
+    documentation.nodes.add(node);
+  }
+
+  // extensions can be written by hand; one of the wrong type is reported with the channel and the extension's name
+  T _decode<T>(String address, String key, T Function(Map<String, Object?> json) fromJson, Object? value) {
+    try {
+      return fromJson(_map(value));
+    } on TypeError catch (exc) {
+      throw FormatException('$address: $key has a value of the wrong type ($exc)');
+    } on ArgumentError catch (exc) {
+      throw FormatException('$address: $key has a value that is not valid ($exc)');
+    }
+  }
 
   TopicDocumentation _info() {
     var info = _map(_root['info']);
@@ -163,7 +200,7 @@ class AsyncApiImporter {
               _ => RetainMode.unknown
             },
       interval: channel['${prefix}interval'] is Map
-          ? IntervalSpec.fromJson(_map(channel['${prefix}interval']))
+          ? _decode(address, '${prefix}interval', IntervalSpec.fromJson, channel['${prefix}interval'])
           : IntervalSpec(),
       mqtt5: Mqtt5Spec(
         contentType: _string(bindingMessage['contentType']) ?? _string(message?['contentType']),
@@ -174,7 +211,7 @@ class AsyncApiImporter {
         correlationData: _string(_map(bindingMessage['correlationData'])['description']),
         userProperties: [
           for (var property in _list(message?['${prefix}user-properties']))
-            if (property is Map) DocUserProperty.fromJson(_map(property))
+            if (property is Map) _decode(address, '${prefix}user-properties', DocUserProperty.fromJson, property)
         ],
       ),
       producers: _strings(channel['${prefix}producers']),
@@ -218,7 +255,7 @@ class AsyncApiImporter {
         if (_string(externalDocs['url']) != null)
           DocLink(label: _string(externalDocs['description']) ?? '', url: _string(externalDocs['url'])!),
         for (var link in _list(namespace ? source['links'] : source['${prefix}links']))
-          if (link is Map) DocLink.fromJson(_map(link)),
+          if (link is Map) _decode(path, namespace ? 'links' : '${prefix}links', DocLink.fromJson, link),
       ],
     );
     DocumentationService.syncParameters(node);

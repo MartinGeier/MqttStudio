@@ -98,7 +98,7 @@ class DocPath {
 
   static String lastSegmentOf(String path) => path.substring(path.lastIndexOf('/') + 1);
 
-  // true for the path itself and every path below it
+  // true for the path itself and every path below it; below '' are only the paths that start with /
   static bool isAtOrBelow(String path, String ancestor) => path == ancestor || path.startsWith('$ancestor/');
 
   int get literalCount => segments.where((segment) => !segment.isParameter).length;

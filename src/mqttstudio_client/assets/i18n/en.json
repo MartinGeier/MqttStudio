@@ -1322,6 +1322,8 @@
     "docreview.changed.note": "The observed values are saved for this topic in any case. Adopt copies a value into the documentation. Fields you never edited are filled in without asking.",
     "docreview.notseen.note": "No message arrived during the discovery. The topic is marked Not seen until you open it.",
     "docreview.apply.button": "APPLY",
+    "docreview.leftout.error.one": "1 new topic was left out: {paths}. Another documented topic matches the same topics, or its path is not valid.",
+    "docreview.leftout.error.other": "{} new topics were left out: {paths}. Other documented topics match the same topics, or their paths are not valid.",
     "docobserved.title": "Observed",
     "docobserved.close.tooltip": "Close",
     "docobserved.source.live": "Live broker",

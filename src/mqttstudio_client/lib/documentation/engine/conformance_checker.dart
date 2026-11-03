@@ -86,6 +86,8 @@ class ConformanceChecker {
   final TopicDocumentation documentation;
   final bool isMqtt5;
   final List<String> ignoreFilters;
+  // discovery's exclude filters
+  final List<String> _excludeFilters;
   final DocIndex _index;
   final DocIndex _loose;
   final ProtocolRegistry _protocols;
@@ -96,7 +98,11 @@ class ConformanceChecker {
   int messages = 0;
 
   ConformanceChecker(this.documentation, {this.isMqtt5 = true, this.ignoreFilters = const [], ProtocolRegistry? protocols})
-      : _index = DocIndex(documentation.nodes),
+      : _excludeFilters = [
+          for (var filter in documentation.discoverySettings.filters)
+            if (filter.exclude && filter.filter.isNotEmpty) filter.filter
+        ],
+        _index = DocIndex(documentation.nodes),
         _loose = DocIndex(documentation.nodes, patterns: false),
         _protocols = protocols ?? ProtocolRegistry.standard();
 
@@ -238,7 +244,10 @@ class ConformanceChecker {
     }
     var loose = _loose.match(message.topic);
     if (loose == null) {
-      _add(FindingRule.undocumented, message, at, null, 'No documented topic matches');
+      // a topic that discovery leaves out is not missing in the documentation either
+      if (!_excludeFilters.any((filter) => RecorderRules.matches(message.topic, filter))) {
+        _add(FindingRule.undocumented, message, at, null, 'No documented topic matches');
+      }
       return;
     }
     _lastSeen[loose.node] = at;

@@ -340,7 +340,8 @@ Runs on the trie of concrete topics at the end of a discovery:
    hex or a UUID (`m12`, `m51` → `m{…}`), and the pattern is set to `\d+`, `[0-9a-f]+` or the UUID
    pattern; otherwise the whole segment is the parameter without a pattern.
 4. The name comes from the parent segment (`machines` → `machine`, `devices` → `deviceId`),
-   otherwise `id`, made unique within the path. The user can rename it in the review.
+   otherwise `id`, made unique within the path. The user can rename it in the review; all names change at once,
+   so two names can be swapped. An accepted template that can't be added (its path is taken) is named after APPLY.
 5. The merged group is analyzed again from step 1, so several levels can become parameters
    (`plant/{line}/m{machine}/temp`).
 6. Existing templates in the documentation are matched first (§4.3); proposals are only made for
@@ -405,7 +406,7 @@ exit code.
 
 | Rule | Severity | When |
 |---|---|---|
-| Undocumented topic | warning | No template matches (and not ignored) |
+| Undocumented topic | warning | No template matches (and not ignored, and not under one of discovery's exclude filters) |
 | Format mismatch | error | Detected format differs from `payload.format` |
 | Schema violation | error | JSON breaks the schema: missing required field, wrong type, value not in enum. The finding names the JSON path |
 | Out of range | warning | A number or a schema field is outside `min`/`max` |
@@ -466,7 +467,7 @@ documentation.
 | **HTML** | The same content, self-contained, styled with the design system's tokens and a print stylesheet (headings stay with what follows, table headers repeat on a new page, long paths wrap instead of being clipped). Descriptions are rendered from their Markdown; raw HTML stays text and links open only web and mail addresses. PDF comes from printing it in a browser |
 | **AsyncAPI 3.0** | YAML or JSON (§9.2) |
 | **JSON Schema** | One bundle file with a `$defs` entry per JSON topic, keyed by path |
-| **CSV** | One row per topic node: path, title, status, format, unit, min, max, QoS, retain, interval kind, nominal interval, stale after, owner, tags, first line of the description |
+| **CSV** | One row per topic node: path, title, status, format, unit, min, max, QoS, retain, interval kind, nominal interval, stale after, owner, tags, first line of the description. A text that starts with `=`, `+`, `-` or `@` gets a `'` in front, so a spreadsheet doesn't run it as a formula |
 
 Options (export dialog): scope (whole documentation, selected subtree, or by status), include
 examples, include observed statistics, include the broker address (T15).
@@ -766,7 +767,9 @@ All five phases are implemented in `lib/documentation/` (the CLI in `lib/cli/com
   app and has a print stylesheet for PDF.
 - **Import** (`AsyncApiImporter`, `yaml` package): AsyncAPI 3.x and 2.x, YAML or JSON, local `$ref`s, `x-mqttstudio-*`
   extensions; in 2.x the operation summary becomes the title. Schema keywords outside the subset (§5.4) are left out
-  and listed as warnings instead of kept as raw JSON. An MQTT Studio export imports again without loss (tested).
+  and listed as warnings instead of kept as raw JSON. A second channel with the same address, or a template that matches
+  the same topics as an earlier one, is left out with a warning. Values of the wrong type are a `FormatException`
+  naming the channel and the extension. An MQTT Studio export imports again without loss (tested).
 - **Import dialog instead of the review dialog** (§9.3): imported topics are documentation, not observations, so they
   get a dialog of their own (`ImportDialog`, `ImportPlan`): new, changed, unchanged and conflicting topics (a
   documented template with the same shape), a checkbox per new or changed topic, and "Replace the whole

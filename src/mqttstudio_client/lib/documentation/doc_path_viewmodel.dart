@@ -31,7 +31,8 @@ class DocPathViewmodel extends SrxChangeNotifier {
 
   String get _initialPath => switch (mode) {
         DocPathDialogMode.move => basePath!,
-        _ => basePath == null || basePath!.isEmpty ? '' : '$basePath/'
+        // '' is the empty first level of topics that start with /
+        _ => basePath == null ? '' : '$basePath/'
       };
 
   bool get isMove => mode == DocPathDialogMode.move;
@@ -92,8 +93,7 @@ class DocPathViewmodel extends SrxChangeNotifier {
 
   // after ADD & NEW: the next path starts in the same namespace
   void reset() {
-    var parent = DocPath.parentOf(path);
-    form.control(pathField).value = parent.isEmpty ? '' : '$parent/';
+    form.control(pathField).value = path.contains('/') ? '${DocPath.parentOf(path)}/' : '';
     form.control(titleField).value = '';
     form.control(pathField).markAsUntouched();
     notifyListeners();

@@ -51,7 +51,11 @@ class DocumentationDialogs {
   static Future review(BuildContext context, DocumentationViewmodel vm, DiscoveryResult result) async {
     var answer = await _show<Object>(context, ReviewDialog(result: result));
     if (answer == true) {
-      vm.applyDiscovery(result);
+      var leftOut = vm.applyDiscovery(result);
+      if (leftOut.isNotEmpty && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(errorSnackBar(
+            'docreview.leftout.error'.plural(leftOut.length, namedArgs: {'paths': leftOut.join(', ')}), context));
+      }
     } else if (answer is Vda5050Hint && context.mounted) {
       await addPreset(context, vm, version: answer.version, interfaceName: answer.interfaceName);
     }

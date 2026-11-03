@@ -161,6 +161,32 @@ void main() {
       expect(docs.nodes.map((node) => node.path), ['m/1', 'm/2', 'm/3']);
     });
 
+    test('parameters are renamed all at once, a template that can not be added is reported', () {
+      var traffic = [
+        for (var area in [1, 2])
+          for (var machine in [1, 2, 3]) at(0, 'f/area$area/m$machine/temp', '$machine'),
+      ];
+      var docs = TopicDocumentation();
+      var result = DiscoveryMerger.build(docs, analyzed(traffic), DiscoverySettings());
+      var item = result.added.single;
+      expect(item.path, 'f/area{area}/m{id}/temp');
+      item.names.addAll({'area': 'id', 'id': 'area'});
+      expect(item.path, 'f/area{id}/m{area}/temp');
+      expect(DiscoveryMerger.apply(docs, result, DiscoverySettings(), isMqtt5: true), isEmpty);
+      var node = docs.nodes.single;
+      expect(node.path, 'f/area{id}/m{area}/temp');
+      expect({for (var parameter in node.parameters) parameter.name: parameter.examples}, {
+        'id': ['1', '2'],
+        'area': ['1', '2', '3']
+      });
+
+      var again = DiscoveryMerger.build(TopicDocumentation(), analyzed(traffic), DiscoverySettings());
+      again.added.single.names.addAll({'area': 'x', 'id': 'x'});
+      var empty = TopicDocumentation();
+      expect(DiscoveryMerger.apply(empty, again, DiscoverySettings(), isMqtt5: true), ['f/area{x}/m{x}/temp']);
+      expect(empty.nodes, isEmpty);
+    });
+
     test('helpers for filters', () {
       expect(DiscoveryMerger.ignoreFilterOf('p/m{id}/temp'), 'p/+/temp');
       expect(DiscoveryMerger.sampleTopic('p/m{id}/temp'), 'p/mx/temp');

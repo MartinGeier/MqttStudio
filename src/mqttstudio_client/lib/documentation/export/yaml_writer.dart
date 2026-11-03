@@ -4,11 +4,14 @@ import 'dart:convert';
 // they span lines, which become literal blocks.
 class YamlWriter {
   static final RegExp _plainKey = RegExp(r'^[A-Za-z_$][A-Za-z0-9_.$-]*$');
+  // plain words YAML 1.1 or 1.2 reads as a boolean or null
+  static const Set<String> _reserved = {'y', 'yes', 'n', 'no', 'true', 'false', 'on', 'off', 'null'};
 
+  // every line ends with a line break, and the trailing blank lines of a last literal block are its content
   static String write(Object? value) {
     var out = StringBuffer();
     _value(out, value, 0, inList: false);
-    return '${out.toString().trimRight()}\n';
+    return out.toString();
   }
 
   static void _value(StringBuffer out, Object? value, int indent, {required bool inList}) {
@@ -51,7 +54,8 @@ class YamlWriter {
     }
   }
 
-  static String _key(String key) => _plainKey.hasMatch(key) ? key : jsonEncode(key);
+  static String _key(String key) =>
+      _plainKey.hasMatch(key) && !_reserved.contains(key.toLowerCase()) ? key : jsonEncode(key);
 
   static String _scalar(Object? value, int indent) {
     if (value is Map) {
@@ -62,6 +66,9 @@ class YamlWriter {
     }
     if (value is String) {
       return _string(value, indent);
+    }
+    if (value is double && !value.isFinite) {
+      return value.isNaN ? '.nan' : (value > 0 ? '.inf' : '-.inf');
     }
     return jsonEncode(value);
   }
@@ -77,7 +84,12 @@ class YamlWriter {
       return jsonEncode(value);
     }
     var pad = ' ' * indent;
-    var chomp = value.endsWith('\n') ? '' : '-';
+    // strip: no line break at the end, clip: one, keep: the blank lines after it too
+    var chomp = value.endsWith('\n\n')
+        ? '+'
+        : value.endsWith('\n')
+            ? ''
+            : '-';
     var body = (value.endsWith('\n') ? lines.sublist(0, lines.length - 1) : lines)
         .map((line) => line.isEmpty ? '' : '$pad$line')
         .join('\n');

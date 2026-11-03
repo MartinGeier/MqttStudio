@@ -34,8 +34,8 @@ class DocumentationService {
 
   DocNode? nodeAt(String path) => documentation?.nodeAt(path);
 
-  List<DocNode> nodesAtOrBelow(String path) =>
-      path.isEmpty ? List.of(nodes) : nodes.where((node) => DocPath.isAtOrBelow(node.path, path)).toList();
+  // '' is the empty first level of topics that start with /, not the whole documentation
+  List<DocNode> nodesAtOrBelow(String path) => nodes.where((node) => DocPath.isAtOrBelow(node.path, path)).toList();
 
   // a node with the same path, or one that matches exactly the same topics. ignore leaves out the nodes being moved.
   DocPathConflict? conflictOf(String path, {Set<String> ignore = const {}}) {

@@ -99,20 +99,29 @@ class CheckService {
     }
     _isMqtt5 = broker.isMqtt5;
     _lostConnection = false;
-    _checker = ConformanceChecker(checked, isMqtt5: _isMqtt5, ignoreFilters: checked.ignoreFilters);
+    var checker = _checker = ConformanceChecker(checked, isMqtt5: _isMqtt5, ignoreFilters: checked.ignoreFilters);
     _setState(CheckState.connecting);
+    // stop, a closed project or a new start while connecting change the state or the checker
+    bool cancelled() => !identical(_checker, checker) || _state != CheckState.connecting;
     var connection = SideConnection(_connectionFactory, reconnect: reconnect);
     try {
       await connection.connect(broker);
     } catch (_) {
       connection.close();
+      if (cancelled()) {
+        return;
+      }
       _checker = null;
       _setState(CheckState.idle);
       rethrow;
     }
+    if (cancelled()) {
+      connection.close();
+      return;
+    }
     _connection = connection;
     _stopwatch = clock.stopwatch()..start();
-    _checker!.start(clock.now());
+    checker.start(clock.now());
     connection.messageReceivedEvent.subscribe(_onMessage);
     connection.lostEvent.subscribe(_onLost);
     connection.reconnectingEvent.subscribe(_onReconnecting);

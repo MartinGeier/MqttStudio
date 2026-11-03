@@ -1,11 +1,18 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
+import 'package:mqtt5_client/mqtt5_client.dart' show MqttQos;
 import 'package:mqttstudio/documentation/documentation_service.dart';
+import 'package:mqttstudio/documentation/engine/discovery_merger.dart';
+import 'package:mqttstudio/documentation/engine/documentation_analyzer.dart';
+import 'package:mqttstudio/documentation/model/observed_topic.dart';
 import 'package:mqttstudio/documentation/model/topic_documentation.dart';
 import 'package:mqttstudio/documentation/model/topic_spec.dart';
 import 'package:mqttstudio/model/project.dart';
 import 'package:mqttstudio/project/project_manager.dart';
+import 'package:mqttstudio/recorder/model/recorded_message.dart';
+import 'package:mqttstudio/recorder/model/recording_header.dart';
 import '../helpers/test_setup.dart';
 
 void main() {
@@ -47,6 +54,27 @@ void main() {
     expect(node.topic!.payload.schema!.properties['temp']!.unit, '°C');
     expect(node.topic!.payload.schema!.required, {'temp'});
     expect(node.topic!.interval.nominalMs, 1000);
+  });
+
+  test('a project with the discovery results of NaN and Infinity payloads encodes as JSON', () {
+    var project = createProject();
+    var analyzer = DocumentationAnalyzer();
+    var at = DateTime.utc(2026, 11, 3);
+    for (var (i, payload) in ['1', 'NaN', 'Infinity', '-Infinity', '{"v": 1e400}', '2'].indexed) {
+      analyzer.add(
+          RecordedMessage(
+              offsetMicros: i * 1000000,
+              topic: i == 4 ? 'plant/json' : 'plant/temp',
+              payload: Uint8List.fromList(utf8.encode(payload)),
+              qos: MqttQos.atLeastOnce),
+          at.add(Duration(seconds: i)));
+    }
+    var settings = DiscoverySettings(filters: [RecorderFilter('plant/#')]);
+    var result = DiscoveryMerger.build(project.documentation, analyzer, settings);
+    DiscoveryMerger.apply(project.documentation, result, settings, isMqtt5: true);
+    expect(project.documentation.nodes, isNotEmpty);
+    expect(() => jsonEncode(project.toJson()), returnsNormally);
+    expect(project.getHash, returnsNormally);
   });
 
   test('editing the documentation marks the project as changed', () async {
@@ -102,6 +130,21 @@ void main() {
     service.addNode(DocNode(path: 'ab'));
     expect(service.deletePath('a'), 2);
     expect(service.nodes.map((node) => node.path), ['ab']);
+  });
+
+  test('the empty first level of topics that start with / is a level of its own', () {
+    service.addNode(DocNode(path: '/a', topic: TopicSpec()));
+    service.addNode(DocNode(path: '/a/b', topic: TopicSpec()));
+    service.addNode(DocNode(path: 'c', topic: TopicSpec()));
+    service.addNode(DocNode(path: 'd/e', topic: TopicSpec()));
+    expect(service.nodesAtOrBelow('').map((node) => node.path), ['/a', '/a/b']);
+
+    service.movePath('', 'x');
+    expect(service.nodes.map((node) => node.path), ['c', 'd/e', 'x/a', 'x/a/b']);
+
+    service.movePath('x', '');
+    expect(service.deletePath(''), 2);
+    expect(service.nodes.map((node) => node.path), ['c', 'd/e']);
   });
 
   test('clearing deletes every node and keeps the documentation texts', () {

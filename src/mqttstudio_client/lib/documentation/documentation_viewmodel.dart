@@ -199,7 +199,8 @@ class DocumentationViewmodel extends SrxChangeNotifier {
 
   Future<void> stopDiscovery() => _discovery.stop();
 
-  void applyDiscovery(DiscoveryResult result) => _discovery.apply(result);
+  // the accepted new topics that were left out
+  List<String> applyDiscovery(DiscoveryResult result) => _discovery.apply(result);
 
   void _onDiscoveryChanged(EventArgs? _) => notifyListeners();
 
@@ -288,6 +289,7 @@ class DocumentationViewmodel extends SrxChangeNotifier {
         documentation: TopicDocumentation(
             title: documentation.title,
             nodes: _service.nodesAtOrBelow(branch),
+            discoverySettings: documentation.discoverySettings,
             ignoreFilters: documentation.ignoreFilters));
   }
 
@@ -379,7 +381,7 @@ class DocumentationViewmodel extends SrxChangeNotifier {
 
   void deletePath(String path) {
     if (_selectedPath != null && DocPath.isAtOrBelow(_selectedPath!, path)) {
-      _selectedPath = DocPath.parentOf(path).isEmpty ? null : DocPath.parentOf(path);
+      _selectedPath = path.contains('/') ? DocPath.parentOf(path) : null;
     }
     _service.deletePath(path);
   }

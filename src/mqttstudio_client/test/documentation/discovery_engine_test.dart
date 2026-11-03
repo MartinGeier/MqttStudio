@@ -40,6 +40,8 @@ void main() {
       expect(format('{broken'), PayloadFormat.string);
       expect(format('46.49,11.33'), PayloadFormat.gnss);
       expect(format('running'), PayloadFormat.string);
+      expect(format('NaN'), PayloadFormat.string);
+      expect(format('-Infinity'), PayloadFormat.string);
       expect(ClassifiedPayload.of(Uint8List.fromList([0xff, 0xfe, 0x00])).format, PayloadFormat.binary);
       expect(ClassifiedPayload.of(Uint8List.fromList([137, 80, 78, 71, 1])).format, PayloadFormat.image);
     });
@@ -90,6 +92,38 @@ void main() {
       expect(schema.properties['a']!.type, SchemaType.number);
       expect(schema.properties['a']!.maximum, 3);
       expect(schema.required, {'a'});
+    });
+
+    test('fields of the objects in an array count once per sample', () {
+      var a = SchemaInferrer()
+        ..add({
+          'alarms': [
+            {'code': 1},
+            {'code': 2},
+            {'code': 3}
+          ]
+        })
+        ..add({'alarms': []});
+      var b = SchemaInferrer()
+        ..add({
+          'alarms': [
+            [1, 2],
+            [3]
+          ]
+        });
+      expect(a.presence()[r'$.alarms'], 1);
+      expect(a.presence()[r'$.alarms[]'], 1);
+      expect(a.presence()[r'$.alarms[].code'], 0.5);
+      expect(b.presence()[r'$.alarms[][]'], 1);
+      a.merge(b);
+      expect(a.presence()[r'$.alarms[].code'], closeTo(1 / 3, 0.001));
+      expect(a.presence().values.every((share) => share <= 1), isTrue);
+    });
+
+    test('numbers too large for a double are no range', () {
+      var inferrer = SchemaInferrer()..add(jsonDecode('{"v": 1e400, "w": 2}'));
+      expect(inferrer.build().properties['v']!.maximum, isNull);
+      expect(inferrer.build().properties['w']!.maximum, 2);
     });
   });
 
@@ -151,6 +185,24 @@ void main() {
       expect(observed.schema!.required, {'t'});
       expect(observed.fieldPresence[r'$.x'], 0.5);
       expect(observed.lastTopic, 'p/m51/temp');
+    });
+
+    test('NaN and Infinity payloads are no numbers, and the observation encodes as JSON', () {
+      var analyzer = DocumentationAnalyzer();
+      feed(analyzer, [
+        at(0, 'a/v', '5'),
+        at(1, 'a/v', 'NaN'),
+        at(2, 'a/v', 'Infinity'),
+        at(3, 'a/v', '-Infinity'),
+        at(4, 'a/v', '7'),
+        at(5, 'a/j', '{"x": 1e400}'),
+      ]);
+      var observed = analyzer.observe(['a/v']);
+      expect(observed.numericMin, 5);
+      expect(observed.numericMax, 7);
+      expect(observed.formats, {PayloadFormat.number.name: 2, PayloadFormat.string.name: 3});
+      expect(() => jsonEncode(observed.toJson()), returnsNormally);
+      expect(() => jsonEncode(analyzer.observe(['a/j']).toJson()), returnsNormally);
     });
 
     test('numbers that are only 0 and 1 are booleans', () {

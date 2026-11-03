@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:mqttstudio/documentation/engine/doc_index.dart';
 import 'package:mqttstudio/documentation/engine/schema_paths.dart';
 import 'package:mqttstudio/documentation/export/doc_export.dart';
@@ -337,7 +338,7 @@ class DocBlocks {
       switch (block) {
         case HeadingBlock():
           var anchor = block.anchor == null ? '' : '<a id="${block.anchor}"></a>';
-          var code = block.code == null ? '' : '`${block.code}`${block.text.isEmpty ? '' : ' — '}';
+          var code = block.code == null ? '' : '${_mdCode(block.code!)}${block.text.isEmpty ? '' : ' — '}';
           out.writeln('${'#' * block.level} $anchor$code${_mdText(block.text)}');
         case MarkdownBlock():
           // links to documented topics point to their section
@@ -356,11 +357,12 @@ class DocBlocks {
             out.writeln('| ${row.map(_mdCell).join(' | ')} |');
           }
         case CodeBlock():
-          out.writeln('```${block.language}\n${block.text}\n```');
+          var fence = '`' * max(3, _longestBacktickRun(block.text) + 1);
+          out.writeln('$fence${block.language}\n${block.text}\n$fence');
         case TocBlock():
           for (var entry in block.entries) {
             var text = entry.text.isEmpty ? '' : ' — ${_mdText(entry.text)}';
-            out.writeln('${'  ' * entry.depth}- [`${entry.code}`](#${entry.anchor})$text');
+            out.writeln('${'  ' * entry.depth}- [${_mdCode(entry.code)}](#${entry.anchor})$text');
           }
       }
     }
@@ -373,6 +375,17 @@ class DocBlocks {
   }
 
   static String _mdText(String text) => text.replaceAll('\n', ' ');
+
+  // inline code delimited by more backticks than any run inside it; a space keeps a backtick at an end apart from them
+  static String _mdCode(String code) {
+    var text = code.replaceAll('\r', '').replaceAll('\n', ' ');
+    var ticks = '`' * (_longestBacktickRun(text) + 1);
+    var pad = text.startsWith('`') || text.endsWith('`') ? ' ' : '';
+    return '$ticks$pad$text$pad$ticks';
+  }
+
+  static int _longestBacktickRun(String text) =>
+      RegExp('`+').allMatches(text).fold(0, (longest, match) => max(longest, match.end - match.start));
 
   static String _mdCell(String text) => text.replaceAll('|', r'\|').replaceAll('\r', '').replaceAll('\n', '<br>');
 

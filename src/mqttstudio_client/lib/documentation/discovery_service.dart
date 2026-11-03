@@ -184,9 +184,13 @@ class DiscoveryService {
     }
   }
 
-  // stops and builds the result for the review
+  // stops and builds the result for the review; while still connecting it stops without a result
   Future<void> stop() {
     if (!isRunning) {
+      return Future.value();
+    }
+    if (_state == DiscoveryState.connecting) {
+      _cancel();
       return Future.value();
     }
     if (_source != DiscoverySource.live) {
@@ -197,29 +201,41 @@ class DiscoveryService {
     return _finishOnce();
   }
 
-  // writes the reviewed result into the documentation
-  void apply(DiscoveryResult result) {
+  // writes the reviewed result into the documentation; returns the accepted new topics that were left out
+  List<String> apply(DiscoveryResult result) {
     var documentation = _projectManager?.currentProject?.documentation;
     if (documentation == null) {
-      return;
+      return [];
     }
-    DiscoveryMerger.apply(documentation, result, _settings ?? documentation.discoverySettings, isMqtt5: _isMqtt5);
+    var leftOut =
+        DiscoveryMerger.apply(documentation, result, _settings ?? documentation.discoverySettings, isMqtt5: _isMqtt5);
     if (identical(result, lastResult)) {
       lastResult = null;
     }
     GetIt.I.get<DocumentationService>().notifyChanged();
+    return leftOut;
   }
 
   Future<void> _startLive(MqttSettings settings) async {
     _setState(DiscoveryState.connecting);
+    // stop, a closed project or a new start while connecting replace or clear the analyzer
+    var analyzer = _analyzer;
+    bool cancelled() => !identical(_analyzer, analyzer) || _state != DiscoveryState.connecting;
     var connection = SideConnection(_connectionFactory, reconnect: reconnect);
     try {
       await connection.connect(settings);
     } catch (_) {
       connection.close();
+      if (cancelled()) {
+        return;
+      }
       _analyzer = null;
       _setState(DiscoveryState.idle);
       rethrow;
+    }
+    if (cancelled()) {
+      connection.close();
+      return;
     }
     _connection = connection;
     connection.messageReceivedEvent.subscribe(_onLiveMessage);

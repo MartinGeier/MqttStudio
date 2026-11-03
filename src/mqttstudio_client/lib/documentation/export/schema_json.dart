@@ -12,8 +12,8 @@ class SchemaJson {
       if (node.description.isNotEmpty) 'description': node.description,
       if (node.format != null) 'format': node.format,
       if (node.unit != null) unitKey: node.unit,
-      if (node.minimum != null) 'minimum': _number(node.minimum!),
-      if (node.maximum != null) 'maximum': _number(node.maximum!),
+      if (node.minimum?.isFinite ?? false) 'minimum': _number(node.minimum!),
+      if (node.maximum?.isFinite ?? false) 'maximum': _number(node.maximum!),
       if (node.enumValues.isNotEmpty) 'enum': [for (var value in node.enumValues) _enumValue(value, node.type)],
       if (node.properties.isNotEmpty)
         'properties': {for (var entry in node.properties.entries) entry.key: toJsonSchema(entry.value)},
@@ -26,8 +26,8 @@ class SchemaJson {
   static Map<String, Object?>? ofPayload(PayloadSpec payload) {
     var range = <String, Object?>{
       if (payload.unit != null) unitKey: payload.unit,
-      if (payload.min != null) 'minimum': _number(payload.min!),
-      if (payload.max != null) 'maximum': _number(payload.max!),
+      if (payload.min?.isFinite ?? false) 'minimum': _number(payload.min!),
+      if (payload.max?.isFinite ?? false) 'maximum': _number(payload.max!),
     };
     var schema = switch (payload.format) {
       PayloadFormat.json => payload.schema == null ? <String, Object?>{} : toJsonSchema(payload.schema!),
@@ -43,10 +43,12 @@ class SchemaJson {
       return null;
     }
     if (payload.allowedValues.isNotEmpty && payload.format != PayloadFormat.json) {
-      schema['enum'] = [
-        for (var value in payload.allowedValues)
-          payload.format == PayloadFormat.number ? (num.tryParse(value) ?? value) : value
-      ];
+      var type = switch (payload.format) {
+        PayloadFormat.number => SchemaType.number,
+        PayloadFormat.boolean => SchemaType.boolean,
+        _ => SchemaType.string,
+      };
+      schema['enum'] = [for (var value in payload.allowedValues) _enumValue(value, type)];
     }
     schema[formatKey] = payload.format.name;
     return schema;
@@ -153,6 +155,16 @@ class SchemaJson {
 
   static num _number(double value) => value == value.roundToDouble() && value.abs() < 1e15 ? value.toInt() : value;
 
-  static Object _enumValue(String value, SchemaType type) =>
-      type == SchemaType.number || type == SchemaType.integer ? (num.tryParse(value) ?? value) : value;
+  // the enum values are kept as texts; JSON has no NaN or Infinity, so those stay texts
+  static Object _enumValue(String value, SchemaType type) {
+    switch (type) {
+      case SchemaType.number || SchemaType.integer:
+        var number = num.tryParse(value);
+        return number != null && number.isFinite ? number : value;
+      case SchemaType.boolean:
+        return switch (value.trim().toLowerCase()) { 'true' => true, 'false' => false, _ => value };
+      default:
+        return value;
+    }
+  }
 }

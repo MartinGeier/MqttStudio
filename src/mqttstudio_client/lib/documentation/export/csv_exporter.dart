@@ -73,8 +73,12 @@ class CsvExporter {
     return value == value.roundToDouble() && value.abs() < 1e15 ? value.toInt().toString() : value.toString();
   }
 
-  // quotes a field when it holds a comma, a quote, a line break or blanks at its ends (RFC 4180)
+  // quotes a field when it holds a comma, a quote, a line break or blanks at its ends (RFC 4180). A text that starts
+  // like a formula gets a ' in front, so a spreadsheet shows it instead of running it; numbers like -5 stay numbers.
   static String field(String value) {
+    if (value.startsWith(RegExp(r'[=+\-@]')) && double.tryParse(value) == null) {
+      value = "'$value";
+    }
     if (value.contains(RegExp(r'[",\r\n]')) || value.trim() != value) {
       return '"${value.replaceAll('"', '""')}"';
     }

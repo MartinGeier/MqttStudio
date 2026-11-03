@@ -2,9 +2,11 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mqtt5_client/mqtt5_client.dart' show MqttQos;
 import 'package:mqttstudio/documentation/export/asyncapi_importer.dart';
+import 'package:mqttstudio/documentation/export/csv_exporter.dart';
 import 'package:mqttstudio/documentation/export/doc_export.dart';
 import 'package:mqttstudio/documentation/export/import_merge.dart';
 import 'package:mqttstudio/documentation/export/markdown_html.dart';
+import 'package:mqttstudio/documentation/export/schema_json.dart';
 import 'package:mqttstudio/documentation/export/yaml_writer.dart';
 import 'package:mqttstudio/documentation/model/observed_topic.dart';
 import 'package:mqttstudio/documentation/model/topic_documentation.dart';
@@ -156,6 +158,22 @@ void main() {
       var text = YamlWriter.write(value);
       expect(jsonDecode(jsonEncode(loadYaml(text))), value);
     });
+
+    test('keeps trailing blank lines and quotes keys YAML reads as booleans or null', () {
+      var value = {
+        'blank lines': 'line one\nline two\n\n\n',
+        'null': 'n',
+        'true': 'yes',
+        'On': 'off',
+        'y': 'Y',
+        'list': ['a\n\n', 'b'],
+        'last': 'end\n\n',
+      };
+      var text = YamlWriter.write(value);
+      expect(text, contains('"null": "n"'));
+      expect(text, contains('"On": "off"'));
+      expect(jsonDecode(jsonEncode(loadYaml(text))), value);
+    });
   });
 
   group('export', () {
@@ -191,6 +209,16 @@ void main() {
       expect(lines[2], 'plant/{line}/speed,"Speed, in rpm",draft,number,rpm,0,24000,0,never,unknown,,,,,');
     });
 
+    test('CSV fields that start like a formula are text, negative numbers stay numbers', () {
+      expect(CsvExporter.field('=HYPERLINK("x")'), '"\'=HYPERLINK(""x"")"');
+      expect(CsvExporter.field('+cmd'), "'+cmd");
+      expect(CsvExporter.field('-1+2'), "'-1+2");
+      expect(CsvExporter.field('@SUM(A1)'), "'@SUM(A1)");
+      expect(CsvExporter.field('-5'), '-5');
+      expect(CsvExporter.field('-0.5'), '-0.5');
+      expect(CsvExporter.field('a=b'), 'a=b');
+    });
+
     test('the JSON Schema bundle has a definition per documented payload', () {
       var bundle = jsonDecode(export(DocExportFormat.jsonSchema)) as Map<String, dynamic>;
       var defs = bundle[r'$defs'] as Map<String, dynamic>;
@@ -200,6 +228,27 @@ void main() {
       expect(status['properties']['temp'], {'type': 'number', 'x-unit': '°C', 'minimum': 0, 'maximum': 120});
       expect(status['properties']['x'], isEmpty);
       expect(defs['qa/result']['enum'], ['good', 'bad']);
+    });
+
+    test('boolean enums are booleans, NaN and Infinity are no numbers', () {
+      var payload = PayloadSpec(format: PayloadFormat.boolean, allowedValues: ['true', 'False']);
+      expect(SchemaJson.ofPayload(payload)!['enum'], [true, false]);
+      var schema = SchemaJson.toJsonSchema(SchemaNode(properties: {
+        'on': SchemaNode(type: SchemaType.boolean, enumValues: ['true']),
+        'v': SchemaNode(type: SchemaType.number, enumValues: ['1.5', 'NaN', 'Infinity'], maximum: double.infinity),
+      }));
+      var properties = schema['properties'] as Map<String, Object?>;
+      expect(properties['on'], {
+        'type': 'boolean',
+        'enum': [true]
+      });
+      expect(properties['v'], {
+        'type': 'number',
+        'enum': [1.5, 'NaN', 'Infinity']
+      });
+      expect(() => jsonEncode(schema), returnsNormally);
+      var read = SchemaJson.fromJsonSchema(jsonDecode(jsonEncode(schema)) as Map<String, Object?>);
+      expect(read.properties['on']!.enumValues, ['true']);
     });
 
     test('a scope exports one namespace or topic with everything below it', () {
@@ -294,6 +343,21 @@ void main() {
       expect(text, contains(r'| $ | object |  |  |  | One status report |'));
       expect(text, contains('**Correlation data:** request id'));
       expect(text, isNot(contains('**Delivery**\n\n**QoS:** not documented')));
+    });
+
+    test('Markdown code fences and topics stay closed around backticks', () {
+      var documentation = TopicDocumentation(nodes: [
+        DocNode(
+            path: 'a/`b`',
+            title: 'Ticks',
+            topic: TopicSpec(
+                payload: PayloadSpec(
+                    format: PayloadFormat.string, examples: [DocExample(payload: 'x\n```\n# not a heading\n````')]))),
+      ]);
+      var text = DocExport.run(documentation, DocExportOptions(DocExportFormat.markdown), exportedAt: exportedAt);
+      expect(text, contains('`````\nx\n```\n# not a heading\n````\n`````'));
+      expect(text, contains('- [`` a/`b` ``](#t1) — Ticks'));
+      expect(text, contains('## <a id="t1"></a>`` a/`b` `` — Ticks'));
     });
 
     test('the print stylesheet keeps tables and long paths on the page', () {
@@ -410,6 +474,71 @@ components:
       expect(() => AsyncApiImporter.read('just: yaml'), throwsFormatException);
       expect(() => AsyncApiImporter.read('{not yaml'), throwsFormatException);
       expect(() => AsyncApiImporter.read('asyncapi: "1.2.0"'), throwsFormatException);
+    });
+
+    test('extensions of the wrong type are a FormatException that names them', () {
+      String channel(String extension) => '''
+asyncapi: '3.0.0'
+info:
+  title: Plant
+  version: '1.0'
+channels:
+  temp:
+    address: plant/temp
+$extension
+''';
+      for (var (key, extension) in [
+        ('x-mqttstudio-interval', '    x-mqttstudio-interval:\n      nominalMs: fast'),
+        ('x-mqttstudio-interval', '    x-mqttstudio-interval:\n      kind: sometimes'),
+        ('x-mqttstudio-links', '    x-mqttstudio-links:\n      - label: 5\n        url: [a]'),
+      ]) {
+        expect(
+            () => AsyncApiImporter.read(channel(extension)),
+            throwsA(isA<FormatException>()
+                .having((exc) => exc.message, 'message', allOf(contains('plant/temp'), contains(key)))),
+            reason: extension);
+      }
+      expect(
+          () => AsyncApiImporter.read('''
+asyncapi: '3.0.0'
+info:
+  title: Plant
+  version: '1.0'
+channels:
+  temp:
+    address: plant/temp
+    messages:
+      status:
+        x-mqttstudio-user-properties:
+          - key: [1, 2]
+'''),
+          throwsFormatException);
+    });
+
+    test('channels with the same address or the same topics become one documented topic', () {
+      var imported = AsyncApiImporter.read('''
+asyncapi: '3.0.0'
+info:
+  title: Plant
+  version: '1.0'
+channels:
+  first:
+    address: plant/temp
+    title: First
+  second:
+    address: plant/temp
+    title: Second
+  line:
+    address: plant/{line}/speed
+  lineAgain:
+    address: plant/{lineNo}/speed
+''');
+      expect(imported.documentation.nodes.map((node) => node.path), ['plant/temp', 'plant/{line}/speed']);
+      expect(imported.documentation.nodeAt('plant/temp')!.title, 'First');
+      expect(imported.warnings, [
+        'plant/temp: another channel has the same address, left out',
+        'plant/{lineNo}/speed: plant/{line}/speed matches the same topics, left out',
+      ]);
     });
   });
 

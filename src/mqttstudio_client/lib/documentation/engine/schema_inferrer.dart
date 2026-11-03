@@ -18,7 +18,7 @@ class SchemaInferrer {
 
   void add(Object? json) {
     samples++;
-    _root.add(json, 0);
+    _root.add(json, 0, samples);
   }
 
   // merges what another inferrer saw, e.g. of another instance of a template
@@ -29,19 +29,20 @@ class SchemaInferrer {
 
   SchemaNode build() => _root.build();
 
-  // field path and the share of all samples that had the field, 0..1
+  // field path and the share of all samples that had the field, 0..1. A field of the objects in an array counts once
+  // per sample, however many items have it.
   Map<String, double> presence() {
     var result = <String, double>{};
     void walk(_FieldStats stats, String path) {
       for (var entry in stats.properties.entries) {
         var childPath = '$path.${entry.key}';
-        result[childPath] = samples == 0 ? 0 : entry.value.count / samples;
+        result[childPath] = samples == 0 ? 0 : entry.value.sampleCount / samples;
         walk(entry.value, childPath);
       }
       var items = stats.items;
       if (items != null) {
         var childPath = '$path${SchemaPaths.items}';
-        result[childPath] = samples == 0 ? 0 : stats.arrayCount / samples;
+        result[childPath] = samples == 0 ? 0 : stats.arraySampleCount / samples;
         walk(items, childPath);
       }
     }
@@ -55,6 +56,11 @@ class _FieldStats {
   int count = 0;
   int objectCount = 0;
   int arrayCount = 0;
+  // the samples the field or the array was in; _last... is the number of the sample seen last
+  int sampleCount = 0;
+  int arraySampleCount = 0;
+  int _lastSample = 0;
+  int _lastArraySample = 0;
   final Set<String> types = {};
   bool allInteger = true;
   bool allDateTime = true;
@@ -66,8 +72,12 @@ class _FieldStats {
   final Map<String, _FieldStats> properties = {};
   _FieldStats? items;
 
-  void add(Object? value, int depth) {
+  void add(Object? value, int depth, int sample) {
     count++;
+    if (_lastSample != sample) {
+      _lastSample = sample;
+      sampleCount++;
+    }
     switch (value) {
       case null:
         types.add('null');
@@ -79,8 +89,11 @@ class _FieldStats {
           allInteger = false;
         }
         var asDouble = number.toDouble();
-        minimum = minimum == null || asDouble < minimum! ? asDouble : minimum;
-        maximum = maximum == null || asDouble > maximum! ? asDouble : maximum;
+        // jsonDecode reads 1e400 as Infinity, which the project's JSON can't hold
+        if (asDouble.isFinite) {
+          minimum = minimum == null || asDouble < minimum! ? asDouble : minimum;
+          maximum = maximum == null || asDouble > maximum! ? asDouble : maximum;
+        }
       case String text:
         types.add('string');
         stringCount++;
@@ -107,16 +120,20 @@ class _FieldStats {
             }
             child = properties[entry.key] = _FieldStats();
           }
-          child.add(entry.value, depth + 1);
+          child.add(entry.value, depth + 1, sample);
         }
       case List<dynamic> list:
         types.add('array');
         arrayCount++;
+        if (_lastArraySample != sample) {
+          _lastArraySample = sample;
+          arraySampleCount++;
+        }
         if (depth >= SchemaInferrer.maxDepth) {
           return;
         }
         for (var item in list) {
-          (items ??= _FieldStats()).add(item, depth + 1);
+          (items ??= _FieldStats()).add(item, depth + 1, sample);
         }
       default:
         types.add('mixed');
@@ -127,6 +144,9 @@ class _FieldStats {
     count += other.count;
     objectCount += other.objectCount;
     arrayCount += other.arrayCount;
+    // the samples of two inferrers are different ones
+    sampleCount += other.sampleCount;
+    arraySampleCount += other.arraySampleCount;
     types.addAll(other.types);
     allInteger = allInteger && other.allInteger;
     allDateTime = allDateTime && other.allDateTime;

@@ -66,12 +66,17 @@ class NewItem {
 
   bool get isTemplate => detected.isTemplate;
 
+  // the names are replaced all at once, so swapping two names doesn't merge them into one
   String get path {
-    var path = detected.path;
-    for (var entry in names.entries) {
-      path = path.replaceAll('{${entry.key}}', '{${entry.value}}');
+    var parsed = DocPath.tryParse(detected.path);
+    if (names.isEmpty || parsed == null) {
+      return detected.path;
     }
-    return path;
+    return parsed.segments
+        .map((segment) => segment.isParameter
+            ? '${segment.prefix}{${names[segment.parameter] ?? segment.parameter}}${segment.suffix}'
+            : segment.text)
+        .join('/');
   }
 
   List<String> get parameterNames => DocPath.parameterNames(detected.path);
@@ -455,8 +460,11 @@ class DiscoveryMerger {
 
   // ---------- applying the review ----------
 
-  static void apply(TopicDocumentation documentation, DiscoveryResult result, DiscoverySettings settings,
+  // returns the accepted new topics and templates that were left out: their path is no valid template, e.g. after
+  // renaming parameters, or another documented topic matches the same topics
+  static List<String> apply(TopicDocumentation documentation, DiscoveryResult result, DiscoverySettings settings,
       {required bool isMqtt5}) {
+    var leftOut = <String>[];
     for (var entry in result.matched.entries) {
       entry.key
         ..observed = entry.value
@@ -476,7 +484,9 @@ class DiscoveryMerger {
     }
     for (var item in result.added) {
       if (item.accept) {
-        _add(documentation, result, item, settings, isMqtt5: isMqtt5);
+        if (!_add(documentation, result, item, settings, isMqtt5: isMqtt5)) {
+          leftOut.add(item.path);
+        }
       } else if (item.ignore) {
         var filter = ignoreFilterOf(item.path);
         if (!documentation.ignoreFilters.contains(filter)) {
@@ -489,9 +499,11 @@ class DiscoveryMerger {
       ..lastDiscoveryAt = result.to
       ..revision += 1
       ..sortNodes();
+    return leftOut;
   }
 
-  static void _add(TopicDocumentation documentation, DiscoveryResult result, NewItem item, DiscoverySettings settings,
+  // false when the item was left out
+  static bool _add(TopicDocumentation documentation, DiscoveryResult result, NewItem item, DiscoverySettings settings,
       {required bool isMqtt5}) {
     if (item.isTemplate && !item.asTemplate) {
       for (var topic in item.detected.topics.toList()..sort()) {
@@ -500,11 +512,11 @@ class DiscoveryMerger {
               isMqtt5: isMqtt5);
         }
       }
-      return;
+      return true;
     }
     var path = item.path;
     if (DocPath.validate(path) != null || _conflicts(documentation, path, item.collapses)) {
-      return;
+      return false;
     }
     var observed = item.observed;
     if (item.names.isNotEmpty) {
@@ -525,12 +537,13 @@ class DiscoveryMerger {
         ..observed = observed
         ..review = DocReviewState.added;
       prefill(kept, observed, isMqtt5: isMqtt5, keepExamples: settings.keepExamples);
-      return;
+      return true;
     }
     var node = DocNode(path: path, topic: TopicSpec());
     DocumentationService.syncParameters(node);
     _applyPatterns(node, item);
     _addNode(documentation, node, observed, settings, isMqtt5: isMqtt5);
+    return true;
   }
 
   static void _applyPatterns(DocNode node, NewItem item) {

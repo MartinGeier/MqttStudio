@@ -38,7 +38,8 @@ class ClassifiedPayload {
       return ClassifiedPayload(PayloadFormat.boolean, text: text);
     }
     var number = double.tryParse(trimmed);
-    if (number != null) {
+    // NaN and Infinity are text: JSON has no such numbers, so the project could not be saved with them
+    if (number != null && number.isFinite) {
       return ClassifiedPayload(PayloadFormat.number, text: text, number: number);
     }
     if ((trimmed.startsWith('{') || trimmed.startsWith('[')) && payload.length <= maxParseLength) {
