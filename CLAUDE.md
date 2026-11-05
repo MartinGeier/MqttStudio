@@ -31,7 +31,7 @@ Run all Flutter commands from `src/mqttstudio_client`.
 
 ## Tech stack
 
-- Flutter / Dart (SDK `>=3.8.0 <4.0.0`, needed for the null-aware elements json_serializable generates), targets **Windows** and **Web**.
+- Flutter / Dart (SDK `>=3.8.0 <4.0.0`, needed for the null-aware elements json_serializable generates), targets **Windows** and **Web**, plus **macOS** (built on a Mac, not released yet; bundle ID `eu.sarix.mqttstudio`).
 - **srx_flutter**: Sarix's in-house framework, pulled from `github.com/sarixgmbh/SrxFlutter` (git ref `2.0`). It provides `SrxChangeNotifier`, `SrxDialog`, `SrxTheme`, `SrxNavigationService`, `SrxSessionController`, `SrxLocalDatabaseController`, `SrxCrudRepository`/`SrxLocalCrudRepository`, `SrxBaseModel`, `SrxServiceException`, `SrxAssetLoader`. Prefer these over writing new equivalents.
 - **mqtt5_client** for MQTT 5 and **mqtt_client** for MQTT 3.1.1; the protocol is chosen per project (`MqttSettings.protocolVersion`, old projects default to 3.1.1). Both packages use the same class names, so `mqtt_client` is only imported with the `v3` prefix. The app-wide `MqttQos` is the `mqtt5_client` one. The current branch `mqtt5` adds MQTT 5 and upgrades dependencies (srx_flutter 1.5 → 2.0). PRs target `develop`.
 - State/DI: `provider` + `get_it` (singletons are registered in `main.dart` `setupServiceLocator()`).
@@ -44,6 +44,7 @@ Run all Flutter commands from `src/mqttstudio_client`.
 flutter pub get
 flutter run -d windows
 flutter run -d chrome
+flutter run -d macos   # on a Mac only
 flutter test
 flutter analyze
 dart run build_runner build --delete-conflicting-outputs   # regenerate *.g.dart after changing @JsonSerializable models
@@ -74,6 +75,7 @@ The data flows as **MqttAdapter → MessageViewer → viewmodels → widgets**.
 - `lib/cli/`: the headless CLI (`doc/cli-design.md`). `main()` runs it when the first argument is `--cli`, which the console launcher `windows/cli_launcher` (`mqttstudio-cli.exe`) passes; the Windows runner then keeps the window hidden. Commands extend `CliCommand` and are registered in `cli_app.dart`: `projects`, `simulate`, `record`, `replay`, `recordings` and `doc`. Tests in `test/cli/`. The user manual is `doc/cli-manual.md`; update it when a command or option changes.
 - `lib/service/`: Piwik tracking, newsletter signup, and the `ServiceError` codes used with `SrxServiceException`.
 - `lib/common/`: shared widgets, payload utilities, the login page (currently bypassed), and the browser performance warning that suggests the desktop client.
+- Menu bar and shortcuts: `common/widgets/app_menu_bar.dart` wraps the main page. On macOS it is the native menu bar (`PlatformMenuBar`); on Windows the same commands are Ctrl shortcuts with nothing visible; the web build has neither. Build shortcuts with `commandShortcut()` (`common/utils/shortcuts.dart`, ⌘ on Apple platforms, Ctrl elsewhere), never with a fixed `control: true`. The drawer and the menu bar share `project/project_commands.dart` and `common/about_mqttstudio.dart`. The macOS window restores its last size and position itself (`macos/Runner/MainFlutterWindow.swift`).
 - Theming: `lib/custom_theme.dart` (`CustomTheme.lightTheme`, `CustomTheme.srxTheme`). Dialogs are wrapped in `SrxTheme`.
 
 ## UI design

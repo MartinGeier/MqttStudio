@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:mqttstudio/common/browser_performance_warning.dart';
 import 'package:mqttstudio/common/localstore.dart';
 import 'package:mqttstudio/common/newsletter_signup_dialog.dart';
+import 'package:mqttstudio/common/widgets/app_menu_bar.dart';
 import 'package:mqttstudio/common/widgets/main_appbar.dart';
 import 'package:mqttstudio/common/widgets/no_project_view.dart';
 import 'package:mqttstudio/project/project_manager.dart';
@@ -70,20 +71,24 @@ class _MessageViewerPageState extends State<MessageViewerPage> {
                 return Consumer<ProjectViewmodel>(builder: (context, projectViewmodel, child) {
                   var tabController = DefaultTabController.of(context);
                   _tabController = tabController;
-                  return Scaffold(
-                    appBar: MainAppBar(viewmodel: projectViewmodel),
-                    drawer: navDrawer.NavigationDrawer(),
-                    // IndexedStack keeps the state of the topic viewer while another tab is shown
-                    body: AnimatedBuilder(
-                      animation: tabController,
-                      builder: (context, _) => IndexedStack(
-                          index: tabController.index.clamp(MainAppBar.topicViewerTab, MainAppBar.documentationTab),
-                          children: [
-                            _buildTopicViewer(viewmodel, projectViewmodel),
-                            SimulatorPage(),
-                            RecorderPage(),
-                            DocumentationPage(),
-                          ]),
+                  return AppMenuBar(
+                    tabController: tabController,
+                    isProjectOpen: projectViewmodel.isProjectOpen,
+                    child: Scaffold(
+                      appBar: MainAppBar(viewmodel: projectViewmodel),
+                      drawer: navDrawer.NavigationDrawer(),
+                      // IndexedStack keeps the state of the topic viewer while another tab is shown
+                      body: AnimatedBuilder(
+                        animation: tabController,
+                        builder: (context, _) => IndexedStack(
+                            index: tabController.index.clamp(MainAppBar.topicViewerTab, MainAppBar.documentationTab),
+                            children: [
+                              _buildTopicViewer(viewmodel, projectViewmodel),
+                              SimulatorPage(),
+                              RecorderPage(),
+                              DocumentationPage(),
+                            ]),
+                      ),
                     ),
                   );
                 });
