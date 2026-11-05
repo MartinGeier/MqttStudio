@@ -1,15 +1,16 @@
 # MQTT Studio website: content brief
 
-Input for the AI agent that builds the new www.mqttstudio.com. It contains everything the current
-site says (captured on 2026-10-25, checked again on 2026-11-01: unchanged), the facts about the
-product, and the features added in version 2.0 that the current site does not mention yet.
+Input for the AI agent that builds the new www.mqttstudio.com. It explains what the site is for
+and how it should sound, gives the facts about the product, shows each feature with its advantage
+for developers, and ends with a complete feature list, the current site's content and the open
+points.
 
 **Rules for the agent**
-- Use only the facts in this document. Don't invent features, numbers, prices, customers,
-  testimonials, download counts or release dates.
+- Use only the facts in this document. Don't invent features, numbers, customers, testimonials,
+  download counts or release dates.
 - Items marked **TO CONFIRM** are open. Leave a visible placeholder for them instead of guessing.
-- Copy marked "current site" may be reused or rewritten. The texts under "Suggested copy" are
-  drafts; keep their facts when you rewrite them.
+- Follow the tone in §1. The texts under "Intro" are drafts; keep their facts when you rewrite
+  them.
 - Write UI names the way the app shows them: tab names in capitals (TOPIC VIEWER, SIMULATOR,
   RECORDER, DOCUMENTATION), feature names in normal case (Grouped view, flight recorder).
 - The product name is **MQTT Studio** (two words, no hyphen). The current site also uses
@@ -17,374 +18,283 @@ product, and the features added in version 2.0 that the current site does not me
 
 ---
 
-## 1. Product facts
+## 1. Purpose and tone
+
+**Why the site exists.** MQTT Studio is a free tool that **Sarix** develops and gives away. Sarix
+doesn't sell it and has no paid edition, so the site doesn't need to win buyers. Its job is to
+**show developers what MQTT Studio does and how it helps them in their daily work**, so that they
+try it, keep using it, and know who built it.
+
+**Tone: show, don't sell.**
+- Write like a developer explaining a tool to a colleague: factual, concrete, short sentences,
+  second person ("Record the traffic of a plant and replay it at your desk").
+- For each feature say **what it does**, **which problem it solves**, and **show it**: a screenshot,
+  a real topic, a condition, a command line.
+- Let examples carry the message: `plant/+/temp > 80`, `weather/{n}/temp`,
+  `mqttstudio recordings compare reference.mqttrec run-42.mqttrec`.
+- State "free" as a plain fact (hero badge, download page, FAQ), not as a sales argument.
+
+**Avoid**
+- Sales and marketing phrases: "unlock the full potential", "powerful", "seamless", "the best MQTT
+  client", "revolutionary", "boost your productivity", "get it now", urgency of any kind.
+- Price tables, plan comparisons, "upgrade" or "pro" wording, sign-up walls before the download.
+  There is nothing to buy.
+- Comparisons with other MQTT tools by name.
+- Planned or future features. Show what the app does today.
+- Testimonials, customer logos or usage numbers (none exist).
+
+---
+
+## 2. Product facts
 
 | Item | Value |
 |---|---|
 | Product | MQTT Studio |
-| What it is | An MQTT client for developers who build, test and support MQTT-based systems |
-| Publisher | **Sarix** (the app's About dialog, the EULA and the package's publisher name say Sarix since version 2.0; the Microsoft Store identity still belongs to Redpin). The current site still says Redpin everywhere, see §8 |
-| Version | 2.0.0 (the release with the new features of §4). Release date: **TO CONFIRM** |
+| What it is | An MQTT client for developers who build, test and support MQTT-based systems: watch, publish, simulate, record, replay and document MQTT traffic |
+| Developed by | **Sarix** (the app's About dialog, the EULA and the package's publisher name say Sarix since version 2.0; the Microsoft Store identity still belongs to Redpin). The current site still says Redpin everywhere, see §9 |
+| Version | 2.0.0. Release date: **TO CONFIRM** |
 | First release | 1.0.0 on 09/11/2023 (release notes, date format as in the PDF) |
 | Platforms | Windows desktop app (Microsoft Store) and web app in the browser. Same layout in both. No mobile app or mobile layout |
 | Command line | `mqttstudio` command, installed with the Windows desktop app (new in 2.0) |
-| Price | Free. The free version stays free, with no ads. Commercial add-on features are planned; none exists yet |
-| Licence | Free for personal and commercial use under the EULA |
+| Price | Free, for personal and commercial use, under the EULA. No paid edition, no licence key, no account |
 | Built with | Flutter (Google's cross-platform UI toolkit), one code base for desktop and web |
 | Protocols | MQTT 3.1.1 and MQTT 5, chosen per project. TCP, TLS, WebSockets (`ws://`, `wss://`). The browser version connects over WebSockets only |
+| Data | Projects and recordings stay on the user's computer (or in the browser). Nothing is uploaded |
 | Microsoft Store | https://www.microsoft.com/store/productId/9N3BV5PG4JTG |
 | Web app | https://www.mqttstudio.com/webapp |
 
-**Positioning.** The current site positions MQTT Studio as a practical, free developer tool for
-looking at MQTT traffic. Version 2.0 widens this: besides watching messages, MQTT Studio now
-**generates** traffic (simulator), **captures and replays** it (recorder), **documents** a
-broker's topics (documentation), runs all of this **headless** in scripts and CI (CLI), and
-**understands two industrial protocols** that run on MQTT: **VDA 5050** (mobile robots / AGVs)
-and **Sparkplug B** (industrial IoT). A possible one-line summary: *Watch, simulate, record and
-document your MQTT traffic, in one free tool. With built-in VDA 5050 and Sparkplug B support.*
+**One-line description** (a draft): *An MQTT client that lets you watch, simulate, record and
+document your MQTT traffic, with built-in support for VDA 5050 and Sparkplug B.*
 
 **Audience.** Developers and testers of IoT and industrial systems, integrators who commission
-plants, support engineers who analyze customer installations, and teams who need a reference of
-the topics a system uses. With 2.0 also: integrators of AGV/AMR fleets and fleet controls
-(VDA 5050), and automation engineers who work with SCADA, MES, historians and edge gateways
-(Sparkplug B).
+plants, support engineers who analyze customer installations, and teams who need a reference of the
+topics a system uses. Also integrators of AGV/AMR fleets and fleet controls (VDA 5050), and
+automation engineers who work with SCADA, MES, historians and edge gateways (Sparkplug B).
 
 ---
 
-## 2. Current site inventory
+## 3. Advantages for developers
 
-Site captured on 2026-10-25 and checked again on 2026-11-01: no changes, the pages were last
-modified in November 2023. English only (`/de/` and `/it/` return 404). Pages live under `/en/`.
+The site should make these advantages visible. Each one points to the features that deliver it.
 
-| Page | URL | Content |
+| Task | How MQTT Studio helps | Features |
 |---|---|---|
-| Home | `/en/index.html` | Hero, features, FAQ, contact (footer) |
-| Download | `/en/download.html` | Microsoft Store link, web app link, release notes PDF |
-| Terms of Use | `/en/terms-of-use.html` | Legal disclaimer, copyright, privacy, cookies, no spyware |
-| EULA | `/en/eula.html` | End user licence agreement |
-| Web app | `/webapp` | The MQTT Studio web app itself (not part of the redesign) |
-| Release notes | `/downloads/ReleaseNotes.pdf` | One page, version 1.0.0 only |
-
-**Navigation:** logo (home), Features (`#features`), Contact (`#contact`), Download.
-**Footer:** address, info and support email, Download, Terms of Use, EULA, copyright line.
-**Meta:** the page `description` meta tag is empty on every page. Add real descriptions.
-**Credits:** web design and programming by VisualRun (Terms of Use page).
-
-**Assets on the current site** (reuse or replace):
-- Logo `/assets/Logo/MQTT-Logo.svg`, publisher logo `/assets/Logo/redpin-logo_white.svg`
-- Screenshots `/assets/img/grouped_chart.png`, `grouped_img.png`, `tree_chart.png`
-- Feature icons (Material Symbols): `integration_instructions`, `list_alt`, `view_module`,
-  `colorize`, `description`, `visibility`, `filter_list`, plus `icon-1.svg`
-- Download page icons: Microsoft Store icon, `open_in_new`, `download`
-
-**Assets in the repository:**
-- `product/screenshots/`: `grouped_chart.png`, `grouped_img.png`, `sequiential_chart.png`,
-  `sequiential_img.png`, `tree_chart.png`, `tree_img.png` (all version 1.x UI)
-- `CI/`: app icons and logos
-- There are **no screenshots of the 2.0 features yet** (SIMULATOR, RECORDER, DOCUMENTATION, CLI).
-  **TO CONFIRM:** who makes them. §7 lists the shots needed.
+| **See what is on the broker** | Subscribe and see messages grouped by time, as a topic tree with rates or one by one. Payloads are rendered by content: JSON, numbers as charts, images, GPS positions on a map, binary as hex, decoded MessagePack or CBOR | §4.1, §4.2 |
+| **Find the one message that matters** | Filter by topic, payload text or a value condition (`$.status == "error"`), see what changed since the previous message, compare two messages | §4.2 |
+| **Understand timing** | Per-topic rate, time since the last message and interval jitter show slow, irregular or silent devices at a glance | §4.2 |
+| **Clean up the broker** | Find and clear retained messages left over from tests; read the broker's `$SYS` statistics and the MQTT 5 capabilities it reports | §4.2 |
+| **Develop without hardware** | Simulate devices with realistic values (random walk, waves, GPS tracks, JSON templates), up to 1,000 instances from one definition | §4.4 |
+| **Reproduce a field issue at your desk** | Record a customer's traffic, replay it to a test broker at original timing or faster, step message by message | §4.5 |
+| **Catch the moment something goes wrong** | Start a recording when a condition matches, with minutes of pre-roll, or keep a flight recorder running that saves the last minutes before an alarm | §4.5 |
+| **Share traffic safely** | Anonymize recordings (hash, mask, replace, remove or jitter values) before sending them to a supplier | §4.5 |
+| **Test automatically** | Compare two recordings in CI, run simulations and recordings headless, fail a pipeline when devices break the topic documentation | §4.5, §4.7 |
+| **Document an existing system** | Discover topics from the broker or a recording and get a first draft with payload formats, JSON schemas, intervals, QoS and retain; export as Markdown, HTML/PDF or AsyncAPI 3.0 | §4.6 |
+| **Keep devices honest** | Check live traffic against the documentation and get findings: wrong format, schema violations, values out of range, silent topics | §4.6 |
+| **Work with VDA 5050 robots** | Read every message in plain words, see the fleet on a map, check the protocol, test a fleet control against up to 200 simulated robots with injected faults | §4.8 |
+| **Work with Sparkplug B** | Decode Protobuf payloads with metric names from the birth, see edge nodes and devices with live values, check session rules, simulate edge nodes | §4.9 |
+| **Start in seconds** | Open the web app in the browser, or install the desktop app from the Microsoft Store. No account, no licence key | §4.10 |
 
 ---
 
-## 3. Core features (on the current site, still valid)
+## 4. Features
 
-Each entry: the current site's text (shortened), then facts from the app the site doesn't
-mention.
+One block per feature area. Each block gives a draft **intro**, **what it does**, the **advantage**
+for developers, and what to **show**. The complete, itemized list is in §5. Features marked
+*(new in 2.0)* aren't on the current site yet.
 
-### Projects
-Current site: projects bundle the MQTT settings and topic subscriptions in one place, so
-developers switch between scenarios (test broker, production, customer A) quickly.
-App facts: a project holds the broker (host, port, client id, user name and password), the
-protocol (MQTT 3.1.1 or MQTT 5), TLS and WebSockets, clean start and session expiry (MQTT 5),
-the topic subscriptions with their colors, and since 2.0 also the simulation and the topic
-documentation. Projects are stored locally (in the browser for the web app).
+### 4.1 Projects, connection and subscriptions
 
-### Topic subscription panel
-Current site: shows all active subscriptions; subscribe, unsubscribe, or pause a single topic to
-stop receiving it for a while.
-App facts: each subscription is a colored chip; tap to pause or resume, ✕ to unsubscribe.
-Wildcards `+` and `#` are supported. On MQTT 5 a subscription has the options No Local, Retain As
-Published and Retain Handling.
+**Intro (draft):** *Keep one project per broker or scenario: test system, production, customer A.
+Switch between them in two clicks.*
 
-### Messages viewer with three views
-Current site: three view modes, Grouped, Hierarchical and Sequential, switchable at any time.
-- **Grouped view:** messages grouped by time period (1 s, 10 s, 1 min, 1 h), to see sequences and
-  patterns.
-- **Hierarchical view:** the topic tree with message counts per topic; an overview of what flows
-  into a system.
-- **Sequential view:** every message in arrival order.
+What it does:
+- A **project** holds the broker (host, port, client id, user name, password), the protocol (MQTT
+  3.1.1 or MQTT 5), TLS and WebSockets, clean start and session expiry (MQTT 5), the topic
+  subscriptions with their colors, the simulation and the topic documentation.
+- The start screen lists the six recent projects.
+- **Client certificates** (mutual TLS) *(new in 2.0)*: CA certificate, client certificate, private
+  key and key password per project. Desktop app only (TLS over TCP).
+- **MQTT 5** *(new in 2.0)*: chosen per project; existing projects keep MQTT 3.1.1. Subscription
+  options (No Local, Retain As Published, Retain Handling), publish properties, received
+  properties, broker info.
+- **Topic subscription panel:** each subscription is a chip in its own color; tap to pause or
+  resume, ✕ to unsubscribe. Wildcards `+` and `#`.
 
-### Color-coded topics
-Current site: each topic gets a color and all its messages show in that color, so messages are
-easy to tell apart.
+Advantage: no retyping of broker settings and subscriptions; the same project also carries the
+simulation and documentation of that system.
 
-### Message detail view
-Current site: all metadata of a message and its payload; republish the message from here.
-App facts: shows received time, QoS, retain, payload size, message count of the topic, and on
-MQTT 5 the properties (content type, response topic, correlation data, message expiry, payload
-format, user properties, subscription ids). Copy topic and payload, clear a retained message,
-auto-select the newest message, show the last 1,000 messages of the topic.
+Show: the start screen with recent projects; the project settings dialog; the subscription panel
+with colored chips.
 
-### Payload viewer
-Current site: renders the payload by its content: text, numbers, dates, images (JPG, PNG) and
-JSON.
-App facts: GPS coordinates (`lat,lon` payloads) show on a **map** (added in 2024, not on the
-current site). Since 2.0, binary and encoded payloads can be decoded (§4.3), and VDA 5050 and
-Sparkplug B messages are shown interpreted (§4.8, §4.9).
+### 4.2 TOPIC VIEWER
 
-### Chart view
-Current site: numeric payloads show as a chart over time.
-App facts: with **min, max and average** lines.
+**Intro (draft):** *See what flows through your broker. Group messages by time, browse the topic
+tree with rates per topic, or read them one by one. Filter by topic, payload or value, decode
+binary payloads and see what changed since the last message.*
 
-### Topic filter
-Current site: narrows the messages shown by topic name.
-App facts: since 2.0 the filter also checks payload text and conditions on values (§4.3).
+What it does:
+- **View modes:** **Grouped** (by 1 s, 10 s, 1 min or 1 h), **Tree** (topic hierarchy with message
+  counts) and **Sequential** (arrival order); **Fleet** and **Sparkplug** for the two industrial
+  protocols *(new in 2.0, §4.8, §4.9)*.
+- **Color-coded topics:** every message shows in its topic's color.
+- **Message detail view:** received time, QoS, retain, payload size, message count of the topic,
+  MQTT 5 properties; copy topic and payload, republish, clear a retained message, auto-select the
+  newest message, show the last 1,000 messages of the topic.
+- **Payload viewer:** text, JSON, numbers, JPG/PNG images, GPS coordinates (`lat,lon`) on a
+  **map**, binary as hex. Numbers get a **chart** over time with min, max and average.
+- **Filter** *(extended in 2.0)*: by topic (part of it or an MQTT filter like `plant/+/temp`), by
+  payload text, or by condition (`$.status == "error"`, `plant/+/temp > 80`, with
+  `== != > >= < <=`, `contains` and `~`). Regular expressions optional.
+- **Payload decoders** *(new in 2.0)*: Hex, Base64, gzip/zlib, MessagePack, CBOR, chosen per topic.
+- **Changes since the previous message** *(new in 2.0)*: changed JSON fields with old and new
+  value ("was 21.4, now 21.9"), or a text diff.
+- **Compare two messages** *(new in 2.0)*: pin one, select another, see every difference.
+- **Edit and publish** *(new in 2.0)*: the publish dialog opens prefilled with the selected message.
+- **Topic statistics** in the tree *(new in 2.0)*: messages and bytes per second, time since the
+  last message, average interval ± jitter.
+- **Tree context menu** *(new in 2.0)*: copy a branch as a wildcard filter, subscribe or
+  unsubscribe a branch, open its retained messages.
+- **Retained message manager** *(new in 2.0)*: scan a topic filter for retained messages, list
+  them, clear the selected ones.
+- **Broker statistics ($SYS)** and **broker info** *(new in 2.0)*: the broker's live `$SYS`
+  values, and the MQTT 5 capabilities it reported on connect.
+- **Publish dialog:** topic, payload, QoS, retain, a file up to 500 KB (e.g. an image), MQTT 5
+  properties.
 
-### Publish dialog
-Not on the current site. Publish a message with topic, payload, QoS and retain, or publish a file
-(up to 500 KB, e.g. an image). On MQTT 5 with content type, message expiry, UTF-8 flag, response
-topic, correlation data and user properties.
+Advantage: you see structure, timing and content at once and get from "something is wrong" to
+the one message that shows why, without writing a script. The retained message manager and $SYS
+statistics use their own connection, so they don't disturb what you're watching.
 
-### Web app performance note
-In the browser, the app shows a hint that performance is limited and suggests the desktop app for
-high message rates. The site may say the same: the web app is ideal to start right away, the
-desktop app for heavy traffic, recordings on disk and the command line.
+Show: grouped view with the detail view and a chart; tree view with statistics and the context
+menu; a JSON diff in the detail view; the map view of a GPS payload; the retained message manager.
 
----
+### 4.3 MQTT 5 in detail
 
-## 4. New in MQTT Studio 2.0
+**Intro (draft):** *MQTT 5 and MQTT 3.1.1, chosen per project. See and send message properties,
+set subscription options and check what your broker supports.*
 
-The main window now has four tabs: **TOPIC VIEWER** (everything in §3), **SIMULATOR**,
-**RECORDER** and **DOCUMENTATION**. The topic viewer gets two more view modes, **Fleet** (VDA 5050
-robots) and **Sparkplug** (edge nodes, devices and metrics), next to Grouped, Tree and Sequential.
-All new features, including VDA 5050 and Sparkplug B support, are **free**, with no licence check;
-none of them is a commercial add-on.
-
-### 4.1 MQTT 5 support
-
-**Suggested copy:** *MQTT 5 and MQTT 3.1.1. Choose the protocol per project. With MQTT 5, MQTT
-Studio shows and sends message properties, sets subscription options and shows what your broker
-supports.*
-
-- Protocol chosen per project; existing projects keep MQTT 3.1.1.
 - Subscription options: No Local, Retain As Published, Retain Handling.
 - Publish properties: content type, message expiry, payload format (UTF-8), response topic,
   correlation data, user properties.
-- Received properties in the message detail view.
-- Clean start and session expiry per project.
+- Received properties in the detail view, including subscription ids.
+- Broker info: maximum QoS, retain available, maximum packet size, receive maximum, topic alias
+  maximum, server keep alive, wildcard subscriptions, subscription identifiers, shared
+  subscriptions, assigned client id.
 
-### 4.2 Client certificates (mutual TLS)
+Advantage: test request/response patterns and message expiry, and find out quickly why a broker
+refuses something.
 
-**Suggested copy:** *Connect to brokers that require client certificates. Add your CA certificate,
-client certificate and private key to the project.*
+Show: the publish dialog with MQTT 5 properties; the broker info dialog.
 
-- CA certificate, client certificate, private key and key password per project.
-- Desktop app only (TLS over TCP). The browser connects over WebSockets.
+### 4.4 SIMULATOR *(new in 2.0)*
 
-### 4.3 Topic viewer tools
-
-**Suggested headline:** Find the message that matters.
-**Suggested copy:** *Filter by topic, payload or value. Decode binary payloads. See what changed
-since the last message, compare any two, and find the retained messages nobody remembers
-publishing. All in the topic viewer you already know.*
-
-- **Three filter modes** in the command bar:
-  - **Topic:** part of the topic, or an MQTT topic filter with `+` and `#` (`plant/+/temp`).
-  - **Payload:** text in the payload.
-  - **Condition:** a value test on the payload, e.g. `$.status == "error"` or
-    `plant/+/temp > 80`, with `== != > >= < <=`, `contains` and `~` (regular expression). Same
-    syntax as the recorder's triggers.
-  - Each mode can use a regular expression; all ignore case. In the tree view, payload filters test
-    each topic's last message.
-- **Payload decoders**, chosen per topic: Auto, Text, Hex, Base64, gzip/zlib, MessagePack and
-  CBOR. Binary payloads get a hex view. A decoded payload works like any other: JSON viewer, chart,
-  filter.
-- **Changes since the previous message:** one click highlights what changed in a topic's payload
-  since its last message, field by field for JSON ("was 21.4, now 21.9") or as a text diff.
-- **Compare two messages:** pin one message, select another (any topic), and see whether the
-  payloads are equal and every difference.
-- **Edit and publish:** opens the publish dialog prefilled with the selected message, to change a
-  value and send it again.
-- **Topic statistics** in the tree view: messages and bytes per second, the time since the last
-  message, and the average interval with its jitter, per topic. Shows at a glance which topics are
-  slow, irregular or silent.
-- **Tree context menu:** copy a branch as a topic or wildcard filter, subscribe to or unsubscribe
-  from a branch, expand and collapse branches, open the retained messages of a branch.
-- **Retained message manager:** scans a topic filter for retained messages on the broker, lists
-  them with topic, payload and size, and clears the selected ones (with confirmation). Useful to
-  clean up after tests or find stale state.
-- **Broker statistics ($SYS):** an app bar button shows the broker's `$SYS` topics live: version,
-  uptime, connected clients, message and byte rates, subscriptions, retained and stored messages,
-  with a summary for Mosquitto and the full list for other brokers.
-- **Broker info:** what the broker reported on connect (MQTT 5): maximum QoS, retain available,
-  maximum packet size, receive maximum, topic alias maximum, server keep alive, support for
-  wildcard subscriptions, subscription identifiers and shared subscriptions, assigned client id.
-
-The retained message manager and the broker statistics use their own connection, so they don't
-disturb the topic viewer's subscriptions.
-
-### 4.4 SIMULATOR: simulated devices without hardware
-
-**Suggested headline:** Simulate devices, not just messages.
-**Suggested copy:** *Test dashboards, backends and integrations before the hardware exists.
-Define a device once, run it as 1,000 instances, and let MQTT Studio publish realistic sensor
-values, GPS tracks, images and JSON documents on a schedule.*
+**Intro (draft):** *Test dashboards, backends and integrations before the hardware exists. Define
+a device once, run it as 1,000 instances, and let MQTT Studio publish sensor values, GPS tracks,
+images and JSON documents on a schedule.*
 
 What it does:
-- **Devices with instances.** A device has several topics; one definition expands to up to 1,000
-  instances. Topic placeholders: `{n}` (instance number), `{n:3}` (zero-padded, `007`) and
-  `{device}`, e.g. `weather/{n}/temp` → `weather/1/temp` … `weather/10/temp`.
-- **11 payload generators:**
-  - Random string
-  - Random number
-  - Counter (also for codes like `ORD-0001`)
-  - Boolean (`true/false`, `1/0`, `ON/OFF`)
-  - Value list (random or in order)
-  - Random walk (drifts like a real sensor, within limits)
-  - Wave (sine, square, triangle, sawtooth, with noise)
-  - Timestamp (ISO 8601, epoch, custom pattern)
-  - GPS track (wander around a point or follow a route)
-  - Random image (JPG/PNG from a folder, desktop only)
-  - Template: JSON or any text built from named fields, each with its own generator
-- **Timing:** fixed or random interval per topic (from 50 ms). Instances start staggered so they
-  don't all fire at once.
-- **MQTT options:** QoS, retain, and MQTT 5 properties (content type, message expiry, user
-  properties).
-- **Control:** start and stop everything, one device or one topic. Live statistics per topic:
-  messages sent, last payload (with the instance that sent it), errors.
-- **Live preview** of generated values while editing.
+- **Devices with instances:** one definition runs as up to 1,000 instances. Topic placeholders
+  `{n}`, `{n:3}` (zero-padded) and `{device}`: `weather/{n}/temp` → `weather/1/temp` …
+  `weather/10/temp`.
+- **11 payload generators:** random string, random number, counter (e.g. `ORD-0001`), boolean,
+  value list, random walk (drifts like a real sensor), wave (sine, square, triangle, sawtooth, with
+  noise), timestamp, GPS track (wander or follow a route), random image (desktop), and template
+  (JSON or text with named fields, each with its own generator).
+- **Timing:** fixed or random interval per topic, from 50 ms; instances start staggered.
+- **MQTT options:** QoS, retain, MQTT 5 properties.
+- **Control:** start and stop everything, one device or one topic; live counts and last payload
+  per topic; live preview while editing.
 - **Rate guard:** shows the estimated message rate, warns above 100 msg/s (50 in the browser),
-  refuses above 1,000 msg/s in the app.
-- **One click to watch:** subscribe to a simulated topic in the TOPIC VIEWER (`weather/+/temp`).
-  Generated numbers chart, GPS positions show on the map, images show as images.
-- **Clear retained:** removes the retained messages a simulation left on the broker.
-- **Recorded devices:** a device can also replay a recording (see §4.5) instead of generating
-  values, e.g. one real machine replayed as 20 machines.
-- **VDA 5050 robots** and **Sparkplug B edge nodes** as ready-made device kinds that follow their
-  protocol, with fault injection (see §4.8 and §4.9).
-- **Saved in the project**, and runnable from the command line (`mqttstudio simulate`).
+  refuses above 1,000 msg/s.
+- **One click to watch** a simulated topic in the TOPIC VIEWER; **clear retained** after a test.
+- **Recorded devices:** replay a recording as a device, e.g. one real machine as 20 machines.
+- **VDA 5050 robots** and **Sparkplug B edge nodes** as device kinds (§4.8, §4.9).
+- Saved in the project, runnable from the command line.
 
-Use cases: load tests, demo systems, frontend development without a backend, testing alarms with
-values that leave their range, reproducing many devices with one laptop.
+Advantage: frontend work without a backend, load tests, demo systems, alarm tests with values
+that leave their range, many devices from one laptop.
 
-### 4.5 RECORDER: record, replay and analyze MQTT traffic
+Show: a multi-instance device running; the topic dialog with a template generator and its preview.
 
-**Suggested headline:** Record it once. Replay it anywhere.
-**Suggested copy:** *Capture a customer's traffic and reproduce the bug at your desk. Replay a
+### 4.5 RECORDER *(new in 2.0)*
+
+**Intro (draft):** *Capture a customer's traffic and reproduce the bug at your desk. Replay a
 production day into a test system at 10× speed. Keep the last 10 minutes before every alarm.
 Compare two runs and let your CI fail when the output changes.*
 
-Recording:
-- Record one topic, a wildcard filter, or several filters with exclusions.
-- Every message is stored with payload, QoS, retain flag, MQTT 5 properties and receive time.
-  The retained state at the start is kept as a snapshot.
-- Runs on its own connection, so recording doesn't depend on the CONNECT button; reconnects
-  automatically and marks the gap.
-- **Start and stop by condition:** start when a message matches (with up to 10 minutes of
-  pre-roll from before the trigger), stop after a duration, a message count, a size or a
-  condition (with post-roll).
-- **Flight recorder:** keeps the last minutes in memory and saves them on a button press or when
-  a condition matches, like a plane's flight recorder.
-- Conditions are simple text, e.g. `plant/+/temp > 80` or `plant/line1/state $.status == "error"`.
-- **Save as recording** from the TOPIC VIEWER: turn the messages on screen into a recording.
-- A red **REC indicator** in the app bar shows a running recording on every tab.
-- Recordings are files (`.mqttrec`), crash-safe, kept in a library folder
-  (`Documents\MQTT Studio\Recordings` by default) and linked to their project. In the browser they
-  are kept in the browser's storage (up to 100 MB each).
+What it does:
+- **Record** topic filters with exclusions over a connection of its own, with payload, QoS,
+  retain, MQTT 5 properties and receive time, plus the retained state at the start. Reconnects on
+  its own and marks the gap.
+- **Start and stop by condition** (`plant/+/temp > 80`), with up to 10 minutes of pre-roll; stop
+  after a duration, count or size.
+- **Flight recorder:** keeps the last minutes in memory and saves them on a button press or when a
+  condition matches.
+- **Save as recording** from the TOPIC VIEWER; **REC indicator** in the app bar on every tab.
+- **Recordings** are crash-safe `.mqttrec` files in a library folder; in the browser they're kept
+  in browser storage (up to 100 MB each).
+- **Playback:** a whole recording, one topic or a range, at 0.1× to 100×; pause, seek, step,
+  loop, shorten long pauses; rewrite topics (`prod/` → `test/`); timing doesn't drift over hours.
+- **Analysis:** OVERVIEW (rates, intervals, sizes, gaps per topic), TIMELINE (lanes per topic,
+  zoom, bookmarks, connection-loss markers), MESSAGES (the topic viewer on recorded data), CHARTS
+  (values and JSON fields over time, interval histogram, GPS tracks), COMPARE (two recordings by
+  counts, payloads and timing).
+- **Editing** without touching the original: trim, keep or rename topics, merge, split, and
+  **anonymize** (hash, mask, replace, remove or jitter values).
+- **Import and export:** JSON lines and CSV; import also reads `mosquitto_sub` output.
 
-Playback:
-- Play a whole recording, one topic or a selection, at 0.1× to 100× or as fast as allowed.
-- Pause, resume, seek, step message by message, loop, play a time range, shorten long pauses.
-- Rewrite topics on the fly (`prod/` → `test/`), override retain and QoS, publish or skip the
-  retained snapshot.
-- Timing doesn't drift, also over hours.
-- **Add to simulation:** run a recording as a recorded device with many instances.
+Advantage: field issues become reproducible, regression tests get real input data, and traffic can
+be shared with partners without exposing sensitive values.
 
-Analysis (tabs OVERVIEW, TIMELINE, MESSAGES, CHARTS, COMPARE):
-- **Overview:** per topic: messages, rate, interval, payload size, gaps.
-- **Timeline:** one lane per topic, zoom and pan, select a range, bookmarks, connection-loss
-  markers.
-- **Messages:** the TOPIC VIEWER's grouped, tree and sequential views, filter and detail view on
-  recorded data.
-- **Charts:** a number payload or a JSON field over time with min, max and average; interval
-  histogram; GPS positions as a track on the map.
-- **Gaps and duplicates** per topic.
-- **Compare** two recordings: counts, payloads (JSON compared by content, fields can be ignored,
-  number tolerance) and timing. In CI the command fails when they differ.
+Show: the TIMELINE with bookmarks; the REC indicator in the app bar; the CHARTS tab; a COMPARE
+result.
 
-Editing (the original is never changed, every edit makes a new recording): trim, keep or delete
-topics, rename topics, merge, split (at bookmarks, at the playhead, per topic) and **anonymize**
-(hash, mask, replace, remove or jitter values, e.g. before sending a recording to a supplier).
+### 4.6 DOCUMENTATION *(new in 2.0)*
 
-Import and export: JSON lines and CSV (with chosen JSON fields as columns); import also reads
-`mosquitto_sub` output.
+**Intro (draft):** *MQTT Studio listens to your broker and writes the first draft of your topic
+documentation: every topic with its payload format, JSON schema, interval, QoS and retain flag.
+You add the descriptions, and a check tells you when devices stop following them.*
 
-Use cases: reproduce field issues offline, regression tests in CI, demo data, load tests from real
-traffic, sharing anonymized traffic with partners.
+What it does:
+- **Discover** from a live broker, a recording or the TOPIC VIEWER's messages. Topics that differ
+  only by an id become one **template**: `plant/{line}/m{machine}/temp`.
+- **Review, never overwrite:** new, changed and no longer seen topics are listed; nothing you wrote
+  is overwritten without asking.
+- **Edit:** title, Markdown description, status, owner, tags, links, parameters, payload (format,
+  unit, range, allowed values, JSON schema as a field table, examples), delivery (QoS, retain,
+  interval, "stale after"), MQTT 5 properties, producers, consumers, sensitivity. Observed values
+  show next to the documented ones.
+- **Check** live traffic against the documentation: undocumented topics, wrong format, schema
+  violations, values out of range, wrong QoS or retain, silent topics, deprecated topics in use,
+  plus the VDA 5050 and Sparkplug B protocol rules.
+- **Export:** Markdown, HTML (print to PDF, a clean handbook), **AsyncAPI 3.0** (YAML or JSON),
+  JSON Schema bundle, CSV. Exports never contain passwords, certificates or the client id.
+- **Import:** AsyncAPI 2.x and 3.x; ready-made VDA 5050 documentation from the official schemas.
+- **Create a simulation** from documented topics.
 
-### 4.6 DOCUMENTATION: document your topics automatically
+Advantage: documentation that starts from the real system instead of an empty page, stays in sync
+through the check, and can be handed over as a PDF or exchanged as AsyncAPI.
 
-**Suggested headline:** Your MQTT topics, documented in minutes.
-**Suggested copy:** *Writing topic documentation by hand is slow and out of date the day after.
-MQTT Studio listens to your broker and writes the first draft for you: every topic with its
-payload format, JSON schema, interval, QoS and retain flag. You add the descriptions, and a check
-tells you when devices stop following the documentation.*
+Show: the documentation tree with the editor and the observed panel; the discovery review; check
+findings; an exported HTML page (optional).
 
-- **Discover:** subscribe to one or more wildcard filters and listen for a few minutes, or read a
-  recording or the TOPIC VIEWER's messages. Every topic becomes a documented entry with payload
-  format, inferred JSON schema, interval (periodic, on change, event), QoS, retain flag and
-  examples.
-- **Templates:** topics that differ only by an id are proposed as one template with parameters,
-  e.g. `plant/{line}/m{machine}/temp` instead of hundreds of single topics.
-- **Review, never overwrite:** running discovery again lists new, changed and no longer seen
-  topics. Nothing you wrote is overwritten without asking.
-- **Edit:** title, description, status (draft, stable, deprecated), owner, tags, links,
-  parameters, payload (format, unit, range, allowed values, JSON schema as a field table,
-  examples), delivery (QoS, retain, interval, "stale after"), MQTT 5 properties, producers,
-  consumers, sensitivity and access notes. Observed values are shown next to the documented ones.
-- **Check:** compares live traffic with the documentation and lists findings as errors or
-  warnings: undocumented topics, wrong format, JSON that breaks the schema, values out of range or
-  not allowed, wrong QoS or retain, topics that go silent, deprecated topics still in use. On
-  VDA 5050 and Sparkplug B topics it also checks the protocol rules (see §4.8 and §4.9).
-- **Ready-made VDA 5050 documentation:** one click imports all VDA 5050 topics with the official
-  JSON schemas (versions 2.1 and 3.0).
-- **Export:** Markdown, HTML (print to PDF), **AsyncAPI 3.0** (YAML or JSON), a JSON Schema bundle
-  and CSV. Exports never contain passwords, certificates or the client id.
-- **Readable documents:** the HTML export renders the Markdown descriptions (headings, lists,
-  links, code), links topic references to their sections, and leaves out fields nobody filled
-  in. Its print stylesheet keeps headings with their content and repeats table headers, so
-  "print to PDF" gives a clean handbook to hand to a customer.
-- **Import:** AsyncAPI 2.x and 3.x, merged with what is already documented.
-- **Connected to the rest of the app:** create a simulation from documented topics, discover from
-  a recording, documented titles appear as tooltips in the TOPIC VIEWER tree.
-- Saved in the project; discovery and check never publish anything.
+### 4.7 Command line *(new in 2.0)*
 
-Use cases: document an existing plant or product before a project starts, hand a system over to a
-customer or support team, review naming and payload consistency, check in CI that devices still
-send what the documentation promises, exchange the API as AsyncAPI.
-
-### 4.7 Command line (CLI)
-
-**Suggested headline:** Automate it.
-**Suggested copy:** *Everything you set up in the app also runs headless: simulate devices on a
+**Intro (draft):** *Everything you set up in the app also runs headless: simulate devices on a
 test server, record a night shift, replay into staging, and fail your pipeline when the output or
 the topic documentation doesn't match.*
 
-- Installed with the Windows desktop app; the command is `mqttstudio`. Not available in the
-  browser version.
+- Installed with the Windows desktop app; the command is `mqttstudio`.
 - Commands: `projects`, `simulate`, `record`, `replay`, `recordings` (list, show, export, import,
   edit, compare) and `doc` (discover, check, export, import).
-- Uses the projects saved in the app; broker settings can be overridden per run. Passwords come
-  from environment variables, never from the command line.
-- Machine-readable output (`-o json`, one JSON object per line) and documented exit codes for CI.
-- `simulate` runs VDA 5050 robots and Sparkplug edge nodes too, `doc check` applies the VDA 5050
-  and Sparkplug B protocol rules, and `doc import --preset vda5050-v2|vda5050-v3` writes the
-  ready-made VDA 5050 documentation.
+- Uses the projects saved in the app; broker settings can be overridden per run; passwords only
+  from environment variables.
+- JSON lines output (`-o json`) and documented exit codes for CI.
 - App and CLI can run at the same time.
-- Full user manual: `doc/cli-manual.md` in the repository. **TO CONFIRM:** whether the manual is
-  published on the site (it would fit as a docs page).
+- Full manual: `doc/cli-manual.md`. **TO CONFIRM:** whether it is published on the site (it fits
+  as a docs page).
 
-Example for a feature section (from the manual):
+Show (from the manual):
 
 ```
 mqttstudio simulate -p "Demo factory" --duration 8h
@@ -393,113 +303,90 @@ mqttstudio recordings compare reference.mqttrec run-42.mqttrec --ignore '$.ts'
 mqttstudio doc export -p "Plant" --format asyncapi-yaml --out asyncapi.yaml
 ```
 
-### 4.8 VDA 5050: mobile robots and fleet controls
+Plus a terminal screenshot of `simulate` or `record` output.
 
-**Suggested headline:** See what your robots are doing.
-**Suggested copy:** *VDA 5050 is the open interface between AGVs, AMRs and their fleet control.
-MQTT Studio reads it for you: every message in plain words, all robots on one map, the protocol
-checked, and a simulated fleet to test against before the first robot arrives.*
+### 4.8 VDA 5050 *(new in 2.0)*
 
-Background for the agent: VDA 5050 is published by the German automotive association VDA and
-VDMA. It runs on MQTT with JSON messages and a fixed topic layout
+**Intro (draft):** *VDA 5050 is the open interface between AGVs, AMRs and their fleet control.
+MQTT Studio reads every message in plain words, shows all robots on one map, checks the protocol,
+and simulates a fleet to test against before the first robot arrives.*
+
+Background for the agent: VDA 5050 is published by the German automotive association VDA and VDMA.
+It runs on MQTT with JSON messages and a fixed topic layout
 (`{interface}/{version}/{manufacturer}/{serialNumber}/{topic}`, topics `order`,
 `instantActions`, `state`, `visualization`, `connection`, `factsheet`, and in 3.0 `zoneSet` and
 `responses`). Version 2.x runs in most installed fleets; 3.0 was released in March 2026 and adds
 freely navigating robots, zones and requests. Plants will run both for years.
 
-- **Versions 2.0, 2.1 and 3.0**, also mixed in one plant; 1.1 is read where it matches 2.0. No
-  setting needed: messages are recognized by topic and content.
-- **Messages in plain words:** each message gets a one-line summary in the topic viewer, e.g.
-  robot, mode, driving, battery, order progress and error count. Messages in which a robot
-  reports a warning or an error are marked.
-- **Interpreted detail view:** status, errors, action states, order progress, nodes and edges,
-  and for 3.0 paths, zones, requests and responses, instead of a large raw JSON document. One click
-  switches back to the raw payload.
-- **Charts** of a message type's values: state of charge, velocity, position.
-- **Fleet view** (new view mode of the topic viewer): all robots in one table (connection, mode,
-  driving, battery, errors, order, open requests, version) and on a 2D map per map id, with the
-  selected robot's trail, order (released and planned part), and for 3.0 its planned path and the
-  zones. Also works on recordings.
-- **Ready-made documentation** for 2.1 and 3.0, built from the official JSON schemas: topics,
-  payload schemas, QoS, retain and the state heartbeat. Discovery suggests it when it finds
-  VDA 5050 topics.
-- **Protocol check** (documentation tab and CLI): header doesn't match the topic, header id gaps
-  or restarts, timestamp skew, broken order structure, invalid order updates, duplicate action
-  ids, missing state heartbeat, and for 3.0 unanswered requests, responses without a request and
-  visualization ahead of state. Plus schema, QoS and retain checks from the documentation.
-- **Simulated robots** (SIMULATOR): a fleet of up to 200 VDA 5050 2.x or 3.0 robots that drive
-  orders on a grid layout, wait for each other, charge when the battery is low, and for 3.0 respect
-  zones and request permission. The simulator plays the fleet control too, so all of this works
-  with nothing but a broker.
-- **Fault injection** while the simulation runs, per robot: warnings, fatal errors, emergency
-  stop, low battery, cancelled order, connection broken, offline, hibernate, and protocol faults
-  (skipped header ids, clock skew, wrong serial number, broken orders, …). Each protocol fault
-  triggers its check rule, so the check can be demonstrated.
+- **Versions 2.0, 2.1 and 3.0**, also mixed in one plant; 1.1 is read where it matches 2.0.
+  Recognized by topic and content, no setting needed.
+- **Messages in plain words:** a one-line summary per message (robot, mode, driving, battery,
+  order progress, errors); warnings and errors are marked.
+- **Interpreted detail view:** status, errors, action states, order progress, nodes and edges, and
+  for 3.0 paths, zones, requests and responses. One click back to the raw JSON.
+- **Fleet view:** all robots in a table and on a 2D map per map id, with the selected robot's
+  trail, order and, for 3.0, planned path and zones. Also on recordings.
+- **Ready-made documentation** for 2.1 and 3.0 from the official JSON schemas.
+- **Protocol check:** header vs. topic, header id gaps, timestamp skew, order structure and
+  updates, duplicate action ids, missing state heartbeat, and for 3.0 requests and responses.
+- **Simulated robots:** up to 200 robots per device that drive orders on a grid, wait for each
+  other, charge, and for 3.0 respect zones and request permission. The simulator plays the fleet
+  control too, so a broker is all you need.
+- **Fault injection** per robot: errors, emergency stop, low battery, cancelled order, connection
+  loss, and protocol faults that trigger their check rule.
 
-Use cases: commissioning a fleet control against robots from several manufacturers, testing a
-robot's VDA 5050 implementation before the acceptance test, migrating a fleet from 2.x to 3.0,
-troubleshooting in a running plant ("why did robot 0001 stop?").
+Advantage: commission a fleet control against robots from several manufacturers, test a robot's
+VDA 5050 implementation before the acceptance test, migrate from 2.x to 3.0, and answer "why did
+robot 0001 stop?" in a running plant.
 
-What it doesn't do (don't claim it): MQTT Studio is not a fleet control. It doesn't plan routes,
-grant zones or send orders to real robots (users can still publish any message by hand). The
-simulated robots follow the simulator's own fleet control, not an external one. No layout
-backgrounds (CAD, LIF files) on the map.
+Limits (don't claim otherwise): MQTT Studio is not a fleet control. It doesn't plan routes, grant
+zones or send orders to real robots (users can still publish any message by hand). The simulated
+robots follow the simulator's own fleet control. No layout backgrounds (CAD, LIF files) on the map.
 
-### 4.9 Sparkplug B: industrial IoT
+Show: the Fleet view with simulated robots and one robot's order; an interpreted state message; the
+SIMULATOR with the Faults menu open.
 
-**Suggested headline:** Sparkplug B, decoded.
-**Suggested copy:** *Sparkplug B traffic is binary Protobuf with metrics sent by alias. MQTT
-Studio decodes it, names every metric from the birth certificates, shows each edge node and
-device with its live values, checks the session rules, and simulates edge nodes that follow the
+### 4.9 Sparkplug B *(new in 2.0)*
+
+**Intro (draft):** *Sparkplug B traffic is binary Protobuf with metrics sent by alias. MQTT Studio
+decodes it, names every metric from the birth certificates, shows each edge node and device with
+its live values, checks the session rules, and simulates edge nodes that follow the
 specification.*
 
-Background for the agent: Sparkplug B (Eclipse Foundation, specification 3.0, also ISO/IEC
-20237) is the most widely used MQTT convention in industrial IoT. Edge nodes and their devices
-announce their metrics in a *birth* message, then send only changed values, by alias, as
-Protobuf. Without decoding, a generic MQTT client shows hex, and even decoded data has no names.
+Background for the agent: Sparkplug B (Eclipse Foundation, specification 3.0, also ISO/IEC 20237)
+is the most widely used MQTT convention in industrial IoT. Edge nodes and their devices announce
+their metrics in a *birth* message, then send only changed values, by alias, as Protobuf. Without
+decoding, a generic MQTT client shows hex, and even decoded data has no names.
 
 - **Decoded messages:** all message types (NBIRTH, NDEATH, NDATA, NCMD, DBIRTH, DDEATH, DDATA,
-  DCMD and host STATE), all data types including arrays, DataSets and Templates, compressed
-  payloads (GZIP, DEFLATE). A one-line summary per message, e.g. metric names and values with
-  units.
-- **Names from the birth:** data messages show metric names, data types and units taken from the
-  last birth. When the birth was missed, metrics show by alias with a warning.
-- **Request rebirth:** one click (with confirmation) asks an edge node, or all edge nodes of a
-  group, to send their births again, from the detail view, the tree's menu or the Sparkplug view.
-  MQTT Studio never sends it on its own.
-- **Sparkplug view** (new view mode of the topic viewer): host applications, groups, edge nodes
-  and devices as a tree with online/offline state, bdSeq, seq and seq gaps; for the selected node
-  or device all metrics with current value, unit, data type, age, number of changes and
-  properties. Sort by changes to find metrics that are stuck; click a metric to chart it. Also
-  works on recordings. *A host application in miniature, for commissioning and support.*
-- **Charts** of numeric and boolean metrics by name.
-- **Protocol check** (documentation tab and CLI): payload isn't Sparkplug B, missing or skipped
-  seq, missing timestamp, missing or mismatched bdSeq, data after the edge node's death, device
-  data without birth, birth metrics without data type, duplicate aliases, unknown metrics and
-  changed data types.
-- **Simulated edge nodes** (SIMULATOR): up to 20 edge nodes with up to 20 devices and 200 metrics
-  each, following the Sparkplug 3.0 specification: one MQTT connection per edge node with the
-  NDEATH as real last will, births, data by exception (with deadband), seq and bdSeq, rebirth on
-  request, writable metrics (answers NCMD/DCMD writes), optional compression. Metric values come
-  from the simulator's generators (wave, random walk, counter, …). The simulator can also play the
-  primary host application (STATE), so a full system runs with only a broker. Use it to test a
-  SCADA, MES or historian without a PLC.
-- **Fault injection** per edge node: drop the connection (the broker sends the will), restart,
-  devices offline, and protocol faults (skipped seq, unknown metric, wrong data type, data after
-  death, device data without birth, wrong bdSeq, missing timestamp, non-Sparkplug payload). Each
-  protocol fault triggers its check rule.
+  DCMD, host STATE), all data types including arrays, DataSets and Templates, compressed payloads.
+- **Names from the birth:** metric names, data types and units from the last birth.
+- **Request rebirth** with one click (and a confirmation); never sent on its own.
+- **Sparkplug view:** host applications, groups, edge nodes and devices with online state, bdSeq,
+  seq and seq gaps; all metrics with value, unit, type, age and number of changes; sort by changes
+  to find stuck metrics, click to chart. Also on recordings.
+- **Protocol check:** seq gaps, missing timestamps, bdSeq mismatches, data after death, device data
+  without birth, duplicate aliases, unknown metrics, changed data types.
+- **Simulated edge nodes:** up to 20 edge nodes with up to 20 devices and 200 metrics each, with
+  the NDEATH as real last will, data by exception, rebirth on request, writable metrics; optionally
+  the primary host too, so a full system runs with only a broker.
+- **Fault injection** per edge node: dropped connection, restart, devices offline, and protocol
+  faults that trigger their check rule.
 
-Use cases: commissioning edge gateways and PLC connections, testing host applications against a
-reference edge node and against known faults, troubleshooting missing or stale metrics.
+Advantage: commission edge gateways and PLC connections, test a SCADA, MES or historian without a
+PLC, and track down missing or stale metrics.
 
-What it doesn't do (don't claim it): no writing of metrics from a command editor yet (users can
-publish by hand), discovery documents Sparkplug topics without their metrics, Sparkplug 2.2 is
-read but not simulated, no store-and-forward in the simulator.
+Limits (don't claim otherwise): no writing of metrics from a command editor (users can publish by
+hand), discovery documents Sparkplug topics without their metrics, Sparkplug 2.2 is read but not
+simulated, no store-and-forward in the simulator.
 
 Trademark note: "Sparkplug" is a trademark of the Eclipse Foundation. **TO CONFIRM:** whether the
 site needs a trademark notice for Sparkplug and VDA 5050.
 
-### 4.10 Availability: desktop vs. browser
+Show: the Sparkplug view with edge nodes, devices and the metric table; a decoded message in the
+detail view.
+
+### 4.10 Desktop app and browser
 
 | Feature | Windows desktop | Browser |
 |---|---|---|
@@ -516,98 +403,550 @@ site needs a trademark notice for Sparkplug and VDA 5050.
 | Command line | yes | no |
 | High message rates | recommended | limited |
 
+The web app is the quickest way to look around; the desktop app suits heavy traffic, recordings on
+disk, client certificates and the command line. The browser version shows the same hint.
+
 ---
 
-## 5. Suggested site structure
+## 5. Complete feature list
+
+The full list of what MQTT Studio 2.0 does, area by area, taken from the app itself. §4 explains
+the features; this section is the reference for feature pages, comparison tables, the download page
+and the release notes. Use it to check that a page claims nothing the app doesn't do and leaves out
+nothing important.
+
+Marks: **(desktop)** works in the Windows desktop app only, **(MQTT 5)** works only in projects
+set to MQTT 5 (the controls stay visible but disabled for MQTT 3.1.1 projects). Everything without
+a mark works in both the desktop app and the browser. Everything is free.
+
+### 5.1 Main window and general
+
+- One window with four tabs: **TOPIC VIEWER**, **SIMULATOR**, **RECORDER**, **DOCUMENTATION**.
+- App bar: menu, name of the open project, the tabs, the red REC indicator while a recording runs,
+  broker statistics ($SYS) button, broker info button, CONNECT button.
+- CONNECT button names its action: red **CONNECT**, green **DISCONNECT**, **CONNECTING** with a
+  spinner; the tooltip shows the broker address. Without an open project it offers to create one.
+- Menu: New Project, Open Project, Save Project, Close Project, Project Settings, About MQTT
+  Studio.
+- Start screen (no project open): recent projects, NEW PROJECT and OPEN PROJECT.
+- Error messages name the cause: the broker's reason when it closes the connection or refuses a
+  subscription.
+- Every dialog: Esc cancels, Enter submits.
+- Browser only: a performance hint that suggests the desktop app for high message rates, with "Do
+  not show again".
+- Optional newsletter sign-up (email, first name, last name, company, privacy consent under the
+  GDPR), with "Later" and "Do not show again".
+- English user interface.
+
+### 5.2 Projects and connection
+
+- **Projects** bundle everything for one scenario: broker settings, subscriptions with their
+  colors, the simulation and the topic documentation. Recordings are linked to the project they
+  were made with.
+- New, open, save, close, edit settings. Closing a project with unsaved changes asks to save.
+  Closing a project or the app during a recording asks first (the recording is saved).
+- **Recent projects:** the six last used projects as cards with their last-used time; one click
+  opens a project.
+- Stored locally on the computer (in the browser's storage for the web app). Nothing is uploaded.
+- **Broker settings:** project name, broker host, port, client id, user name, password (with a
+  show-password toggle).
+- **Protocol** per project: MQTT 3.1.1 or MQTT 5. Old projects open as MQTT 3.1.1.
+- **Transport:** TCP, TLS ("Use SSL"), WebSockets (`ws://`, `wss://`). The browser version uses
+  WebSockets only.
+- **Clean start** and **session expiry** (MQTT 5).
+- **Client certificates (mutual TLS)** (desktop): CA certificate, client certificate, private key
+  and key password, chosen as files.
+- **Broker info** dialog: protocol, reason code and reason string, session present, session expiry,
+  assigned client id, maximum QoS, retain available, maximum packet size, receive maximum, topic
+  alias maximum, server keep alive, wildcard subscriptions, subscription identifiers, shared
+  subscriptions, response information, server reference (the MQTT 5 values as the broker reported
+  them on connect).
+- **Broker statistics ($SYS)**, live, over a connection of its own: version, uptime, connected
+  clients, clients in total, most clients at once, messages and bytes received and sent (1-minute
+  average), subscriptions, retained messages, stored messages, heap in use. The summary follows
+  Mosquitto's topics; the full list of all `$SYS` topics with a filter works for any broker. Says
+  clearly when a broker publishes no `$SYS` topics.
+
+### 5.3 Topic subscriptions
+
+- **Add topic** dialog: topic or topic filter (wildcards `+` and `#`), QoS (at most once, at least
+  once, exactly once), color; SUBSCRIBE or SUBSCRIBE & NEW to add several in a row. Invalid topics
+  and duplicate subscriptions are refused.
+- **MQTT 5 subscription options** (MQTT 5): No Local, Retain As Published, Retain Handling (send
+  retained on subscribe / only for new subscriptions / don't send).
+- **Topic chips** in the subscription panel, one per subscription in its color: tap to pause or
+  resume, ✕ to unsubscribe. A paused topic turns grey.
+- 11 topic colors; a new subscription gets a random one, changeable.
+- Subscriptions are saved with the project and subscribed again on connect.
+
+### 5.4 TOPIC VIEWER: message views
+
+- **Start, pause and clear** the message stream.
+- **Five view modes:**
+  - **Grouped:** messages grouped by time period (1 s, 10 s, 1 min, 1 h) as colored chips.
+  - **Tree:** the topic hierarchy with message counts; expand all, collapse all, topic
+    statistics, context menu (§5.6). Documented topic titles show as tooltips.
+  - **Sequential:** every message in arrival order.
+  - **Fleet:** VDA 5050 robots in a table and on a map (§5.15). Available once a VDA 5050 robot
+    was received.
+  - **Sparkplug:** Sparkplug B hosts, edge nodes, devices and metrics (§5.16). Available once a
+    Sparkplug B message was received.
+- Each message shows in its topic's color; new messages briefly "glow".
+- VDA 5050 and Sparkplug B messages show a **one-line summary** in the sequential and tree views,
+  and a tooltip and warning/error marker on grouped chips. A topic can be switched to the raw
+  payload for the session.
+- Keeps up to 100,000 messages or 200 MB, then drops the oldest; the detail view says when
+  messages of a topic were dropped.
+- **Save as recording:** turns the messages the topic viewer holds into a recording.
+- **Retained messages** button (§5.7) and **PUBLISH** button (§5.8) in the command bar.
+
+### 5.5 TOPIC VIEWER: filter
+
+- Filter field in the command bar with three modes:
+  - **Topic:** part of the topic, or an MQTT topic filter with `+` and `#` (`plant/+/temp`).
+  - **Payload:** text in the payload.
+  - **Condition:** `[<topic filter>] [<JSON path>] [<operator> <value>]` with `== != > >= < <=`,
+    `contains` and `~` (regular expression), e.g. `$.status == "error"` or `plant/+/temp > 80`.
+    Same syntax as the recorder's triggers.
+- Regular expression toggle (`.*`) for every mode; case is ignored.
+- In the tree view, payload and condition filters test each topic's last message.
+- Invalid filters are marked with an error icon; one click clears the filter.
+
+### 5.6 TOPIC VIEWER: tree tools
+
+- **Topic statistics** per topic: messages and bytes per second (over the last 10 s), time since
+  the last message, average interval ± jitter. Retained messages sent on subscribe don't count as
+  intervals.
+- **Context menu** on every branch: copy the topic or the branch as a wildcard filter, subscribe
+  to the branch, unsubscribe from one or all subscriptions in the branch, expand or collapse this
+  branch, expand or collapse all, retained messages in this branch, request a Sparkplug rebirth of
+  one or all edge nodes of a group.
+
+### 5.7 Retained message manager
+
+- Scans a topic filter for retained messages on the broker, over a connection of its own (the
+  topic viewer's subscriptions stay as they are).
+- Shows the count while scanning, then a list with topic, payload and size.
+- Clears the selected retained messages, after a confirmation.
+- Opens from the command bar or from a branch of the tree.
+
+### 5.8 Publishing
+
+- **Publish dialog:** topic (no wildcards), payload, QoS, retain.
+- **Publish a file** up to 500 KB, e.g. an image.
+- **MQTT 5 properties** (MQTT 5): content type, message expiry, UTF-8 payload format, response
+  topic, correlation data, any number of user properties.
+- **Re-publish** a received message unchanged, or **edit and publish**: the dialog opens prefilled
+  with the selected message.
+- **Clear a retained message** from the detail view.
+
+### 5.9 Message detail view
+
+- Opens next to the messages when a message is selected.
+- **Metadata:** topic (copy button), received time, QoS, retain, payload size, message count of the
+  topic.
+- **MQTT 5 properties** of received messages (MQTT 5): content type, response topic, correlation
+  data, message expiry, payload format, user properties, subscription ids.
+- **Payload viewer** by content:
+  - text and JSON (formatted, copyable)
+  - numbers (large) with a **chart** over time with min, max and average
+  - images (JPG, PNG)
+  - GPS positions (`lat,lon`) on a **map**
+  - binary payloads as a hex view
+  - VDA 5050 and Sparkplug B messages **interpreted** (§5.15, §5.16), with a switch to the raw
+    payload and a dropdown to chart a value of the message
+  - Note: dates have no viewer of their own, they show as text. Don't list "dates" as a payload
+    type (the current site does).
+- **Payload decoders**, chosen per topic for the session: Auto, Text, Hex, Base64, gzip/zlib,
+  MessagePack, CBOR. A decoded payload works like any other (JSON viewer, chart, filter).
+- **Changes since the previous message** of the topic: changed JSON fields with old and new value
+  ("was 21.4, now 21.9"), added and removed fields, or a text diff.
+- **Compare two messages:** pin one message, select another one of any topic; the dialog says
+  whether the payloads are equal and lists the differences.
+- **Actions:** copy topic, copy payload, re-publish, edit and publish, clear retained, **AUTOSELECT**
+  (follow the newest message), **show the last 1,000** messages of the topic, request a Sparkplug
+  rebirth.
+
+### 5.10 SIMULATOR: devices and topics
+
+- **Four device kinds:** generated device, recorded device, VDA 5050 robots, Sparkplug edge nodes.
+- **Generated device:** name, **instances** (1 to 1,000), number of the first instance, a preview
+  of the topics it publishes to.
+- **Topic placeholders:** `{n}` (instance number), `{n:3}` (zero-padded, up to 12 digits),
+  `{device}` (device name). They also work in user property values and templates.
+- **Topic settings:** topic, generator, **interval** (fixed, or random between two values; at least
+  50 ms), QoS, retain, MQTT 5 properties (content type, set automatically when empty; message
+  expiry; user properties).
+- **Live preview:** GENERATE shows sample payloads for chosen instances, with a JSON check.
+- **Validation** before start: empty or wildcard topics, missing `{n}` with several instances,
+  intervals too short, unknown template fields, GPS routes with fewer than 2 points, and more.
+- **Control:** start and stop everything, one device or one topic; edit, duplicate and delete
+  devices and topics. Saving a running topic restarts it.
+- **Live status** per topic: running, stopped or error; messages sent; last payload.
+- **Rate guard:** shows the estimated rate in msg/s, warns above 100 msg/s (50 in the browser) that
+  the topic viewer may lag, refuses to start above 1,000 msg/s.
+- **Subscribe in one click:** subscribe to a simulated topic in the TOPIC VIEWER.
+- **CLEAR RETAINED:** removes the retained messages the simulation left on the broker.
+- Instances start staggered; the simulation stops with a message when the connection is lost.
+- Saved in the project; runs from the command line too (§5.19).
+- Browser: timers slow down in background tabs, the app says so.
+
+### 5.11 SIMULATOR: payload generators
+
+| Generator | Settings |
+|---|---|
+| Random string | min and max length, characters, prefix, postfix |
+| Random number | min, max, decimals, prefix, postfix |
+| Counter | start, step, decimals, reset after, prefix, postfix (e.g. `ORD-0001`) |
+| Boolean | probability of true, texts for true and false (`true/false`, `1/0`, `ON/OFF`, …) |
+| Value list | values, one per line, picked at random or in order |
+| Random walk | start, min, max, volatility, decimals, prefix, postfix: drifts like a real sensor |
+| Wave | sine, square, triangle or sawtooth; offset, amplitude, period, phase, noise, decimals, prefix, postfix |
+| Timestamp | ISO 8601, epoch milliseconds, epoch seconds or a custom pattern; UTC or local time |
+| GPS track | **wander** around a center (radius, turn rate, speed) or follow a **route** of waypoints; output `lat,lon` or JSON |
+| Random image (desktop) | JPG/PNG files from a folder, by extension, at random or in order |
+| Template | JSON or any text with named fields (`{{name}}`, `{{name.part}}`), each field with its own generator; optional JSON check |
+
+### 5.12 SIMULATOR: recorded devices
+
+- A device that **plays a recording** instead of generating values.
+- Choose the recording and the topics to play; playback options as in the recorder (speed, loop,
+  range, gaps, topic remapping, retain, QoS).
+- **Instances:** one recording played as many devices, each with its own topics (remapping with
+  `{n}`, e.g. `plant/` → `plant/{n}/`).
+- Instances start staggered, all at once, or at a random position in the recording.
+- **ADD TO SIMULATION** in the RECORDER creates such a device in one click.
+
+### 5.13 RECORDER: recording
+
+- **RECORD** dialog: name, **topic filters** with QoS, each to **include** or **exclude**;
+  suggestions from the subscribed topics and the last filters. Hints when a filter is covered by
+  another one, or when `$SYS` topics need their own filter.
+- Records over a **connection of its own**, independent of the CONNECT button; **reconnects** on
+  its own and marks the gap.
+- Stores each message with payload, QoS, retain flag, MQTT 5 properties and receive time; the
+  retained messages at the start as a **retained snapshot** (optional).
+- **Stop** after a duration, a number of messages or a size; optional maximum payload size (longer
+  payloads are cut).
+- **Start and stop by condition** (`plant/+/temp > 80`, `plant/line1/state $.status == "error"`),
+  with **pre-roll** (up to 10 minutes from before the start trigger) and **post-roll**.
+- **Flight recorder** mode: keeps a window (e.g. the last 10 minutes) in memory with a memory
+  limit, and saves it as a recording on **SAVE** or when the save condition matches, with
+  post-roll and an optional maximum number of saves.
+- **Bookmarks** while recording, e.g. when a device is switched or an error shows.
+- **REC indicator** in the app bar on every tab: elapsed time, messages, size; also WAITING FOR
+  TRIGGER, FLIGHT, CONNECTING and RECONNECTING states. A click opens the recorder.
+- **Save as recording** from the TOPIC VIEWER.
+
+### 5.14 RECORDER: library, playback, analysis and editing
+
+**Library**
+- Recordings are `.mqttrec` files: crash-safe (an interrupted recording is recovered and marked
+  "Recovered"), with a summary and an index for fast seeking.
+- Library folder, by default `Documents\MQTT Studio\Recordings`, changeable (desktop); FOLDER opens
+  it in Explorer. The command line uses the same folder.
+- Browser: recordings are kept in the browser's storage, up to 100 MB each; export them to keep
+  them elsewhere.
+- Show the recordings of the open project or of all projects; assign a recording to a project.
+- Name and notes per recording; delete.
+
+**Playback** (on the main connection)
+- Play everything, chosen topics or a range; pause, resume, stop, **step** one message at a time.
+- Speed 0.1× to 100×, loop, play from/to an offset, **shorten gaps** longer than a set time.
+- **Topic remapping** (`prod/` → `test/`), retain as recorded / never / always, QoS as recorded or
+  fixed, retained snapshot published first or skipped, MQTT 5 properties republished or not.
+- Shows the estimated and peak rate before playing, progress, lag and loop count while playing.
+- Timing doesn't drift, also over hours. Warns when a running recording would record the playback.
+
+**Analysis tabs**
+- **OVERVIEW:** per topic: messages, rate, interval, value range, payload type, average size,
+  duplicates, gaps, retained; connection gaps, bookmarks, notes.
+- **TIMELINE:** one lane per topic, zoom and pan, select a range (used by playback, MESSAGES and
+  CHARTS), bookmarks (add, rename, delete, jump to), gaps with an adjustable threshold and
+  connection-loss markers, duplicates (same payload as before, or again within 100 ms).
+- **MESSAGES:** the topic viewer's grouped, tree and sequential views, filter and detail view on
+  the recorded messages; also the Fleet and Sparkplug views for recordings that contain them.
+- **CHARTS:** a number payload or any JSON path over time with min, max and average; histogram of
+  the time between messages; GPS positions as a track on the map.
+- **COMPARE:** two recordings topic by topic: message counts (with tolerance), payloads in order
+  (JSON compared by content, ignored JSON paths, number tolerance), timing (median interval, with
+  tolerance), topic mapping between the two, limited to a range. Shows the first difference per
+  topic and the field where it differs.
+
+**Editing** (each edit makes a new recording, the original stays)
+- Trim to the selected range, keep the selected topics, rename topics by prefix, merge with other
+  recordings, split (at bookmarks, at the playhead, one recording per topic).
+- **Anonymize** with rules per topic filter: target a JSON field, the whole payload or a topic
+  level; hash, mask with `*`, fixed value, remove, or jitter numbers by ± percent. Optionally also
+  user properties and correlation data. Rules can be saved and loaded.
+- **Discover documentation** from a recording (§5.17).
+
+**Import and export**
+- Export as `.mqttrec`, JSON lines or CSV (with chosen JSON paths as extra columns), all topics or
+  the ones selected, all or the selected range.
+- Import `.mqttrec`, JSON lines, CSV and `mosquitto_sub` output (with times via
+  `-F "%U %t %p"`, or `-v` without times and a set interval).
+
+### 5.15 VDA 5050 (AGVs, AMRs and fleet controls)
+
+- **Versions** 2.0, 2.1 and 3.0, mixed in one plant; 1.1 read where it matches 2.0. Recognized
+  automatically by topic and content.
+- **Topics** `order`, `instantActions`, `state`, `visualization`, `connection`, `factsheet`, and for
+  3.0 `zoneSet` and `responses`.
+- **One-line summaries** in the topic viewer; messages with robot warnings or errors are marked.
+- **Interpreted detail view:** status, errors, action states, order progress, nodes and edges;
+  for 3.0 paths, zones, requests and responses. Switch to the raw JSON in one click.
+- **Charts** of message values: battery charge, velocity, position.
+- **Fleet view:**
+  - table: robot, version, connection, mode, driving, battery, order and node, errors, open
+    requests, age of the last state;
+  - 2D map per map id with a grid and a legend: robots colored by state (driving, standing,
+    warning, error, offline), the selected robot's trail, its order (released and not yet
+    released, nodes reached and ahead), for 3.0 the planned path, the next meters and the zones;
+    fit to view.
+  - Works on live traffic and on recordings.
+- **Ready-made documentation** for 2.1 and 3.0 from the official JSON schemas, with a chosen
+  interface name; suggested by discovery when it finds VDA 5050 topics.
+- **Protocol check:** header differs from the topic, header ids out of order or with gaps,
+  timestamp skew, order structure, order updates and their content, duplicate action ids, missing
+  state heartbeat; for 3.0 responses without request, unanswered requests, visualization ahead of
+  state.
+- **Simulated robots** (SIMULATOR):
+  - up to 200 robots per device, VDA 5050 2.x or 3.0; interface name, manufacturer, serial number
+    with `{n}`;
+  - grid layout (columns, rows, spacing, charging stations, map id);
+  - orders with a set number of nodes and horizon nodes, actions at nodes with durations, idle
+    times;
+  - speed, battery use and charging rate; robots charge when low;
+  - state heartbeat, visualization rate, factsheet, zone set, release-zone requests (3.0);
+  - random faults per hour, and a seed for repeatable runs;
+  - the simulator plays the fleet control, so a broker is all that's needed;
+  - live status per robot: driving, idle, waiting and why (not connected, paused, safety stop,
+    error, running an action, battery empty), current order and node, open requests.
+- **Fault injection** per robot: warning, urgent, critical and fatal errors, emergency stop, field
+  violation, pause, low battery, cancel order, clear errors; connection broken, offline,
+  hibernate, reconnect; protocol faults (skip header ids, clock 10 s ahead, wrong serial number,
+  order with a sequence gap, order update with a lower id, response without request, unanswered
+  request). Each protocol fault triggers its check rule.
+
+### 5.16 Sparkplug B (industrial IoT)
+
+- **Decodes** all message types (NBIRTH, NDEATH, NDATA, NCMD, DBIRTH, DDEATH, DDATA, DCMD, host
+  STATE), all data types including arrays, DataSets and Templates, and compressed payloads (GZIP,
+  DEFLATE).
+- **Metric names, data types and units from the last birth**; without a birth, metrics show by
+  alias with a warning.
+- **One-line summaries** in the topic viewer and an interpreted detail view; charts of numeric and
+  boolean metrics by name.
+- **Request rebirth** (NCMD) for one edge node or all edge nodes of a group, from the detail view,
+  the tree menu and the Sparkplug view, always after a confirmation ("don't ask again in this
+  session" is possible). Never sent automatically.
+- **Sparkplug view:** host applications, groups, edge nodes and devices with online/offline state
+  and since when, bdSeq, seq and sequence gaps; for the selected node or device every metric with
+  name, value, unit, type, last update, number of changes and properties; filter and sort the
+  metrics, click a metric to chart it, jump to the last message. Works on live traffic and on
+  recordings.
+- **Protocol check:** payload isn't Sparkplug B, missing or skipped seq, missing timestamp,
+  missing or mismatched bdSeq, data after death, device data without birth, birth metric without
+  data type, duplicate aliases, unknown metrics, changed data types.
+- **Simulated edge nodes** (SIMULATOR):
+  - up to 20 edge nodes per device, up to 20 devices per node (a device can repeat with a number),
+    up to 200 metrics each; group id and edge node id with `{n}`;
+  - metrics with name (folders with `/`), data type, unit, deadband, writable flag, and a
+    generator for the values;
+  - Sparkplug 3.0 behavior: one connection per edge node with the NDEATH as last will, births,
+    data by exception with a scan interval, seq and bdSeq, rebirth on request, writes by
+    NCMD/DCMD, aliases, optional GZIP compression;
+  - optional primary host: wait for a real host application, or let the simulator play the host
+    (STATE);
+  - live status per edge node: connecting, waiting for the host, online, reconnecting; devices
+    online.
+- **Fault injection** per edge node: drop connection (the broker sends the will), restart, devices
+  offline; protocol faults: skip a seq, unknown metric, wrong data type, data after death, device
+  data without birth, death with a wrong bdSeq, no timestamps, non-Sparkplug payload. The menu
+  says which check rule each fault triggers.
+
+### 5.17 DOCUMENTATION: documenting topics
+
+- **Topic tree** of documented topics and namespaces, with counts of topics and undocumented ones,
+  search, and a filter (all, undocumented, draft, stable, deprecated, new, changed, not seen, with
+  findings).
+- **Topic templates** with parameters, e.g. `plant/{line}/m{machine}/temp`; each parameter can have
+  a pattern (regular expression).
+- Add a topic or namespace, rename or move (with everything below), duplicate, switch between
+  topic and namespace, delete, delete all topics; copy details from another topic when adding.
+- **Editor** per topic: title, status (draft, stable, deprecated), owner, replaced by, tags,
+  description in **Markdown**, links, parameters;
+  - payload: format (JSON, number, boolean, text, binary, image, GNSS coordinates, empty),
+    encoding, unit, minimum, maximum, allowed values, examples with notes;
+  - **JSON schema as a field table** (field, type, unit, range or values, required, description),
+    or edited as JSON;
+  - delivery: QoS, retain (never, always, sometimes), interval (periodic, on event, on change,
+    both), nominal interval, stale after, carries a last will;
+  - MQTT 5: content type, message expiry, UTF-8 payload format, response topic, correlation data,
+    user properties with examples;
+  - access: producers, consumers, sensitivity (none, personal data, confidential, safety relevant),
+    access notes.
+- **Observed values** next to the documented ones: messages, instances, rate, interval and its
+  spread, payload size, value range, retained, user properties, last payload.
+- Overview page with the documentation's title, revision and contents.
+
+### 5.18 DOCUMENTATION: discover, check, import and export
+
+- **Discover** from a live broker (connection of its own, never publishes), a recording or the
+  TOPIC VIEWER's messages; topic filters; stop after minutes, a number of messages or by hand.
+  Options: detect templates, infer JSON schemas, keep example payloads, ignore `$SYS`.
+- **Review** before anything changes: proposed templates, new topics, changed topics (documented
+  vs. observed, adopt per value), topics not seen. Edited fields are never overwritten without
+  asking. Topics can be ignored for future discoveries. REVIEW reopens the last discovery.
+- **Check** live messages against the documentation (connection of its own), for everything or one
+  branch. **Findings** panel: topic, rule, count, last time, detail; export and clear. Rules:
+  undocumented topic, wrong format, schema violation, out of range, value not allowed, parameter
+  mismatch, different QoS, different retain, no message in time (stale), deprecated topic in use,
+  different MQTT 5 properties, plus the VDA 5050 and Sparkplug B protocol rules.
+- **Export:** Markdown, HTML (print as PDF), AsyncAPI 3.0 (YAML, JSON), JSON Schema bundle, CSV;
+  the whole documentation or one branch; with or without examples, observed statistics and the
+  broker address. Credentials, certificates and the client id are never exported. The HTML
+  export renders Markdown, links topic references and prints cleanly.
+- **Import** AsyncAPI 2.x and 3.x (YAML or JSON): merge (new, changed, unchanged, conflicts shown)
+  or replace everything. **VDA 5050 documentation** (2.1 or 3.0) in one click.
+- **Create simulation** from documented topics: simulated devices with fitting generators.
+- Saved in the project.
+
+### 5.19 Command line (desktop)
+
+- `mqttstudio` command, installed with the Windows desktop app; app and command line can run at
+  the same time (each run gets its own client id).
+- Commands:
+  - `projects list`, `projects show`
+  - `simulate`: run a project's simulation or some devices; duration, rate limit, seed for
+    repeatable payloads, dry run, reconnect, clear retained at the end. Includes recorded devices,
+    VDA 5050 robots and Sparkplug edge nodes (faults only in the app).
+  - `record`: topic filters with QoS, exclusions, start/stop conditions with pre- and post-roll,
+    flight recorder, limits, output file or the library.
+  - `replay`: speed, loop, range, gap compression, topic remapping, many instances, retained
+    snapshot, retain and QoS overrides.
+  - `recordings list | show | export | import | edit | compare` (compare writes a JSON report).
+  - `doc discover | check | export | import` (`--preset vda5050-v2|vda5050-v3`).
+- Broker settings can be overridden per run (host or WebSocket URL, port, client id, user name,
+  TLS, CA, client certificate and key). Passwords only from environment variables.
+- Output as text or JSON lines (`-o json`), quiet and verbose modes, documented exit codes (e.g. 8
+  when a comparison or a check fails), so CI pipelines can fail on differences.
+- Ctrl+C stops cleanly and saves what was recorded.
+- Full manual: `doc/cli-manual.md`.
+
+### 5.20 Not included (don't claim)
+
+- No mobile app or mobile layout; no dark theme; English only.
+- No cloud account, sync or sharing of projects.
+- Not a broker, not a fleet control, not a SCADA/host application.
+- No metric writing from a command editor for Sparkplug (publish by hand instead); Sparkplug 2.2 is
+  read but not simulated; no store-and-forward in the simulator.
+- No layout backgrounds (CAD, LIF) on the VDA 5050 map.
+- In the browser: no TCP/TLS connections without WebSockets, no client certificates, no random
+  image generator, no command line.
+
+---
+
+## 6. Suggested site structure
 
 A proposal; the designer may change it.
 
 1. **Home**
-   - Hero: name, one-line summary, buttons "Download for Windows" (Microsoft Store) and "Open in
-     browser". Free, MQTT 5, Windows and web as small badges.
-   - Four pillars with one screenshot each: Watch (TOPIC VIEWER), Simulate, Record, Document.
-     Plus a strip for "Automate" (CLI) and one for "Industrial protocols" (VDA 5050, Sparkplug B).
-   - Core features grid (§3).
-   - "What's new in 2.0" teaser.
-   - FAQ (§6), contact.
-2. **Feature pages** (or long sections): Topic viewer (with the tools of §4.3), Simulator, Recorder,
-   Documentation, Command line, VDA 5050, Sparkplug B, each with use cases, capabilities and
-   screenshots. VDA 5050 and Sparkplug B deserve pages of their own: they address specific
-   audiences who search for these terms.
+   - Hero: name, one-line description (§2), a screenshot of the TOPIC VIEWER, buttons "Download for
+     Windows" (Microsoft Store) and "Open in browser". Small badges: Free · MQTT 5 · Windows and
+     web.
+   - "What you can do with it": the advantages of §3 as short blocks, each linking to its feature.
+   - Feature areas with one screenshot each: Watch (TOPIC VIEWER), Simulate, Record, Document,
+     plus strips for "Automate" (CLI) and "Industrial protocols" (VDA 5050, Sparkplug B).
+   - FAQ (§7).
+   - Who builds MQTT Studio: one line about Sarix with a link to www.sarix.eu; contact.
+2. **Feature pages** (or long sections): Topic viewer, Simulator, Recorder, Documentation, Command
+   line, VDA 5050, Sparkplug B, each with the advantage, what it does, screenshots and examples
+   (§4). VDA 5050 and Sparkplug B deserve pages of their own: they address specific audiences who
+   search for these terms.
 3. **Download:** Microsoft Store, web app, the desktop/browser table (§4.10), system requirements
    (**TO CONFIRM**: minimum Windows version), release notes as a web page instead of only a PDF.
 4. **Docs** (optional): CLI manual, getting started.
-5. **Release notes** (§9).
-6. **Legal:** Terms of Use / privacy, EULA, imprint. See §8 for what needs updating.
+5. **Release notes** (§10).
+6. **Legal:** Terms of Use / privacy, EULA, imprint (§9).
 
-SEO: real page titles and meta descriptions, e.g. "MQTT Studio – free MQTT 5 client, simulator
-and recorder for Windows and the browser". Keywords that fit: MQTT client, MQTT 5, MQTT explorer,
-MQTT simulator, MQTT recorder, MQTT replay, AsyncAPI, IoT testing, VDA 5050, VDA 5050 simulator,
-AGV, AMR, fleet control, Sparkplug B, Sparkplug decoder, Sparkplug edge node simulator, IIoT, MQTT retained messages, MQTT $SYS, MQTT payload decoder,
-MessagePack, CBOR.
+No pricing page, no sign-up before download.
+
+SEO: real page titles and meta descriptions, e.g. "MQTT Studio – MQTT 5 client, simulator and
+recorder for Windows and the browser". Keywords that fit: MQTT client, MQTT 5, MQTT explorer, MQTT
+simulator, MQTT recorder, MQTT replay, AsyncAPI, IoT testing, VDA 5050, VDA 5050 simulator, AGV,
+AMR, fleet control, Sparkplug B, Sparkplug decoder, Sparkplug edge node simulator, IIoT, MQTT
+retained messages, MQTT $SYS, MQTT payload decoder, MessagePack, CBOR.
 
 ---
 
-## 6. FAQ
-
-Current site questions with updated answers. Changed facts are noted.
+## 7. FAQ
 
 **What is MQTT Studio for?**
-Current: a tool for developers to manage MQTT-based applications, with a user-friendly interface
-and advanced message analysis. *Update:* add simulation, recording and replay, documentation and
-automation.
+Watching, publishing, simulating, recording, replaying and documenting MQTT traffic while you
+build, test or support an MQTT-based system. It also reads VDA 5050 and Sparkplug B.
 
-**What is the licensing model?**
-Free for personal and commercial use. Details in the EULA.
+**What does it cost?**
+Nothing. MQTT Studio is free for personal and commercial use under the EULA. There is no paid
+edition, no licence key and no account.
+
+**Why is it free?**
+Sarix develops MQTT Studio as a tool for developers and gives it away.
 
 **Who is behind MQTT Studio?**
-Current: a team of developers who build tools for developer productivity in their spare time,
-including the localization tool Babylon, linked to redpin.eu. *Update:* the publisher is now
-Sarix. The app's own text (Sarix banner, §8) can be the base: "MQTT Studio is developed by Sarix.
-We build custom software for connected devices and machines." **TO CONFIRM:** the final answer,
-and whether Babylon is still mentioned.
+Sarix, which builds custom software for connected devices and machines (www.sarix.eu).
+**TO CONFIRM:** whether Babylon and Redpin are still mentioned (the current site links Babylon, a
+localization tool, to redpin.eu).
 
-**How do I submit a feature request or report a bug?**
-By email (support address, see §8). Bug reports, feature requests and suggestions are welcome.
+**Does it support MQTT 5?**
+Yes, and MQTT 3.1.1, chosen per project.
 
-**How does MQTT Studio make money?**
-It doesn't at the moment. The free version will always stay free, without ads and without plans to
-sell it. Commercial features for developers are planned. *Note:* all 2.0 features (simulator,
-recorder, documentation, CLI) are part of the free version.
+**Desktop or browser, what's the difference?**
+See §4.10.
+
+**Does MQTT Studio support VDA 5050?**
+Yes, versions 2.0, 2.1 and 3.0: interpreted messages, a fleet view, ready-made documentation, a
+protocol check and simulated robots (§4.8).
+
+**Does MQTT Studio decode Sparkplug B?**
+Yes: decoded payloads with metric names from the birth, rebirth requests, a Sparkplug view, a
+protocol check and simulated edge nodes (§4.9).
+
+**Can I test my fleet control or SCADA without real hardware?**
+Yes, with simulated VDA 5050 robots or Sparkplug edge nodes, including injected faults.
+
+**Can I run it in CI or on a server?**
+Yes, with the `mqttstudio` command line (Windows).
+
+**Where are my projects and recordings stored?**
+Locally on your computer, or in your browser. Nothing is uploaded.
+
+**Can I export my topic documentation?**
+Yes: Markdown, HTML/PDF, AsyncAPI 3.0, JSON Schema, CSV.
+
+**How do I report a bug or suggest a feature?**
+By email (support address, see §9). Bug reports, feature requests and suggestions are welcome.
 
 **Which language is MQTT Studio developed in?**
 Flutter, Google's open-source UI toolkit, with one code base for desktop and web.
 
-New questions worth adding:
-- **Does it support MQTT 5?** Yes, and MQTT 3.1.1, chosen per project.
-- **Desktop or browser, what's the difference?** See §4.10.
-- **Does MQTT Studio support VDA 5050?** Yes, versions 2.0, 2.1 and 3.0: interpreted messages, a
-  fleet view, ready-made documentation, a protocol check and simulated robots (§4.8).
-- **Does MQTT Studio decode Sparkplug B?** Yes: decoded payloads with metric names from the birth,
-  rebirth requests, a Sparkplug view, a protocol check and simulated edge nodes (§4.9).
-- **Can I test my fleet control / SCADA without real hardware?** Yes, with simulated VDA 5050
-  robots or Sparkplug edge nodes, including injected faults.
-- **Can I run it in CI or on a server?** Yes, with the `mqttstudio` command line (Windows).
-- **Where are my projects and recordings stored?** Locally on your computer (or in your
-  browser). Projects aren't uploaded anywhere.
-- **Can I export my topic documentation?** Yes: Markdown, HTML/PDF, AsyncAPI 3.0, JSON Schema,
-  CSV.
-
 ---
 
-## 7. Screenshots and visuals needed
+## 8. Screenshots and visuals needed
 
-The app is a dense, desktop-first tool; design it for a wide window (~1500 px). Light theme only:
+Screenshots carry this site: each feature should be shown, not described at length.
+
+The app is a dense, desktop-first tool; design for a wide window (~1500 px). Light theme only:
 dark grey app bar, deep red accent (`#B71C1C`), topic chips in strong colors (indigo, blue, pink,
 amber, deep purple, orange, brown, green, teal, lime). The connect button names its action: red
 with CONNECT while disconnected, green with DISCONNECT while connected, CONNECTING with a spinner
 in between.
 
-While no project is open, the topic viewer shows a **Sarix banner** (Sarix logo, three strength
-cards, links to www.sarix.eu and info@sarix.eu). It belongs to the app's first screen; a
-screenshot of it can illustrate "who is behind MQTT Studio" (§8).
-
-Existing (version 1.x UI, still representative of the TOPIC VIEWER): see §2.
+Existing (version 1.x UI, still representative of the TOPIC VIEWER): `product/screenshots/`
+(`grouped_chart.png`, `grouped_img.png`, `sequiential_chart.png`, `sequiential_img.png`,
+`tree_chart.png`, `tree_img.png`). `CI/` holds app icons and logos. There are **no screenshots of
+the 2.0 features yet**.
 
 Needed for 2.0 (**TO CONFIRM** who provides them):
 1. TOPIC VIEWER with the four tabs visible, grouped view, detail view with a chart.
@@ -623,8 +962,9 @@ Needed for 2.0 (**TO CONFIRM** who provides them):
 9. Sparkplug view with edge nodes, devices and the metric table, and a decoded Sparkplug message
    in the detail view.
 10. SIMULATOR with a VDA 5050 or Sparkplug device and its Faults menu open.
-11. Documentation check findings with VDA 5050 or Sparkplug protocol rules (optional).
-12. An exported HTML documentation page or AsyncAPI file (optional).
+11. The start screen with recent projects.
+12. Documentation check findings with VDA 5050 or Sparkplug protocol rules (optional).
+13. An exported HTML documentation page or AsyncAPI file (optional).
 
 App design system (tokens, colors, components of the app UI):
 https://claude.ai/artifact/M1uENVXPQJf74mB86VB5yu (private Claude artifact; the agent may not have
@@ -632,42 +972,38 @@ access, ask the owner for an export if needed).
 
 ---
 
-## 8. Company, contact and legal (needs updating)
+## 9. Company, contact and legal (needs updating)
 
 The current site (and its legal pages) still name **Redpin**. Since version 2.0 the app, the EULA
-and the package's publisher name say **Sarix**. Everything below is **TO CONFIRM** before publishing.
+and the package's publisher name say **Sarix**. Everything below is **TO CONFIRM** before
+publishing.
 
 | Item | Current site | New |
 |---|---|---|
-| Publisher / copyright | "Copyright © 2026 by Redpin", Redpin logo | Sarix. The app ships a Sarix logo (`src/mqttstudio_client/assets/images/sarix_logo.png`, small PNG; **TO CONFIRM:** a vector logo for the site). **TO CONFIRM:** legal company name |
+| Publisher / copyright | "Copyright © 2026 by Redpin", Redpin logo | Sarix. **TO CONFIRM:** legal company name, vector logo |
 | Company website | www.redpin.eu (Babylon link) | www.sarix.eu (linked from the app since 2.0) |
-| Tagline | none | "We Code. You Grow." (in the Sarix logo) |
-
-**Company copy from the app's Sarix banner** (the text the app shows, usable for an "About"
-section):
-- Title: "MQTT Studio is developed by Sarix"
-- Subtitle: "We build custom software for connected devices and machines."
-- **IoT and MQTT:** "Device connectivity, brokers, data pipelines and cloud platforms."
-- **Embedded software:** "Firmware and applications for devices, controllers and gateways."
-- **Machine configuration management:** "Parameters, variants and versions across every machine
-  you ship."
 | Address | via Buozzi 12, 39100 Bolzano (BZ), Italy | **TO CONFIRM** |
 | General email | info@redpin.eu | info@sarix.eu (used in the app since 2.0) |
 | Support email | support@redpin.eu | **TO CONFIRM** |
 | Map link | https://goo.gl/maps/u8oeH8PgKp9U2gf37 | **TO CONFIRM** |
 | Babylon link (FAQ) | https://www.redpin.eu/ | **TO CONFIRM** keep or remove |
 
+**Contact.** Two different reasons to get in touch: questions and bug reports about the tool
+(support address), and general inquiries to Sarix (info@sarix.eu). The contact section can show
+both.
+
 **Terms of Use page.** Current content: copyright (all site content is the property of Redpin),
 privacy (refers to purchases on redpin.eu, with name, address and credit card data), cookies (no
 profiling or social cookies; technical cookies for traffic analysis), no spyware or adware (the
 app has no ads, no bundled programs, never sends personal data without the user's knowledge),
 disclaimer of warranties. Needs an update for Sarix, and **TO CONFIRM:**
-- the purchase/credit card paragraph, which doesn't apply to a free app;
-- analytics: the app uses Piwik for usage statistics (which tool the site uses is unknown); the app's optional newsletter
-  sign-up asks for email, name and company with consent under the GDPR. The privacy text should
-  cover both. A privacy policy page is linked from the newsletter dialog; **TO CONFIRM** its URL.
+- the purchase/credit card paragraph: nothing is sold, so it should go;
+- analytics: the app uses Piwik for usage statistics (which tool the site uses is unknown); the
+  app's optional newsletter sign-up asks for email, name and company with consent under the GDPR.
+  The privacy text should cover both. A privacy policy page is linked from the newsletter dialog;
+  **TO CONFIRM** its URL.
 
-**EULA page.** The text in the repository (`src/DesktopSetup/eula.txt`) now names Sarix as the
+**EULA page.** The text in the repository (`src/DesktopSetup/eula.txt`) names Sarix as the
 licensor; the site still shows Redpin. Use the repository text. Note: clause 2 ("Translator
 edition") and "number of user accounts" are leftovers from Babylon; **TO CONFIRM** whether the
 EULA gets revised.
@@ -677,7 +1013,7 @@ number).
 
 ---
 
-## 9. Release notes
+## 10. Release notes
 
 Current PDF (`/downloads/ReleaseNotes.pdf`, Redpin layout):
 
@@ -707,23 +1043,48 @@ Not in the PDF (from the project history):
 - New: Sparkplug B support: decoding, Sparkplug view, rebirth requests, protocol check, simulated
   edge nodes and host with fault injection
 - New: `mqttstudio` command line for Windows
-- Publisher changed to Sarix
+- Developed by Sarix
 
 ---
 
-## Appendix: current home page copy
+## 11. Current site inventory
 
-For reference, as on the site on 2026-10-25.
+Site captured on 2026-10-25 and checked again on 2026-11-01: no changes, the pages were last
+modified in November 2023. English only (`/de/` and `/it/` return 404). Pages live under `/en/`.
 
-**Hero:** "MQTTStudio is a practical MQTT client designed for developers to efficiently create,
-test, and manage MQTT-based applications, enhancing their development and support workflows."
-Buttons: "Download Client", "Use in browser".
+| Page | URL | Content |
+|---|---|---|
+| Home | `/en/index.html` | Hero, features, FAQ, contact (footer) |
+| Download | `/en/download.html` | Microsoft Store link, web app link, release notes PDF |
+| Terms of Use | `/en/terms-of-use.html` | Legal disclaimer, copyright, privacy, cookies, no spyware |
+| EULA | `/en/eula.html` | End user licence agreement |
+| Web app | `/webapp` | The MQTT Studio web app itself (not part of the redesign) |
+| Release notes | `/downloads/ReleaseNotes.pdf` | One page, version 1.0.0 only |
 
-**Features** (titles in site order): Grouped Messages View, Hierarchical Messages View, Projects,
-Topic subscription panel, Messages viewer, Color coded topics, Message detail view, Payload viewer,
-Topic filter, Chart view. Their content is summarized in §3.
+**Navigation:** logo (home), Features (`#features`), Contact (`#contact`), Download.
+**Footer:** address, info and support email, Download, Terms of Use, EULA, copyright line.
+**Meta:** the page `description` meta tag is empty on every page. Add real descriptions.
+**Credits:** web design and programming by VisualRun (Terms of Use page).
 
-**About dialog text in the app** (can serve as marketing copy): "Unlock the full potential of MQTT
-development with MQTT Studio! Seamlessly manage, visualize, and optimize your IoT data flow.
-Empower developers with a user-friendly interface to build robust and efficient MQTT
-applications."
+**Assets on the current site** (reuse or replace):
+- Logo `/assets/Logo/MQTT-Logo.svg`, publisher logo `/assets/Logo/redpin-logo_white.svg`
+- Screenshots `/assets/img/grouped_chart.png`, `grouped_img.png`, `tree_chart.png`
+- Feature icons (Material Symbols): `integration_instructions`, `list_alt`, `view_module`,
+  `colorize`, `description`, `visibility`, `filter_list`, plus `icon-1.svg`
+- Download page icons: Microsoft Store icon, `open_in_new`, `download`
+
+**Current home page copy** (as on 2026-10-25, for reference only; don't reuse its marketing tone):
+- Hero: "MQTTStudio is a practical MQTT client designed for developers to efficiently create,
+  test, and manage MQTT-based applications, enhancing their development and support workflows."
+  Buttons: "Download Client", "Use in browser".
+- Features (titles in site order): Grouped Messages View, Hierarchical Messages View, Projects,
+  Topic subscription panel, Messages viewer, Color coded topics, Message detail view, Payload
+  viewer, Topic filter, Chart view. All are covered in §4.1 and §4.2. The current site also claims
+  a date viewer, which the app doesn't have (§5.9).
+- FAQ: "What is MQTT Studio for?", "What is the licensing model?", "Who is behind MQTT Studio?",
+  "How do I submit a feature request or report a bug?", "How does MQTT Studio make money?" (answer:
+  it doesn't, the free version stays free without ads, commercial features are planned), "Which
+  language is MQTT Studio developed in?". The new answers are in §7; the question about making
+  money and the planned commercial features are dropped.
+- The app's About dialog has a marketing text ("Unlock the full potential of MQTT development …");
+  don't use it on the site.
