@@ -15,6 +15,11 @@ abstract class MqttProtocolClient {
   static const String secureWebSocketPrefix = 'wss://';
   static const int keepAlivePeriod = 20;
 
+  // How long to wait for CONNACK, in ms. The client packages try only once: a retry opens a second socket without
+  // closing the first, and when the broker answers the first CONNECT late it takes over the new session.
+  static const int connectTimeoutPeriod = 15000;
+  static const int maxConnectionAttempts = 1;
+
   void Function()? onConnected;
   void Function()? onDisconnected;
   void Function(List<ReceivedMqttMessage> messages)? onMessagesReceived;

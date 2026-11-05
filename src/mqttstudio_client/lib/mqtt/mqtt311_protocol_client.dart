@@ -48,6 +48,7 @@ class Mqtt311ProtocolClient extends MqttProtocolClient {
     };
     _client.connectionMessage = buildConnectMessage(mqttSettings, will);
     _client.keepAlivePeriod = MqttProtocolClient.keepAlivePeriod;
+    _client.connectTimeoutPeriod = MqttProtocolClient.connectTimeoutPeriod;
     _client.logging(on: true);
     _client.setProtocolV311();
     _client.websocketProtocols = v3.MqttClientConstants.protocolsSingleDefault;

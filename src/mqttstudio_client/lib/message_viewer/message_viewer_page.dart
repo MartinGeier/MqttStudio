@@ -5,6 +5,7 @@ import 'package:mqttstudio/common/localstore.dart';
 import 'package:mqttstudio/common/newsletter_signup_dialog.dart';
 import 'package:mqttstudio/common/widgets/main_appbar.dart';
 import 'package:mqttstudio/common/widgets/no_project_view.dart';
+import 'package:mqttstudio/project/project_manager.dart';
 import 'package:mqttstudio/project/project_viewmodel.dart';
 import 'package:mqttstudio/message_viewer/message_viewer_viewmodel.dart';
 import 'package:mqttstudio/message_viewer/widgets/grouped_messages_viewer.dart';
@@ -46,7 +47,7 @@ class _MessageViewerPageState extends State<MessageViewerPage> {
   void initState() {
     super.initState();
     _lifecycleListener = AppLifecycleListener(onExitRequested: _onExitRequested);
-    installLeavePageGuard(() => GetIt.I.get<RecorderService>().isRecording);
+    installLeavePageGuard(_mustConfirmLeaving);
     // the recorder tab opens the documentation tab
     GetIt.I.get<DocumentationService>().discoverRequestedEvent.subscribe(_showDocumentation);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -129,21 +130,29 @@ class _MessageViewerPageState extends State<MessageViewerPage> {
     super.dispose();
   }
 
-  // closing the app while recording asks first; yes stops and saves the recording (doc/recorder-design.md §5.1)
+  // the browser asks itself before the page is left (installLeavePageGuard)
+  bool _mustConfirmLeaving() =>
+      GetIt.I.get<RecorderService>().isRecording || GetIt.I.get<ProjectManager>().hasProjectChanged();
+
+  // closing the app while recording asks first; yes stops and saves the recording (doc/recorder-design.md §5.1).
+  // Unsaved project changes are asked for as when the project is closed.
   Future<AppExitResponse> _onExitRequested() async {
     var recorder = GetIt.I.get<RecorderService>();
-    if (!recorder.isRecording) {
-      return AppExitResponse.exit;
+    if (recorder.isRecording) {
+      var stop = await showDialog<bool>(
+          context: context,
+          builder: (_) => SrxTheme(
+              data: CustomTheme.srxTheme,
+              child: SrxDialog.yesNo(bodyText: 'recorder.closeapp.confirm'.tr(args: [recorder.config?.name ?? '']))));
+      if (stop != true) {
+        return AppExitResponse.cancel;
+      }
+      await recorder.stop();
     }
-    var stop = await showDialog<bool>(
-        context: context,
-        builder: (_) => SrxTheme(
-            data: CustomTheme.srxTheme,
-            child: SrxDialog.yesNo(bodyText: 'recorder.closeapp.confirm'.tr(args: [recorder.config?.name ?? '']))));
-    if (stop != true) {
+    var projectManager = GetIt.I.get<ProjectManager>();
+    if (projectManager.hasProjectChanged() && !await projectManager.closeProject()) {
       return AppExitResponse.cancel;
     }
-    await recorder.stop();
     return AppExitResponse.exit;
   }
 

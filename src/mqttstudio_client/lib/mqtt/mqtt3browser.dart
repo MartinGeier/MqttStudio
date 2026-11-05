@@ -1,9 +1,11 @@
 import 'package:mqtt_client/mqtt_browser_client.dart';
 import 'package:mqtt_client/mqtt_client.dart';
 import 'package:mqttstudio/model/mqtt_settings.dart';
+import 'package:mqttstudio/mqtt/mqtt3_connect_attempt.dart';
+import 'package:mqttstudio/mqtt/mqtt_protocol_client.dart';
 
 MqttClient setup(String serverAddress, String uniqueID) {
-  return MqttBrowserClient(serverAddress, uniqueID);
+  return _MqttBrowserClient(serverAddress, uniqueID);
 }
 
 void setupUserWebSockets(MqttClient client, bool useWebSockets) {
@@ -12,4 +14,8 @@ void setupUserWebSockets(MqttClient client, bool useWebSockets) {
 
 void setupSecure(MqttClient client, bool secure, MqttSettings mqttSettings) {
   // the browser makes the TLS connection
+}
+
+class _MqttBrowserClient extends MqttBrowserClient with Mqtt3ConnectAttempt {
+  _MqttBrowserClient(super.server, super.clientIdentifier) : super(maxConnectionAttempts: MqttProtocolClient.maxConnectionAttempts);
 }
