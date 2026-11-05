@@ -30,6 +30,13 @@ class ConnectButton extends StatelessWidget {
   Widget _buildConnectButton(BuildContext context) {
     var mqttConnectionViewmodel = context.read<MqttConnectionViewmodel>();
     var colors = Theme.of(context).custom;
+    return Padding(
+      padding: const EdgeInsets.all(4),
+      child: _buildTooltipButton(context, mqttConnectionViewmodel, colors),
+    );
+  }
+
+  Widget _buildTooltipButton(BuildContext context, MqttConnectionViewmodel mqttConnectionViewmodel, CustomColors colors) {
     return Tooltip(
       message: _tooltip(context, mqttConnectionViewmodel),
       child: ElevatedButton(
