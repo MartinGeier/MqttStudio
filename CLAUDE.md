@@ -45,6 +45,7 @@ flutter pub get
 flutter run -d windows
 flutter run -d chrome
 flutter run -d macos   # on a Mac only
+powershell -ExecutionPolicy Bypass -File macos\packaging\make_app_icon.ps1   # redraws the macOS app icons (Windows, GDI+)
 flutter test
 flutter analyze
 dart run build_runner build --delete-conflicting-outputs   # regenerate *.g.dart after changing @JsonSerializable models
