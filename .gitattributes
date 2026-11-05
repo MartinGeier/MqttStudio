@@ -1,0 +1,2 @@
+# shell scripts that run on macOS break with CRLF line endings
+src/mqttstudio_client/macos/packaging/mqttstudio text eol=lf

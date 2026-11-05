@@ -29,6 +29,17 @@ The CLI comes with the Windows desktop app from the Microsoft Store: after insta
 command `mqttstudio` is available in any terminal (Windows Terminal, PowerShell, cmd). It is not
 available in the browser version.
 
+On macOS the command is inside the app. Link it into a folder of your `PATH` once (Apple silicon
+Macs with Homebrew can use `/opt/homebrew/bin` instead of `/usr/local/bin`):
+
+```
+sudo mkdir -p /usr/local/bin
+sudo ln -sf "/Applications/MQTT Studio.app/Contents/Resources/bin/mqttstudio" /usr/local/bin/mqttstudio
+```
+
+The link points into the app, so it keeps working after updates. The CLI runs without a window
+and without a Dock icon.
+
 Check that it works:
 
 ```

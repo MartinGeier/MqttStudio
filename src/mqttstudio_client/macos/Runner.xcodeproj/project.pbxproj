@@ -213,6 +213,7 @@
 				33CC10EB2044A3C60003C045 /* Resources */,
 				33CC110E2044A8840003C045 /* Bundle Framework */,
 				3399D490228B24CF009A79C7 /* ShellScript */,
+				4E5C1A2B3D4F5A6B7C8D9E0F /* Copy CLI Command */,
 			);
 			buildRules = (
 			);
@@ -338,6 +339,26 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "\"$FLUTTER_ROOT\"/packages/flutter_tools/bin/macos_assemble.sh && touch Flutter/ephemeral/tripwire";
+		};
+		4E5C1A2B3D4F5A6B7C8D9E0F /* Copy CLI Command */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/packaging/mqttstudio",
+			);
+			name = "Copy CLI Command";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/bin/mqttstudio",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# the mqttstudio command of the headless CLI, see packaging/mqttstudio\nbin=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/bin\"\nmkdir -p \"$bin\"\ncp \"$SRCROOT/packaging/mqttstudio\" \"$bin/mqttstudio\"\nchmod 755 \"$bin/mqttstudio\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

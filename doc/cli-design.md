@@ -443,6 +443,21 @@ What the code does where it differs from the text above:
   comparison and deletes the copy afterwards. `recordings import --format mosquitto` tells the
   `-F "%U %t %p"` and `-v` forms apart by the first line.
 
+### macOS (2026-11-05)
+
+- **No launcher program:** a Mac app's binary run from a terminal has the terminal's stdout, stderr
+  and Ctrl+C, and the shell gets its exit code. `macos/packaging/mqttstudio` is a shell script that
+  follows its links and runs `MQTT Studio.app/Contents/MacOS/MQTT Studio --cli …` with `exec`. The
+  Xcode build phase "Copy CLI Command" copies it to `Contents/Resources/bin`, where it is signed with
+  the app; users link it into their `PATH` (a Homebrew cask can do that with `binary`).
+- **Runner:** `MainFlutterWindow.swift` checks for `--cli` as the first argument, passes
+  `--cli --app-version=<CFBundleShortVersionString>` and the rest to Dart as
+  `dartEntrypointArguments` (the GUI gets none), sets the activation policy to `.prohibited` (no
+  Dock icon, no menu bar) and leaves the window hidden: `MainMenu.xib` has `visibleAtLaunch="NO"`
+  and the GUI shows the window itself.
+- **No App Sandbox:** sandboxed, the CLI could not read or write the paths it is given. The app is
+  meant for a Developer ID signed, notarized download, not the Mac App Store.
+
 ### 7.3 Documentation commands (`documentation-design.md` §10)
 
 All four take `-p <project>` and read its documentation; like every command they never write to the project store.

@@ -1,0 +1,17 @@
+#!/bin/sh
+# The mqttstudio command of the headless CLI (doc/cli-design.md). The build copies it to
+# "MQTT Studio.app/Contents/Resources/bin", users link it into their PATH. It starts the app with --cli, which then
+# runs without window and Dock icon and exits with the code of the command.
+
+# follow the links, e.g. /usr/local/bin/mqttstudio, to the copy in the app bundle
+script=$0
+while [ -L "$script" ]; do
+  target=$(readlink "$script")
+  case $target in
+    /*) script=$target ;;
+    *) script=$(dirname "$script")/$target ;;
+  esac
+done
+contents=$(cd "$(dirname "$script")/../.." && pwd)
+# the executable is named after PRODUCT_NAME in Runner/Configs/AppInfo.xcconfig
+exec "$contents/MacOS/MQTT Studio" --cli "$@"
